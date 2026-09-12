@@ -1,13 +1,13 @@
 import streamlit as st
 
-st.set_page_config(page_title="BTC Kalshi Pro Sniper", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="BTC Ultra Sniper Elite", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
-        .stApp { background-color: #07090c; }
+        .stApp { background-color: #030508; }
         .block-container { padding: 0 !important; max-width: 100% !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -18,128 +18,113 @@ html_code = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC Pro Sniper</title>
+    <title>BTC Elite Terminal</title>
     <style>
-        :root {
-            --bg-main: #07090c;
-            --bg-card: #12161f;
-            --bg-card-hover: #181f2c;
-            --border-color: #1f2736;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --accent-yellow: #f59e0b;
-            --accent-green: #10b981;
-            --accent-red: #ef4444;
-        }
-        
         body {
-            background-color: var(--bg-main);
-            color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #030508;
+            color: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
             margin: 0;
-            padding: 14px;
+            padding: 12px;
             display: flex;
             justify-content: center;
-            -webkit-font-smoothing: antialiased;
         }
 
-        .app-container {
+        .terminal-container {
             width: 100%;
             max-width: 420px;
-            padding-bottom: 80px;
+            padding-bottom: 85px;
         }
 
-        /* Top Header */
-        .header-row {
+        /* Top Bar */
+        .top-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
-            padding: 0 4px;
+            background: linear-gradient(135deg, #0d131f 0%, #090e17 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 12px 16px;
+            border-radius: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .coin-badge {
+        .asset-title {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 17px;
+        }
+        .status-badge {
+            font-size: 10px;
             font-weight: 700;
-            letter-spacing: -0.3px;
-        }
-        .sync-pill {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--accent-green);
-            background: rgba(16, 185, 129, 0.12);
-            border: 1px solid rgba(16, 185, 129, 0.25);
-            padding: 4px 10px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .sync-dot {
-            width: 6px;
-            height: 6px;
-            background-color: var(--accent-green);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--accent-green);
+            color: #34d399;
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* Prices Grid */
-        .prices-grid {
+        /* Data Pods */
+        .pods-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            background: var(--bg-card);
-            padding: 14px;
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            margin-bottom: 14px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            margin-bottom: 12px;
         }
-        .price-box label {
-            font-size: 11px;
-            color: var(--text-secondary);
+        .pod {
+            background: linear-gradient(145deg, #0d131f, #090e17);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 12px;
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        .pod-label {
+            font-size: 10px;
+            color: #64748b;
             text-transform: uppercase;
-            font-weight: 600;
-            letter-spacing: 0.5px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            margin-bottom: 4px;
         }
-        .price-box .val {
-            font-size: 19px;
-            font-weight: 800;
-            margin-top: 4px;
-            letter-spacing: -0.5px;
+        .pod-value {
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: -0.4px;
         }
-        .val.target { color: var(--accent-yellow); }
-        .val.current { color: var(--accent-green); }
+        .pod-value.target { color: #fbbf24; text-shadow: 0 0 15px rgba(251, 191, 36, 0.2); }
+        .pod-value.current { color: #34d399; text-shadow: 0 0 15px rgba(52, 211, 153, 0.2); }
 
-        /* Chart Card */
-        .chart-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 14px;
-            margin-bottom: 14px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        /* Chart Module */
+        .chart-module {
+            background: linear-gradient(145deg, #0d131f, #090e17);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
         }
-        .chart-header {
+        .chart-top {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-bottom: 10px;
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 700;
             text-transform: uppercase;
-            font-weight: 600;
-            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            letter-spacing: 0.8px;
         }
-        .canvas-container {
+        .canvas-box {
             position: relative;
             width: 100%;
-            height: 160px;
-            background: #040608;
+            height: 155px;
+            background: #020406;
             border-radius: 10px;
             overflow: hidden;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(255, 255, 255, 0.04);
         }
         canvas {
             width: 100%;
@@ -147,140 +132,137 @@ html_code = """
             display: block;
         }
 
-        /* Signal Card */
-        .signal-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 14px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        /* Action Core Box */
+        .action-core {
+            background: linear-gradient(145deg, #0d131f, #090e17);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            padding: 14px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
         }
-        .signal-header {
+        .action-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            font-size: 11px;
+            margin-bottom: 10px;
+            font-size: 10px;
             font-weight: 700;
-            color: var(--text-secondary);
+            color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
         }
-        .timer-badge {
-            background: #1a2230;
-            color: var(--text-primary);
-            padding: 4px 8px;
+        .time-pill {
+            background: #131b2e;
+            color: #f1f5f9;
+            padding: 3px 8px;
             border-radius: 6px;
-            font-weight: 600;
-            border: 1px solid var(--border-color);
+            font-weight: 700;
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
-        .signal-box {
-            background: #1a2230;
-            color: var(--accent-yellow);
-            padding: 18px;
-            border-radius: 12px;
-            font-weight: 800;
-            font-size: 20px;
+        .signal-screen {
+            background: #131b2e;
+            color: #fbbf24;
+            padding: 16px;
+            border-radius: 10px;
+            font-weight: 900;
+            font-size: 19px;
             text-align: center;
             letter-spacing: 0.5px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(255,255,255,0.05);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .signal-sub {
-            font-size: 13px;
-            margin-top: 6px;
+        .signal-desc {
+            font-size: 12px;
+            margin-top: 5px;
             font-weight: 500;
             opacity: 0.9;
         }
 
-        /* Bottom Nav */
-        .bottom-nav {
+        /* Bottom Navbar */
+        .elite-nav {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(11, 15, 22, 0.95);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid var(--border-color);
+            background: rgba(7, 11, 18, 0.92);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
             display: flex;
             justify-content: space-around;
-            padding: 10px 0 16px 0;
+            padding: 10px 0 14px 0;
             z-index: 1000;
         }
-        .nav-item {
+        .nav-tab {
             text-align: center;
-            color: var(--text-secondary);
-            font-size: 11px;
-            font-weight: 500;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
             text-decoration: none;
-            transition: color 0.2s;
+            letter-spacing: 0.5px;
         }
-        .nav-item.active {
-            color: var(--accent-green);
+        .nav-tab.active {
+            color: #34d399;
         }
-        .nav-icon {
-            font-size: 18px;
+        .nav-ico {
+            font-size: 16px;
             margin-bottom: 2px;
         }
     </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <div class="header-row">
-            <div class="coin-title coin-badge">
-                <span style="color: var(--accent-yellow); font-size: 20px;">🪙</span> BTC 15 min <span style="font-size: 12px; color: var(--text-secondary);">▾</span>
+    <div class="terminal-container">
+        <div class="top-bar">
+            <div class="asset-title">
+                <span style="color: #fbbf24;">⚡</span> BTC <span style="color: #64748b; font-weight: 500;">15m Kalshi Elite</span>
             </div>
-            <div class="sync-pill">
-                <div class="sync-dot"></div> Kalshi Sync
+            <div class="status-badge">● Live Sync</div>
+        </div>
+
+        <div class="pods-grid">
+            <div class="pod">
+                <div class="pod-label">Strike Objetivo</div>
+                <div id="target-price" class="pod-value target">--.--</div>
+            </div>
+            <div class="pod">
+                <div class="pod-label">Precio Actual</div>
+                <div id="current-price" class="pod-value current">--.--</div>
             </div>
         </div>
 
-        <div class="prices-grid">
-            <div class="price-box">
-                <label>Strike Objetivo</label>
-                <div id="target-price" class="val target">--.--</div>
+        <div class="chart-module">
+            <div class="chart-top">
+                <span>Flujo de Precisión en Vivo</span>
+                <span id="diff-tag" style="font-weight: 800; color: #34d399;">+$0.00</span>
             </div>
-            <div class="price-box">
-                <label>Actual (Current)</label>
-                <div id="current-price" class="val current">--.--</div>
-            </div>
-        </div>
-
-        <div class="chart-card">
-            <div class="chart-header">
-                <span>Flujo de Precio en Vivo</span>
-                <span id="diff-tag" style="font-weight: 700; color: var(--accent-green);">+$0.00</span>
-            </div>
-            <div class="canvas-container">
+            <div class="canvas-box">
                 <canvas id="priceCanvas"></canvas>
             </div>
         </div>
 
-        <div class="signal-card">
-            <div class="signal-header">
+        <div class="action-core">
+            <div class="action-header">
                 <span id="window-status">ESTADO DEL BLOQUE</span>
-                <span id="timer-text" class="timer-badge">Cierra --:--</span>
+                <span id="timer-text" class="time-pill">Cierra --:--</span>
             </div>
-            <div class="signal-box" id="signal-box">
-                <div id="signal-main">CALCULANDO...</div>
-                <div class="signal-sub" id="signal-sub">Sincronizando reloj de bloques</div>
+            <div class="signal-screen" id="signal-box">
+                <div id="signal-main">INICIALIZANDO...</div>
+                <div class="signal-desc" id="signal-sub">Calibrando motores de alta frecuencia</div>
             </div>
         </div>
     </div>
 
-    <div class="bottom-nav">
-        <div class="nav-item active"><div class="nav-icon">🤖</div><div>Bot</div></div>
-        <div class="nav-item"><div class="nav-icon">📈</div><div>Operaciones</div></div>
-        <div class="nav-item"><div class="nav-icon">💰</div><div>Saldo</div></div>
-        <div class="nav-item"><div class="nav-icon">⚙️</div><div>Ajustes</div></div>
+    <div class="elite-nav">
+        <div class="nav-tab active"><div class="nav-ico">🤖</div><div>Terminal</div></div>
+        <div class="nav-tab"><div class="nav-ico">📊</div><div>Trades</div></div>
+        <div class="nav-tab"><div class="nav-ico">💳</div><div>Balance</div></div>
+        <div class="nav-tab"><div class="nav-ico">⚙️</div><div>Config</div></div>
     </div>
 
     <script>
         let priceHistory = [];
-        
         const canvas = document.getElementById('priceCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -307,24 +289,24 @@ html_code = """
             }
 
             let strikeY = scaleY(strikePrice);
-            ctx.strokeStyle = '#f59e0b';
-            ctx.lineWidth = 1.2;
-            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
             ctx.beginPath();
             ctx.moveTo(0, strikeY);
             ctx.lineTo(canvas.width, strikeY);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            ctx.fillStyle = '#f59e0b';
-            ctx.font = 'bold 10px sans-serif';
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 9px sans-serif';
             ctx.fillText('STRIKE', 8, strikeY - 6);
 
             let step = canvas.width / (priceHistory.length - 1);
             let gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             let isUp = currentPrice >= strikePrice;
-            gradient.addColorStop(0, isUp ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)');
-            gradient.addColorStop(1, 'rgba(7, 9, 12, 0.0)');
+            gradient.addColorStop(0, isUp ? 'rgba(52, 211, 153, 0.35)' : 'rgba(248, 113, 113, 0.35)');
+            gradient.addColorStop(1, 'rgba(2, 4, 6, 0.0)');
 
             ctx.beginPath();
             ctx.moveTo(0, canvas.height);
@@ -346,8 +328,8 @@ html_code = """
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
-            ctx.strokeStyle = isUp ? '#10b981' : '#ef4444';
-            ctx.lineWidth = 2.2;
+            ctx.strokeStyle = isUp ? '#34d399' : '#f87171';
+            ctx.lineWidth = 2.5;
             ctx.stroke();
         }
 
@@ -364,13 +346,13 @@ html_code = """
 
                 let blockId = Math.floor(totalSecondsToday / 900) + "-" + now.getUTCDate();
 
-                let activeBlock = localStorage.getItem("kalshi_exact_block");
-                let strikePrice = parseFloat(localStorage.getItem("kalshi_exact_strike") || "0");
+                let activeBlock = localStorage.getItem("elite_block_id");
+                let strikePrice = parseFloat(localStorage.getItem("elite_strike_price") || "0");
 
                 if (activeBlock !== blockId || !strikePrice || strikePrice === 0) {
                     strikePrice = currentPrice;
-                    localStorage.setItem("kalshi_exact_block", blockId);
-                    localStorage.setItem("kalshi_exact_strike", strikePrice);
+                    localStorage.setItem("elite_block_id", blockId);
+                    localStorage.setItem("elite_strike_price", strikePrice);
                     priceHistory = [currentPrice];
                 }
 
@@ -384,7 +366,7 @@ html_code = """
 
                 let diffTag = document.getElementById('diff-tag');
                 diffTag.innerText = (diff >= 0 ? "+$" : "-$") + Math.abs(diff).toFixed(2);
-                diffTag.style.color = diff >= 0 ? "#10b981" : "#ef4444";
+                diffTag.style.color = diff >= 0 ? "#34d399" : "#f87171";
 
                 drawChart(strikePrice, currentPrice);
 
@@ -403,34 +385,34 @@ html_code = """
                 }
 
                 if (secondsIntoBlock <= 180) {
-                    windowStatus.innerText = "⚡ VENTANA DE APERTURA (0-3 MIN)";
+                    windowStatus.innerText = "⚡ VENTANA ACTIVA (0-3 MIN)";
                     
                     if (momentumScore >= 2 && diff > 1.0) {
-                        sBox.style.backgroundColor = "#10b981";
-                        sBox.style.color = "#07090c";
+                        sBox.style.backgroundColor = "#064e3b";
+                        sBox.style.color = "#34d399";
                         sBox.style.borderColor = "#34d399";
                         sMain.innerText = "🟢 ENTRAR UP";
-                        sSub.innerText = "Ruptura alcista limpia desde el strike";
+                        sSub.innerText = "Impulso alcista confirmado desde el strike";
                     } else if (momentumScore <= -2 && diff < -1.0) {
-                        sBox.style.backgroundColor = "#ef4444";
-                        sBox.style.color = "#ffffff";
+                        sBox.style.backgroundColor = "#7f1d1d";
+                        sBox.style.color = "#fca5a5";
                         sBox.style.borderColor = "#f87171";
                         sMain.innerText = "🔴 ENTRAR DOWN";
-                        sSub.innerText = "Ruptura bajista limpia desde el strike";
+                        sSub.innerText = "Impulso bajista confirmado desde el strike";
                     } else {
-                        sBox.style.backgroundColor = "#1a2230";
-                        sBox.style.color = "#f59e0b";
-                        sBox.style.borderColor = "var(--border-color)";
+                        sBox.style.backgroundColor = "#131b2e";
+                        sBox.style.color = "#fbbf24";
+                        sBox.style.borderColor = "rgba(255,255,255,0.06)";
                         sMain.innerText = "⏳ ESPERANDO RUPTURA";
-                        sSub.innerText = "Monitoreando salida del strike base...";
+                        sSub.innerText = "Monitoreando divergencia en tiempo real";
                     }
                 } else {
                     windowStatus.innerText = "🔒 BLOQUE AVANZADO (ZONA CERRADA)";
-                    sBox.style.backgroundColor = "#141923";
-                    sBox.style.color = "#64748b";
-                    sBox.style.borderColor = "var(--border-color)";
+                    sBox.style.backgroundColor = "#090e17";
+                    sBox.style.color = "#475569";
+                    sBox.style.borderColor = "rgba(255,255,255,0.03)";
                     sMain.innerText = "🛡️ FUERA DE TIEMPO";
-                    sSub.innerText = "Ventana de 3 min finalizada - Evitar riesgo";
+                    sSub.innerText = "Ventana de entrada de 3 min finalizada";
                 }
 
                 let remainingMinutes = Math.floor(remainingSeconds / 60);
@@ -439,7 +421,7 @@ html_code = """
                 document.getElementById('timer-text').innerText = "Cierra " + remainingMinutes + ":" + secFormatted;
 
             } catch (e) {
-                console.error("Error en sincronización exacta", e);
+                console.error("Error Elite Terminal", e);
             }
         }
 
