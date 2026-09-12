@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="VIXY'S VAULT - Scalping", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="VIXY'S VAULT - Bot Pro", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -17,7 +17,7 @@ st.components.v1.html("""
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vixy's Vault - Scalping</title>
+    <title>Vixy's Vault - Bot Pro</title>
     <style>
         :root {
             --bg-color: #080410;
@@ -25,39 +25,60 @@ st.components.v1.html("""
             --border-color: rgba(147, 51, 234, 0.25);
             --neon-green: #00ff66;
             --neon-purple: #a855f7;
+            --neon-red: #ef4444;
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; padding: 10px 10px 80px 10px; display: flex; justify-content: center; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; padding: 10px 10px 90px 10px; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 440px; }
         
+        /* Top Navigation Tabs */
         .top-tabs { display: flex; justify-content: space-between; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
         .tab-item { font-size: 13px; color: var(--text-muted); padding: 4px 8px; cursor: pointer; text-decoration: none; }
         .tab-item.active { color: var(--neon-green); font-weight: 700; border-bottom: 2px solid var(--neon-green); }
 
-        .main-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 18px 14px; text-align: center; margin-bottom: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        /* Bot Status & Control Bar */
+        .bot-control-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; margin-bottom: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .bot-status-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .bot-title { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+        .status-badge { font-size: 10px; padding: 4px 10px; border-radius: 20px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+        .status-badge.active { background: rgba(0,255,102,0.15); border: 1px solid rgba(0,255,102,0.4); color: var(--neon-green); }
+        .status-badge.inactive { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: var(--neon-red); }
+        .dot { width: 6px; height: 6px; border-radius: 50%; }
+        .active .dot { background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green); }
+        .inactive .dot { background: var(--neon-red); box-shadow: 0 0 6px var(--neon-red); }
+
+        /* Metrics Grid */
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .metric-box { background: rgba(10,5,20,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px; text-align: center; }
+        .metric-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+        .metric-val { font-size: 16px; font-weight: 900; font-family: monospace; }
+        .text-green { color: var(--neon-green); }
+        .text-purple { color: var(--neon-purple); }
+
+        /* Toggle Button */
+        .btn-toggle { width: 100%; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; border: none; text-transform: uppercase; letter-spacing: 1px; transition: 0.2s; }
+        .btn-start { background: linear-gradient(135deg, #00ff66 0%, #00b347 100%); color: #080410; box-shadow: 0 0 15px rgba(0,255,102,0.4); }
+        .btn-stop { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); color: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.4); }
+
+        /* Live Scalping Action Card */
+        .main-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; text-align: center; margin-bottom: 14px; }
         .sub-header { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase; }
         .strike-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 12px; padding: 0 4px; }
         .strike-row span { color: #fff; font-family: monospace; font-weight: 600; }
         
-        .action-banner { background: linear-gradient(135deg, rgba(0,255,102,0.15) 0%, rgba(0,255,102,0.05) 100%); border: 1px solid rgba(0,255,102,0.4); border-radius: 12px; padding: 16px; margin-bottom: 6px; }
-        .action-title { font-size: 20px; font-weight: 900; color: var(--neon-green); letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 8px; text-shadow: 0 0 12px rgba(0,255,102,0.4); }
+        .action-banner { background: linear-gradient(135deg, rgba(0,255,102,0.15) 0%, rgba(0,255,102,0.05) 100%); border: 1px solid rgba(0,255,102,0.4); border-radius: 12px; padding: 14px; margin-bottom: 6px; }
+        .action-title { font-size: 18px; font-weight: 900; color: var(--neon-green); letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 8px; text-shadow: 0 0 12px rgba(0,255,102,0.4); }
 
-        .conf-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
-        .conf-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .conf-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-        .conf-value { font-size: 22px; font-weight: 900; color: var(--neon-green); font-family: monospace; }
-        
-        .momentum-badge { display: inline-block; background: rgba(0,255,102,0.1); border: 1px solid rgba(0,255,102,0.3); color: var(--neon-green); font-size: 10px; font-weight: 700; padding: 6px 12px; border-radius: 8px; margin-bottom: 16px; width: 100%; text-align: center; }
+        /* Live Trades Log */
+        .log-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 14px; }
+        .log-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .log-item { display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .log-item:last-child { border-bottom: none; }
+        .log-profit { font-family: monospace; font-weight: 700; }
 
-        .slider-container { position: relative; margin-top: 10px; }
-        .slider-track { width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; position: relative; }
-        .slider-fill { width: 73%; height: 100%; background: var(--neon-green); border-radius: 3px; box-shadow: 0 0 8px var(--neon-green); }
-        .slider-thumb { position: absolute; top: 50%; left: 73%; transform: translate(-50%, -50%); width: 14px; height: 14px; background: #fff; border: 3px solid var(--neon-green); border-radius: 50%; box-shadow: 0 0 10px var(--neon-green); }
-        
-        .slider-labels { display: flex; justify-content: space-between; font-size: 8px; color: var(--text-muted); margin-top: 8px; text-transform: uppercase; }
-
+        /* Bottom Nav */
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #080410; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
         .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: var(--text-muted); gap: 3px; cursor: pointer; }
         .nav-item.active { color: var(--neon-green); font-weight: 700; }
@@ -66,63 +87,120 @@ st.components.v1.html("""
 </head>
 <body>
     <div class="container">
+        <!-- Top Tabs -->
         <div class="top-tabs">
             <div class="tab-item">Dashboard</div>
-            <div class="tab-item active">Scalping</div>
+            <div class="tab-item active">Scalping Bot</div>
             <div class="tab-item">1H Desk</div>
             <div class="tab-item">Signals</div>
             <div class="tab-item">Journal</div>
         </div>
 
+        <!-- Bot Engine Panel -->
+        <div class="bot-control-card">
+            <div class="bot-status-header">
+                <div class="bot-title">🤖 VIXY AUTO-TRADER</div>
+                <div class="status-badge active" id="bot-badge">
+                    <div class="dot"></div> <span id="badge-text">ACTIVO (GANANDO)</span>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div class="metric-label">Ganancia Neta (PnL)</div>
+                    <div class="metric-val text-green" id="pnl-val">+$342.50</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Winrate (Efectividad)</div>
+                    <div class="metric-val text-purple" id="winrate-val">88.4%</div>
+                </div>
+            </div>
+
+            <button class="btn-toggle btn-stop" id="toggle-btn" onclick="toggleBot()">Detener Automatización</button>
+        </div>
+
+        <!-- Main Scalping Execution Card -->
         <div class="main-card">
-            <div class="sub-header" id="status-time">FINALIZADO @ 07:08:05 UTC</div>
+            <div class="sub-header" id="status-time">ESTADO: OPERANDO BLOQUE 15M</div>
             <div class="strike-row">
-                <span>BLOQUE 15M UTC</span>
-                <span>STRIKE: <b id="strike-price">$62,736.43</b></span>
+                <span>BTC SPOT / STRIKE</span>
+                <span><b id="strike-price">$62,736.43</b></span>
             </div>
             <div class="action-banner">
-                <div class="action-title">COMPRAR SUBE ▲</div>
+                <div class="action-title" id="signal-text">COMPRAR SUBE ▲</div>
             </div>
         </div>
 
-        <div class="conf-card">
-            <div class="conf-top">
-                <span class="conf-label">Confianza del Modelo Bloqueada</span>
-                <span class="conf-value" id="conf-val">73%</span>
+        <!-- Live Operations Log -->
+        <div class="log-card">
+            <div class="log-title">
+                <span>Últimas Órdenes Ejecutadas</span>
+                <span style="color: var(--neon-green);">● En Vivo</span>
             </div>
-            <div class="momentum-badge">MOMENTUM ALCISTA FUERTE</div>
-            <div class="slider-container">
-                <div class="slider-track">
-                    <div class="slider-fill" id="slider-fill"></div>
-                    <div class="slider-thumb" id="slider-thumb"></div>
+            <div id="logs-container">
+                <div class="log-item">
+                    <span>15M UTC • Comprar Sube</span>
+                    <span class="log-profit text-green">+$45.00 (Win)</span>
                 </div>
-                <div class="slider-labels">
-                    <span>50% (Desarrollo)</span>
-                    <span>60% (Moderado)</span>
-                    <span>70% (Fuerte)</span>
-                    <span>80%+ (Alto)</span>
+                <div class="log-item">
+                    <span>15M UTC • Comprar Sube</span>
+                    <span class="log-profit text-green">+$38.20 (Win)</span>
+                </div>
+                <div class="log-item">
+                    <span>15M UTC • Vender Baja</span>
+                    <span class="log-profit text-green">+$52.10 (Win)</span>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Bottom Nav -->
     <div class="bottom-nav">
-        <div class="nav-item"><span class="icon">🤖</span><span>Bot</span></div>
-        <div class="nav-item active"><span class="icon">📈</span><span>Operaciones</span></div>
+        <div class="nav-item active"><span class="icon">🤖</span><span>Bot</span></div>
+        <div class="nav-item"><span class="icon">📈</span><span>Operaciones</span></div>
         <div class="nav-item"><span class="icon">💰</span><span>Saldo</span></div>
         <div class="nav-item"><span class="icon">⚪</span><span>Stats</span></div>
         <div class="nav-item"><span class="icon">👑</span><span>VIP</span></div>
     </div>
 
     <script>
-        function liveUpdate() {
-            const randomBase = 62730.00 + (Math.random() * 20 - 10);
-            document.getElementById('strike-price').innerText = `$${randomBase.toFixed(2)}`;
-            const conf = (70 + (Math.random() * 6)).toFixed(1);
-            document.getElementById('conf-val').innerText = `${conf}%`;
+        let botRunning = true;
+        let totalPnL = 342.50;
+
+        function toggleBot() {
+            botRunning = !botRunning;
+            const btn = document.getElementById('toggle-btn');
+            const badge = document.getElementById('bot-badge');
+            const badgeText = document.getElementById('badge-text');
+
+            if (botRunning) {
+                btn.className = "btn-toggle btn-stop";
+                btn.innerText = "Detener Automatización";
+                badge.className = "status-badge active";
+                badgeText.innerText = "ACTIVO (GANANDO)";
+            } else {
+                btn.className = "btn-toggle btn-start";
+                btn.innerText = "Iniciar Automatización";
+                badge.className = "status-badge inactive";
+                badgeText.innerText = "PAUSADO";
+            }
         }
+
+        function liveUpdate() {
+            if (!botRunning) return;
+
+            // Actualizar precio dinámico
+            const randomBase = 62730.00 + (Math.random() * 25 - 12);
+            document.getElementById('strike-price').innerText = `$${randomBase.toFixed(2)}`;
+
+            // Incrementar ganancias gradualmente simulando trades exitosos del bot
+            const increment = (Math.random() * 4).toFixed(2);
+            totalPnL += parseFloat(increment);
+            document.getElementById('pnl-val').innerText = `+$${totalPnL.toFixed(2)}`;
+        }
+
         setInterval(liveUpdate, 2000);
     </script>
 </body>
 </html>
-""", height=650, scrolling=False)
+""", height=720, scrolling=False)
