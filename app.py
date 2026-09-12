@@ -1,6 +1,7 @@
 import pandas as pd
 import requests
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 # Configuración de página optimizada
 st.set_page_config(
@@ -10,7 +11,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Estilos CSS limpios y seguros sin bloques anidados rotos
+# Auto-refrescar la app cada 5 segundos para mantener datos en tiempo real
+st_autorefresh(interval=5000, key="btc_refrescatimer")
+
+# Estilos CSS limpios y profesionales
 st.markdown(
     """
     <style>
@@ -69,47 +73,47 @@ st.markdown(
 
 # Obtener datos reales y calcular señales dinámicas desde Binance.US
 precio_btc = 77166.86
-cambio_15m = 0.5
-confianza = 85.0
-senal_texto = "SUBE / SÍ"
-color_senal = "#00ff88"
+cambio_15m = 0.0
+confianza = 50.0
+senal_texto = "ANALIZANDO..."
+color_senal = "#00bcd4"
 
-df_hist = pd.DataFrame({"precio": [77100, 77120, 77110, 77140, 77130, 77150, 77166]})
+df_hist = pd.DataFrame(
+    {"Precio BTC": [77100, 77120, 77110, 77140, 77130, 77150, 77166]}
+)
 
 try:
-  # Precio actual
   res = requests.get(
       "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT", timeout=3
   )
   if res.status_code == 200:
     precio_btc = float(res.json()["price"])
 
-  # Velas de 1 minuto para calcular tendencia real de 15 minutos
   res_klines = requests.get(
       "https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=15",
       timeout=3,
   )
   if res_klines.status_code == 200:
     klines = res_klines.json()
-    precios = [float(k[4]) for k in klines]  # Precios de cierre
-    df_hist = pd.DataFrame({"precio": precios})
+    precios = [float(k[4]) for k in klines]
+    df_hist = pd.DataFrame({"Precio BTC": precios})
 
-    # Lógica de señal dinámica basada en el comportamiento real del precio
+    # Cálculo real de tendencia y fuerza de señal
     inicio_15m = precios[0]
     fin_15m = precios[-1]
     dif = fin_15m - inicio_15m
     cambio_15m = (dif / inicio_15m) * 100
 
+    # Lógica de confianza basada en impulso real
+    fuerza = abs(cambio_15m) * 50
+    confianza = round(min(98.5, max(52.0, 50.0 + fuerza)), 1)
+
     if dif >= 0:
       senal_texto = "SUBE / SÍ"
       color_senal = "#00ff88"
-      confianza = min(
-          98.5, max(55.0, 50.0 + abs(cambio_15m) * 40)
-      )  # Calculo dinámico de confianza
     else:
       senal_texto = "BAJA / NO"
       color_senal = "#ff4d4d"
-      confianza = min(98.5, max(55.0, 50.0 + abs(cambio_15m) * 40))
 except Exception:
   pass
 
@@ -118,7 +122,7 @@ st.markdown(
     f"""
     <div class="top-bar">
         <div><b style="color: #00ff88;">🟢 PANEL DE PREDICCIÓN EN VIVO</b> &nbsp;|&nbsp; BTC/USD (15 MINUTOS)</div>
-        <div><b>${precio_btc:,.2f} USD</b></div>
+        <div><b>${precio_btc:,.2f} USD</b> (Auto-refresco activo)</div>
     </div>
 """,
     unsafe_allow_html=True,
@@ -152,31 +156,30 @@ with col_izq:
 
   df_vol = pd.DataFrame(
       {
-          "Volatilidad Compra": [2, 4, 3, 5, 7, 6, 8, 5, 4, 6],
-          "Volatilidad Venta": [1, 3, 2, 4, 6, 5, 7, 4, 3, 5],
+          "Impulso Alcista": [2, 4, 3, 5, 7, 6, 8, 5, 4, 6],
+          "Impulso Bajista": [1, 3, 2, 4, 6, 5, 7, 4, 3, 5],
       }
   )
-  st.area_chart(df_vol, color=["#00ff88", "#00bcd4"], height=110)
+  st.area_chart(df_vol, color=["#00ff88", "#ff4d4d"], height=110)
 
 with col_centro:
-  # Cabecera central de señal en tiempo real
   st.markdown(
       f"""
     <div class="center-panel">
         <div style="font-size: 8px; color: #8b949e; letter-spacing: 2px;">SEÑAL DE EVENTO A 15 MINUTOS</div>
         <div style="font-size: 18px; font-weight: 900; margin: 4px 0; color: #ffffff;">BTC/USD: PREDICCIÓN</div>
-        <div style="font-size: 10px; color: {color_senal}; margin-bottom: 12px;">Variación 15m: {cambio_15m:+.2f}% (${precio_btc:,.2f})</div>
+        <div style="font-size: 10px; color: {color_senal}; margin-bottom: 12px;">Variación 15m: {cambio_15m:+.3f}% (${precio_btc:,.2f})</div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # Círculo indicador dinámico generado con HTML seguro (sin fragmentos rotos)
+  # Círculo indicador dinámico
   st.markdown(
       f"""
     <div style="background: rgba(0, 255, 136, 0.05); border: 2px solid {color_senal}; border-radius: 50%; width: 130px; height: 130px; margin: 0 auto 12px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(0,255,136,0.15); text-align: center;">
         <div style="font-size: 13px; font-weight: 900; color: {color_senal};">{senal_texto}</div>
-        <div style="font-size: 20px; font-weight: 900; color: #ffffff;">{confianza:.1f}%</div>
+        <div style="font-size: 20px; font-weight: 900; color: #ffffff;">{confianza}%</div>
         <div style="font-size: 7px; color: #8b949e; letter-spacing: 1px;">CONFIANZA</div>
     </div>
     """,
@@ -186,15 +189,18 @@ with col_centro:
   st.markdown(
       """
     <div class="card-box" style="padding: 6px;">
-        <div style="font-size: 8px; color: #8b949e; margin-bottom: 2px;">FLUJO DE TICS EN VIVO (15M)</div>
+        <div style="font-size: 8px; color: #8b949e; margin-bottom: 2px;">FLUJO DE TICS EN VIVO (15M - ZOOM ACTIVO)</div>
     </div>
     """,
       unsafe_allow_html=True,
   )
-  st.line_chart(df_hist, color=color_senal, height=90)
+  # Usar use_container_width y pasar el dataframe completo para que haga zoom automático al precio real
+  st.line_chart(df_hist, color=color_senal, height=90, use_container_width=True)
 
 with col_der:
-  porcentaje_compra = int(confianza if senal_texto == "SUBE / SÍ" else (100 - confianza))
+  porcentaje_compra = int(
+      confianza if senal_texto == "SUBE / SÍ" else (100 - confianza)
+  )
   porcentaje_venta = 100 - porcentaje_compra
 
   st.markdown(
@@ -242,7 +248,7 @@ with col_der:
         </div>
         <div style="font-size: 8px; display: flex; justify-content: space-between; padding: 2px 0;">
             <span style="color: #8b949e;">{precio_btc - 45:,.2f}</span>
-            <span style="color: #ff4d4d; font-weight: 700;">PERDIDA -$1,000</span>
+            <span style="color: #ff4d4d; font-weight: 700;">PÉRDIDA -$1,000</span>
         </div>
     </div>
     """,
