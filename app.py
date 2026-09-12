@@ -10,38 +10,38 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("⚡ BTC Alpha Bot (Binance Real-Time)")
+st.title("⚡ BTC Alpha Bot (Coinbase Real-Time)")
 st.subheader("SEÑAL TÁCTICA 15M")
 
-# Conexión directa a Binance para precio real al milisegundo
-@st.cache_data(ttl=2)
-def obtener_precio_binance():
+# Usar Coinbase API ya que no banea IPs de servidores en la nube
+@st.cache_data(ttl=5)
+def obtener_precio_coinbase():
     try:
-        url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-        res = requests.get(url, timeout=2).json()
-        return float(res['price'])
+        url = "https://api.coinbase.com/v2/prices/BTC-USD/spot"
+        res = requests.get(url, timeout=3).json()
+        return float(res['data']['amount'])
     except:
         return 0.0
 
-precio_actual = obtener_precio_binance()
+precio_actual = obtener_precio_coinbase()
 
-# Guardar memoria en Streamlit para comparar si subió o bajó respecto al segundo anterior
 if 'precio_previo' not in st.session_state:
     st.session_state.precio_previo = precio_actual
 if 'score' not in st.session_state:
     st.session_state.score = 50.0
 
-if precio_actual > 0:
+if precio_actual > 0 and st.session_state.precio_previo > 0:
     if precio_actual > st.session_state.precio_previo:
-        st.session_state.score = min(st.session_state.score + 6.0, 90.0)
+        st.session_state.score = min(st.session_state.score + 5.0, 90.0)
     elif precio_actual < st.session_state.precio_previo:
-        st.session_state.score = max(st.session_state.score - 6.0, 10.0)
+        st.session_state.score = max(st.session_state.score - 5.0, 10.0)
+    st.session_state.precio_previo = precio_actual
+elif precio_actual > 0 and st.session_state.precio_previo == 0:
     st.session_state.precio_previo = precio_actual
 
 up_val = round(st.session_state.score, 1)
 down_val = round(100 - up_val, 1)
 
-# Señal clara
 if up_val >= 60:
     senal = "🚀 COMPRAR UP"
     color_box = "#0e4429"
@@ -67,6 +67,5 @@ with col2:
 st.progress(up_val / 100)
 
 st.divider()
-st.text(f"Precio Binance BTCUSDT: ${precio_actual:,.2f}")
-st.info("💡 Cada vez que le des a recargar a la página, medirá el cambio exacto contra Binance al instante.")
-
+st.text(f"Precio Coinbase BTC-USD: ${precio_actual:,.2f}")
+st.info("💡 Conectado a Coinbase sin restricciones de región.")
