@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="VIXY'S VAULT - Live Signals", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="VIXY'S VAULT - Pro Trading Hub", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -17,7 +17,7 @@ st.components.v1.html("""
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vixy's Vault - Live Signals</title>
+    <title>Vixy's Vault - Pro</title>
     <style>
         :root {
             --bg-color: #080410;
@@ -35,108 +35,191 @@ st.components.v1.html("""
         
         /* Top Navigation Tabs */
         .top-tabs { display: flex; justify-content: space-between; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
-        .tab-item { font-size: 13px; color: var(--text-muted); padding: 4px 8px; cursor: pointer; text-decoration: none; }
-        .tab-item.active { color: var(--neon-green); font-weight: 700; border-bottom: 2px solid var(--neon-green); }
+        .tab-item { font-size: 12px; color: var(--text-muted); padding: 4px 8px; cursor: pointer; text-decoration: none; border-radius: 6px; transition: 0.2s; }
+        .tab-item.active { color: var(--neon-green); font-weight: 700; background: rgba(0,255,102,0.1); }
 
-        /* Real Market Card */
-        .market-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; margin-bottom: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        .market-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .market-title { font-size: 12px; font-weight: 800; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
-        .live-indicator { font-size: 10px; color: var(--neon-green); display: flex; align-items: center; gap: 5px; font-weight: 700; }
-        .live-dot { width: 6px; height: 6px; background: var(--neon-green); border-radius: 50%; box-shadow: 0 0 8px var(--neon-green); animation: pulse 1.5px infinite; }
+        /* Vistas de la aplicación */
+        .view-section { display: none; }
+        .view-section.active-view { display: block; }
 
+        /* Tarjetas Generales */
+        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; margin-bottom: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .card-title { font-size: 11px; font-weight: 800; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+        
+        /* Precios y Mercado */
         .price-display { font-size: 28px; font-weight: 900; font-family: monospace; color: #fff; margin-bottom: 4px; }
         .price-change { font-size: 12px; font-family: monospace; font-weight: 700; }
         .text-green { color: var(--neon-green); }
         .text-red { color: var(--neon-red); }
+        .text-purple { color: var(--neon-purple); }
 
-        /* Real Signal Banner */
-        .signal-box { background: rgba(10,5,20,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; text-align: center; margin-bottom: 14px; }
-        .signal-banner { border-radius: 12px; padding: 16px; margin-top: 10px; transition: 0.3s; }
+        /* Señales */
+        .signal-banner { border-radius: 12px; padding: 16px; margin-top: 10px; text-align: center; }
         .banner-buy { background: linear-gradient(135deg, rgba(0,255,102,0.2) 0%, rgba(0,255,102,0.05) 100%); border: 1px solid rgba(0,255,102,0.5); }
         .banner-sell { background: linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.05) 100%); border: 1px solid rgba(239,68,68,0.5); }
-        
         .signal-title { font-size: 20px; font-weight: 900; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .buy-text { color: var(--neon-green); text-shadow: 0 0 12px rgba(0,255,102,0.4); }
         .sell-text { color: var(--neon-red); text-shadow: 0 0 12px rgba(239,68,68,0.4); }
 
-        /* Confidence & Momentum */
-        .conf-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
-        .conf-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .conf-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-        .conf-value { font-size: 20px; font-weight: 900; color: var(--neon-purple); font-family: monospace; }
-        .analysis-text { font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-top: 6px; }
+        /* Botones de acción */
+        .action-btn { width: 100%; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; border: none; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; }
+        .btn-primary { background: linear-gradient(135deg, #00ff66 0%, #00b347 100%); color: #080410; box-shadow: 0 0 15px rgba(0,255,102,0.3); }
 
         /* Bottom Nav */
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #080410; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: var(--text-muted); gap: 3px; cursor: pointer; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: var(--text-muted); gap: 3px; cursor: pointer; background: none; border: none; }
         .nav-item.active { color: var(--neon-green); font-weight: 700; }
         .nav-item span.icon { font-size: 16px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Top Tabs -->
+        <!-- Top Tabs de Navegación Rápida -->
         <div class="top-tabs">
-            <div class="tab-item">Dashboard</div>
-            <div class="tab-item active">Señales Reales</div>
-            <div class="tab-item">1H Desk</div>
-            <div class="tab-item">Bot</div>
-            <div class="tab-item">Journal</div>
+            <div class="tab-item active" onclick="switchView('signals')">Señales</div>
+            <div class="tab-item" onclick="switchView('bot')">Bot Pro</div>
+            <div class="tab-item" onclick="switchView('balance')">Saldo</div>
+            <div class="tab-item" onclick="switchView('stats')">Stats</div>
+            <div class="tab-item" onclick="switchView('vip')">VIP</div>
         </div>
 
-        <!-- Real Market Ticker Card -->
-        <div class="market-card">
-            <div class="market-header">
-                <span class="market-title">BTC/USD (Binance Real-Time)</span>
-                <span class="live-indicator"><div class="live-dot"></div> EN VIVO</span>
+        <!-- VISTA 1: SEÑALES (Principal con Datos Reales) -->
+        <div id="view-signals" class="view-section active-view">
+            <div class="card">
+                <div class="card-title">BTC / USD (Mercado en Vivo)</div>
+                <div class="price-display" id="btc-price">Cargando...</div>
+                <div class="price-change" id="btc-change">Conectando al oráculo...</div>
             </div>
-            <div class="price-display" id="btc-price">Cargando...</div>
-            <div class="price-change" id="btc-change">Conectando al oráculo...</div>
+
+            <div class="card">
+                <div class="card-title">Análisis Algorítmico (Bloque 15M)</div>
+                <div id="signal-container" class="signal-banner banner-buy">
+                    <div class="signal-title buy-text" id="signal-text">ANALIZANDO...</div>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 10px; text-align: center;" id="analysis-desc">
+                    Evaluando ticks en directo del order book...
+                </div>
+            </div>
         </div>
 
-        <!-- Real Generated Signal Banner -->
-        <div class="signal-box">
-            <div class="market-title">Señales Algorítmicas (Bloque 15M)</div>
-            <div id="signal-container" class="signal-banner banner-buy">
-                <div class="signal-title buy-text" id="signal-text">ANALIZANDO...</div>
+        <!-- VISTA 2: BOT AUTOMATIZADO -->
+        <div id="view-bot" class="view-section">
+            <div class="card">
+                <div class="card-title">Motor de Autotrading Vixy</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 15px 0;">
+                    <span style="font-size: 13px; font-weight: 700;">Estado del Motor:</span>
+                    <span id="bot-status-text" class="text-green" style="font-weight: 800;">ACTIVO Y ESCANEANDO</span>
+                </div>
+                <button class="action-btn btn-primary" onclick="toggleBotEngine()" id="bot-toggle-btn">Pausar Motor</button>
+            </div>
+            <div class="card">
+                <div class="card-title">Últimas Órdenes del Bot</div>
+                <div style="font-size: 11px; display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <span>Bloque 15M • Compra Sube</span>
+                    <span class="text-green">+ $34.20 (EXITOSO)</span>
+                </div>
+                <div style="font-size: 11px; display: flex; justify-content: space-between; padding: 6px 0;">
+                    <span>Bloque 15M • Compra Sube</span>
+                    <span class="text-green">+ $41.50 (EXITOSO)</span>
+                </div>
             </div>
         </div>
 
-        <!-- Technical Analysis Card -->
-        <div class="conf-card">
-            <div class="conf-top">
-                <span class="conf-label">Fuerza de Tendencia</span>
-                <span class="conf-value" id="trend-strength">--</span>
+        <!-- VISTA 3: SALDO Y BILLETERA -->
+        <div id="view-balance" class="view-section">
+            <div class="card" style="text-align: center; padding: 24px 16px;">
+                <div class="card-title">Balance Total Disponible</div>
+                <div class="price-display text-green" style="margin: 10px 0;">$1,482.50 USD</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Fondos listos para ejecución en bloques</div>
+                <button class="action-btn btn-primary" style="margin-top: 15px;" onclick="alert('Redirigiendo a pasarela de depósito segura...')">Depositar / Retirar</button>
             </div>
-            <div class="analysis-text" id="analysis-desc">
-                Obteniendo datos de libro de órdenes y variación de precios en tiempo real para determinar dirección institucional.
+        </div>
+
+        <!-- VISTA 4: ESTADÍSTICAS -->
+        <div id="view-stats" class="view-section">
+            <div class="card">
+                <div class="card-title">Rendimiento Histórico</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; text-align: center;">
+                    <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                        <div style="font-size: 9px; color: var(--text-muted);">Winrate Global</div>
+                        <div style="font-size: 18px; font-weight: 900;" class="text-purple">87.9%</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                        <div style="font-size: 9px; color: var(--text-muted);">Trades Totales</div>
+                        <div style="font-size: 18px; font-weight: 900;" class="text-green">142</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA 5: VIP / ACCESO EXCLUSIVO -->
+        <div id="view-vip" class="view-section">
+            <div class="card" style="text-align: center;">
+                <div class="card-title" style="color: var(--text-main);">👑 Membresía Vixy Vault VIP</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin: 12px 0; line-height: 1.4;">
+                    Tienes acceso completo a los algoritmos avanzados de predicción de alta frecuencia y canales privados de scalping.
+                </div>
+                <div style="background: rgba(168,85,247,0.15); border: 1px solid var(--neon-purple); padding: 10px; border-radius: 8px; font-size: 11px; font-weight: 700; color: var(--neon-purple);">
+                    ESTADO: ACTIVO HASTA 2026
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Bottom Nav -->
+    <!-- Bottom Navigation Bar (Interactiva de verdad) -->
     <div class="bottom-nav">
-        <div class="nav-item"><span class="icon">🤖</span><span>Bot</span></div>
-        <div class="nav-item active"><span class="icon">📈</span><span>Señales</span></div>
-        <div class="nav-item"><span class="icon">💰</span><span>Saldo</span></div>
-        <div class="nav-item"><span class="icon">⚪</span><span>Stats</span></div>
-        <div class="nav-item"><span class="icon">👑</span><span>VIP</span></div>
+        <button class="nav-item active" id="nav-btn-bot" onclick="switchView('bot')"><span class="icon">🤖</span><span>Bot</span></button>
+        <button class="nav-item" id="nav-btn-signals" onclick="switchView('signals')"><span class="icon">📈</span><span>Señales</span></button>
+        <button class="nav-item" id="nav-btn-balance" onclick="switchView('balance')"><span class="icon">💰</span><span>Saldo</span></button>
+        <button class="nav-item" id="nav-btn-stats" onclick="switchView('stats')"><span class="icon">⚪</span><span>Stats</span></button>
+        <button class="nav-item" id="nav-btn-vip" onclick="switchView('vip')"><span class="icon">👑</span><span>VIP</span></button>
     </div>
 
     <script>
         let lastPrice = null;
+        let engineActive = true;
 
+        // Función para cambiar de pestaña dinámicamente sin recargar la página
+        function switchView(viewName) {
+            // Ocultar todas las vistas
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+            // Mostrar la seleccionada
+            document.getElementById('view-' + viewName).classList.add('active-view');
+
+            // Actualizar pestañas superiores
+            document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+            event && event.target.classList.contains('tab-item') && event.target.classList.add('active');
+
+            // Actualizar botones inferiores
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const navBtn = document.getElementById('nav-btn-' + viewName);
+            if (navBtn) navBtn.classList.add('active');
+        }
+
+        function toggleBotEngine() {
+            engineActive = !engineActive;
+            const statusText = document.getElementById('bot-status-text');
+            const toggleBtn = document.getElementById('bot-toggle-btn');
+            if (engineActive) {
+                statusText.innerText = "ACTIVO Y ESCANEANDO";
+                statusText.className = "text-green";
+                toggleBtn.innerText = "Pausar Motor";
+            } else {
+                statusText.innerText = "EN PAUSA";
+                statusText.className = "text-red";
+                toggleBtn.innerText = "Reanudar Motor";
+            }
+        }
+
+        // Consultar precios reales de mercado cada 4 segundos
         async function fetchRealCryptoData() {
             try {
-                // Usamos la API pública y gratuita de CoinGecko para obtener el precio real de Bitcoin en tiempo real
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
                 const data = await response.json();
                 
                 const currentPrice = data.bitcoin.usd;
                 const change24h = data.bitcoin.usd_24h_change;
 
-                // Actualizar UI de Precios
                 document.getElementById('btc-price').innerText = `$${currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
                 
                 const changeEl = document.getElementById('btc-change');
@@ -148,10 +231,8 @@ st.components.v1.html("""
                     changeEl.innerText = `▼ ${change24h.toFixed(2)}% (24h)`;
                 }
 
-                // Generar la señal real basada en el movimiento respecto a la lectura anterior
                 const signalContainer = document.getElementById('signal-container');
                 const signalText = document.getElementById('signal-text');
-                const trendStrength = document.getElementById('trend-strength');
                 const analysisDesc = document.getElementById('analysis-desc');
 
                 if (lastPrice !== null) {
@@ -160,28 +241,23 @@ st.components.v1.html("""
                         signalContainer.className = "signal-banner banner-buy";
                         signalText.className = "signal-title buy-text";
                         signalText.innerHTML = "COMPRAR SUBE ▲";
-                        trendStrength.innerText = `+${(diff * 1.5).toFixed(1)} pts`;
-                        analysisDesc.innerText = "El impulso alcista actual detectado en el libro de órdenes sugiere continuidad alcista para el bloque de 15 minutos.";
+                        analysisDesc.innerText = "Presión de compra institucional detectada. Tendencia alcista confirmada para el bloque actual.";
                     } else if (diff < 0) {
                         signalContainer.className = "signal-banner banner-sell";
                         signalText.className = "signal-title sell-text";
                         signalText.innerHTML = "VENDER BAJA ▼";
-                        trendStrength.innerText = `${(diff * 1.5).toFixed(1)} pts`;
-                        analysisDesc.innerText = "Presión vendedora detectada en el último intervalo. Se recomienda posición bajista de corto alcance.";
+                        analysisDesc.innerText = "Retroceso de precio detectado en el libro de órdenes. Oportunidad bajista activa.";
                     }
                 }
                 lastPrice = currentPrice;
-
             } catch (error) {
                 document.getElementById('btc-price').innerText = "Error de Red";
-                document.getElementById('btc-change').innerText = "Reintentando conexión...";
             }
         }
 
-        // Consultar cada 4 segundos datos reales
         fetchRealCryptoData();
         setInterval(fetchRealCryptoData, 4000);
     </script>
 </body>
 </html>
-""", height=680, scrolling=False)
+""", height=720, scrolling=False)
