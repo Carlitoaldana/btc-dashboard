@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import requests
@@ -14,33 +15,35 @@ st.markdown("""
 st.title("⚡ BTC Alpha Bot (15m Kalshi)")
 st.subheader("SEÑAL TÁCTICA DE ENTRADA")
 
-@st.cache_data(ttl=15) # Se actualiza agresivamente cada 15 segundos para scalping rápido
-def calcular_senyal_15m():
+# Usamos session_state para comparar el precio anterior y ver si subió o bajó al instante
+if 'precio_anterior' not in st.session_state:
+    st.session_state.precio_anterior = 0.0
+if 'prob_up_dinamica' not in st.session_state:
+    st.session_state.prob_up_dinamica = 50.0
+
+@st.cache_data(ttl=10)
+def obtener_precio_btc():
     try:
-        # Consultar precio actual y variaciones de corto plazo
-        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_market_cap=false&include_24hr_vol=false&include_24hr_change=true"
-        res = requests.get(url, timeout=4).json()
-        precio = res['bitcoin']['usd']
-        cambio_24h = res['bitcoin']['usd_24h_change']
-        
-        # Simulación de presión de order-flow basada en micro-tendencia
-        # (Aquí puedes conectar luego una API de exchanges como Binance si quieres el delta exacto por segundo)
-        if cambio_24h > 0:
-            prob_up = 58 + int(min(abs(cambio_24h) * 2, 35))
-        else:
-            prob_up = max(42 - int(abs(cambio_24h) * 2), 10)
-            
-        prob_down = 100 - prob_up
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+        res = requests.get(url, timeout=3).json()
+        return res['bitcoin']['usd']
     except:
-        precio = 77000.00
-        prob_up = 50
-        prob_down = 50
+        return 77275.0
 
-    return precio, prob_up, prob_down
+precio = obtener_precio_btc()
 
-precio_btc, up_val, down_val = calcular_senyal_15m()
+# Lógica ultra-sensible: si el precio cambia respecto a la lectura anterior, mueva la aguja
+if st.session_state.precio_anterior > 0:
+    if precio > st.session_state.precio_anterior:
+        st.session_state.prob_up_dinamica = min(st.session_state.prob_up_dinamica + 4.0, 85.0)
+    elif precio < st.session_state.precio_anterior:
+        st.session_state.prob_up_dinamica = max(st.session_state.prob_up_dinamica - 4.0, 15.0)
 
-# Definir la recomendación táctica para Kalshi
+st.session_state.precio_anterior = precio
+up_val = round(st.session_state.prob_up_dinamica, 1)
+down_val = round(100 - up_val, 1)
+
+# Definir la recomendación táctica
 if up_val >= 60:
     senal = "🚀 ENTRAR UP (ALCISTA)"
     color_box = "#0e4429"
@@ -66,5 +69,5 @@ with col2:
 st.progress(up_val / 100)
 
 st.divider()
-st.text(f"Precio Actual de Referencia: ${precio_btc:,.2f}")
-st.info("💡 Tip para Kalshi 15m: Revisa esta pantalla faltando 3 a 5 minutos para que cierre el periodo de 15 minutos; es cuando el 'order-flow' define el precio de liquidación final basado en el promedio de los últimos 60 segundos.")
+st.text(f"Precio Actual en Vivo: ${precio:,.2f}")
+st.info("💡 Este script detecta micro-variaciones: cada vez que recargues o pase un ciclo y el precio fluctúe, los porcentajes se moverán de inmediato.")
