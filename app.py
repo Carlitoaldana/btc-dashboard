@@ -164,12 +164,12 @@ html_code = """
             <div class="coin-title">
                 <span style="color: #f0b90b;">🟠</span> BTC 15 min <span style="font-size: 10px; color: #848e9c;">▼</span>
             </div>
-            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Gráfico Pro</div>
+            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Blindaje Activo</div>
         </div>
 
         <div class="prices-grid">
             <div class="price-box">
-                <label>Objetivo (Strike)</label>
+                <label>Strike Oficial (Bloque)</label>
                 <div id="target-price" class="val target">Cargando...</div>
             </div>
             <div class="price-box">
@@ -195,7 +195,7 @@ html_code = """
             </div>
             <div class="signal-box" id="signal-box">
                 <div id="signal-main">ANALIZANDO...</div>
-                <div class="signal-sub" id="signal-sub">Calculando probabilidades internas</div>
+                <div class="signal-sub" id="signal-sub">Filtros anti-amague activados</div>
             </div>
         </div>
     </div>
@@ -209,6 +209,9 @@ html_code = """
 
     <script>
         let priceHistory = [];
+        let persistedUpCount = 0;
+        let persistedDownCount = 0;
+        
         const canvas = document.getElementById('priceCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -234,7 +237,6 @@ html_code = """
                 return canvas.height - ((p - minP) / (maxP - minP)) * (canvas.height - 20) - 10;
             }
 
-            // Dibujar línea de Strike (Objetivo)
             let strikeY = scaleY(strikePrice);
             ctx.strokeStyle = '#f0b90b';
             ctx.lineWidth = 1;
@@ -245,15 +247,11 @@ html_code = """
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Etiqueta de Strike en el gráfico
             ctx.fillStyle = '#f0b90b';
             ctx.font = '9px sans-serif';
             ctx.fillText('STRIKE', 6, strikeY - 4);
 
-            // Dibujar línea de tendencia del precio
             let step = canvas.width / (priceHistory.length - 1);
-            
-            // Gradiente para el área bajo la curva
             let gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             let isUp = currentPrice >= strikePrice;
             gradient.addColorStop(0, isUp ? 'rgba(14, 203, 129, 0.25)' : 'rgba(246, 70, 93, 0.25)');
@@ -272,7 +270,6 @@ html_code = """
             ctx.fillStyle = gradient;
             ctx.fill();
 
-            // Línea principal del precio
             ctx.beginPath();
             for (let i = 0; i < priceHistory.length; i++) {
                 let x = i * step;
@@ -299,9 +296,11 @@ html_code = """
                 let utcMinute = now.getUTCMinutes();
                 let utcSecond = now.getUTCSeconds();
                 let blockMinute = Math.floor(utcMinute / 15) * 15;
+                
+                // Clave única para fijar el Strike exacto al iniciar el bloque de 15 min
                 let blockKey = now.getUTCDate() + "-" + now.getUTCMonth() + "-" + utcHour + "-" + blockMinute;
 
-                let savedBlock = localStorage.getItem("kalshi_block_key");
+                let savedBlock = localStorage.getItem("kalshi_strike_block");
                 let savedStrike = localStorage.getItem("kalshi_strike_price");
 
                 let strikePrice = 0;
@@ -309,9 +308,11 @@ html_code = """
                     strikePrice = parseFloat(savedStrike);
                 } else {
                     strikePrice = currentPrice;
-                    localStorage.setItem("kalshi_block_key", blockKey);
+                    localStorage.setItem("kalshi_strike_block", blockKey);
                     localStorage.setItem("kalshi_strike_price", strikePrice);
                     priceHistory = [currentPrice];
+                    persistedUpCount = 0;
+                    persistedDownCount = 0;
                 }
 
                 let diff = currentPrice - strikePrice;
@@ -319,17 +320,24 @@ html_code = """
                 let remainingSeconds = 900 - secondsIntoBlock;
                 if (remainingSeconds < 1) remainingSeconds = 1;
 
-                let shortEMA = priceHistory.slice(-5).reduce((a, b) => a + b, 0) / Math.min(5, priceHistory.length);
-                let longEMA = priceHistory.reduce((a, b) => a + b, 0) / priceHistory.length;
-                let momentum = shortEMA - longEMA;
+                // Filtro de persistencia fuerte: exige distancia real de más de $15 dólares y constancia de 6 segundos
+                if (diff > 15.0) {
+                    persistedUpCount++;
+                    persistedDownCount = 0;
+                } else if (diff < -15.0) {
+                    persistedDownCount++;
+                    persistedUpCount = 0;
+                } else {
+                    persistedUpCount = Math.max(0, persistedUpCount - 1);
+                    persistedDownCount = Math.max(0, persistedDownCount - 1);
+                }
 
-                let score = 0;
-                if (momentum > 0) score++;
-                if (momentum < 0) score--;
-                if (diff > 0) score++;
-                if (diff < 0) score--;
-
-                let probability = Math.min(96, Math.max(52, Math.round(50 + Math.abs(diff) * 1.2 + (score * 8))));
+                let probability = 50;
+                if (persistedUpCount >= 6) {
+                    probability = Math.min(96, 60 + Math.floor(diff * 0.8));
+                } else if (persistedDownCount >= 6) {
+                    probability = Math.min(96, 60 + Math.floor(Math.abs(diff) * 0.8));
+                }
 
                 document.getElementById('target-price').innerText = "$" + strikePrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 document.getElementById('current-price').innerText = "$" + currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -344,21 +352,22 @@ html_code = """
                 let sMain = document.getElementById('signal-main');
                 let sSub = document.getElementById('signal-sub');
 
-                if (diff > 1.2 && score >= 0) {
+                // Si no hay ruptura sólida, se queda esperando en lugar de adivinar a lo idiota
+                if (persistedUpCount >= 6) {
                     sBox.style.backgroundColor = "#0ecb81";
                     sBox.style.color = "#000";
                     sMain.innerText = "🟢 UP";
-                    sSub.innerText = probability + "% de probabilidad de cierre";
-                } else if (diff < -1.2 && score <= 0) {
+                    sSub.innerText = "Ruptura firme confirmada (" + probability + "%)";
+                } else if (persistedDownCount >= 6) {
                     sBox.style.backgroundColor = "#f6465d";
                     sBox.style.color = "#fff";
                     sMain.innerText = "🔴 DOWN";
-                    sSub.innerText = probability + "% de probabilidad de cierre";
+                    sSub.innerText = "Ruptura firme confirmada (" + probability + "%)";
                 } else {
                     sBox.style.backgroundColor = "#2b313a";
                     sBox.style.color = "#f0b90b";
                     sMain.innerText = "⏳ ESPERANDO DIRECCIÓN";
-                    sSub.innerText = "Filtros internos evaluando mercado...";
+                    sSub.innerText = "Zona de indecisión / Faltan $15 de distancia";
                 }
 
                 let remainingMinutes = Math.floor(remainingSeconds / 60);
@@ -367,7 +376,7 @@ html_code = """
                 document.getElementById('timer-text').innerText = "Cierra " + remainingMinutes + ":" + secFormatted;
 
             } catch (e) {
-                console.error("Error en gráfico pro", e);
+                console.error("Error en bot blindado", e);
             }
         }
 
