@@ -2,7 +2,7 @@ import pandas as pd
 import requests
 import streamlit as st
 
-# Configuración limpia de página
+# Configuración idéntica de página compacta
 st.set_page_config(
     page_title="PREDICTION BOT - MAKING A BAG",
     page_icon="🚀",
@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Estilos CSS con Flexbox estricto para la fila horizontal
+# Estilos CSS exactos para replicar la tarjeta compacta de la captura
 st.markdown(
     """
     <style>
@@ -19,70 +19,79 @@ st.markdown(
         color: #ffffff;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
+    .main-container {
+        max-width: 420px;
+        margin: 0 auto;
+        padding: 4px;
+    }
     .titulo-top {
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 900;
         color: #00ff88;
         letter-spacing: 1px;
-        margin-bottom: 0px;
+        margin-bottom: -2px;
     }
     .sub-top {
-        font-size: 8px;
+        font-size: 7px;
         letter-spacing: 2px;
         color: #6b638a;
         text-transform: uppercase;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
-    .tarjeta-verde {
-        background: linear-gradient(135deg, #0b2216 0%, #0f0c18 100%);
+    /* Tarjeta maestra que encierra el BUY UP y los mini círculos a la derecha */
+    .tarjeta-maestra {
+        background: linear-gradient(135deg, #0b2216 0%, #0d0a14 100%);
         border: 1px solid #163d28;
         border-radius: 10px;
-        padding: 12px;
+        padding: 10px;
         margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     .texto-buy {
-        font-size: 24px;
+        font-size: 20px;
         font-weight: 900;
         color: #00ff88;
-        letter-spacing: 2px;
-        margin: 2px 0;
+        letter-spacing: 1px;
+        margin: 1px 0;
+    }
+    /* Contenedor de los 4 botoncitos circulares/cuadrados en columna derecha */
+    .columna-iconos {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .mini-circulo {
+        background-color: #151122;
+        border: 1px solid #251d3b;
+        border-radius: 6px;
+        width: 32px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
     }
     .caja-oscura {
-        background-color: #0f0c18;
-        border: 1px solid #1f182e;
-        border-radius: 10px;
-        padding: 10px;
-        margin-bottom: 6px;
-    }
-    /* Contenedor Flexbox para forzar los 3 elementos en UNA SOLA FILA */
-    .fila-horizontal {
-        display: flex;
-        gap: 6px;
-        margin-bottom: 6px;
-        width: 100%;
-    }
-    .item-fila {
-        flex: 1;
-        background-color: #0f0c18;
+        background-color: #0d0a14;
         border: 1px solid #1f182e;
         border-radius: 8px;
-        text-align: center;
-        padding: 8px 4px;
-        font-size: 11px;
-        font-weight: 700;
-        color: #00ff88;
-    }
-    .fila-inferior {
-        display: flex;
-        gap: 6px;
+        padding: 8px;
         margin-bottom: 6px;
     }
-    .caja-inferior {
+    .fila-metricas {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 6px;
+    }
+    .caja-metrica {
         flex: 1;
-        background-color: #0f0c18;
+        background-color: #0d0a14;
         border: 1px solid #1f182e;
-        border-radius: 10px;
-        padding: 10px;
+        border-radius: 8px;
+        padding: 6px;
+        text-align: center;
     }
     .boton-win-final {
         background-color: #00ff88;
@@ -90,10 +99,9 @@ st.markdown(
         font-weight: 900;
         text-align: center;
         border-radius: 8px;
-        padding: 10px;
-        font-size: 15px;
+        padding: 8px;
+        font-size: 13px;
         letter-spacing: 1px;
-        margin-top: 6px;
     }
     </style>
 """,
@@ -101,7 +109,7 @@ st.markdown(
 )
 
 # Obtener precio real de Binance.US
-precio_btc = 77083.50
+precio_btc = 77075.25
 try:
   res = requests.get(
       "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT", timeout=3
@@ -131,11 +139,14 @@ def obtener_velas():
   return None
 
 
+# Contenedor general centrado
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
+
 # Encabezado
 st.markdown('<div class="titulo-top">PREDICTION BOT: MAKING A BAG 🚀</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-top">15MIN MARKET</div>', unsafe_allow_html=True)
 
-# Pestañas de navegación
+# Pestañas de navegación compactas
 pestana = st.radio(
     "Navegación",
     ["Dashboard", "Scalping", "1H Desk", "Signals", "Journal"],
@@ -147,63 +158,61 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 if pestana in ["Dashboard", "Signals", "Scalping"]:
 
-  # 1. Tarjeta superior BUY UP
+  # Tarjeta Superior Maestra (BUY UP a la izquierda + 4 iconos exactos a la derecha como en la foto)
   st.markdown(
       f"""
-    <div class="tarjeta-verde">
-        <div style="font-size: 8px; color: #6b638a; letter-spacing: 1px;">BTC / USD (SPOT) • ${precio_btc:,.2f} • LIVE</div>
-        <div class="texto-buy">BUY UP 🔺</div>
-        <div style="font-size: 18px; font-weight: 800; color: #00ff88;">82.6%</div>
-        <div style="margin-top: 4px; background: #130f20; border-radius: 4px; height: 3px; width: 100%;">
-            <div style="background: #00ff88; width: 82.6%; height: 3px; border-radius: 4px;"></div>
+    <div class="tarjeta-maestra">
+        <div>
+            <div style="font-size: 7px; color: #6b638a; letter-spacing: 1px;">BTC / USD (SPOT) • ${precio_btc:,.2f} • LIVE</div>
+            <div class="texto-buy">BUY UP 🔺</div>
+            <div style="font-size: 15px; font-weight: 800; color: #00ff88;">82.6%</div>
+            <div style="margin-top: 3px; background: #130f20; border-radius: 4px; height: 3px; width: 140px;">
+                <div style="background: #00ff88; width: 82.6%; height: 3px; border-radius: 4px;"></div>
+            </div>
+        </div>
+        <div class="columna-iconos">
+            <div class="mini-circulo">🎯</div>
+            <div class="mini-circulo">⚡</div>
+            <div class="mini-circulo">📊</div>
+            <div class="mini-circulo">🛡️</div>
         </div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # 2. Los 3 botones/iconos en UNA SOLA FILA usando Flexbox (Garantizado horizontal)
-  st.markdown(
-      """
-    <div class="fila-horizontal">
-        <div class="item-fila">🎯 LOCK</div>
-        <div class="item-fila" style="color:#6b638a;">⚡ 15M</div>
-        <div class="item-fila">📊 PRO</div>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
-
-  # 3. Gráfico de Tendencia
+  # Gráfico de Tendencia Verde Integrado
   st.markdown('<div class="caja-oscura">', unsafe_allow_html=True)
-  st.markdown('<div style="font-size: 8px; color: #6b638a; letter-spacing: 1px; margin-bottom: 4px;">ESTRUCTURA DE CICLO 15M (TICK FLOW)</div>', unsafe_allow_html=True)
+  st.markdown('<div style="font-size: 7px; color: #6b638a; letter-spacing: 1px; margin-bottom: 2px;">ESTRUCTURA DE CICLO 15M (TICK FLOW)</div>', unsafe_allow_html=True)
   df_grafico = obtener_velas()
   if df_grafico is not None:
-    st.line_chart(df_grafico, color="#00ff88", height=140)
+    st.line_chart(df_grafico, color="#00ff88", height=120)
   else:
-    st.info(f"Precio actual: ${precio_btc:,.2f}")
+    st.info(f"Precio: ${precio_btc:,.2f}")
   st.markdown('</div>', unsafe_allow_html=True)
 
-  # 4. Bloques inferiores lado a lado con Flexbox
+  # Fila de métricas inferiores (3 columnas idénticas a la captura de TikTok)
   st.markdown(
       """
-    <div class="fila-inferior">
-        <div class="caja-inferior">
-            <div style="font-size: 8px; color: #6b638a;">LIVE RESULT</div>
-            <div style="font-size: 12px; font-weight: 800; color: #00ff88; margin-top: 2px;">+91,220.00</div>
-            <div style="font-size: 8px; color: #00ff88;">+6,100%</div>
+    <div class="fila-metricas">
+        <div class="caja-metrica">
+            <div style="font-size: 7px; color: #6b638a;">WIN RATE</div>
+            <div style="font-size: 11px; font-weight: 800; color: #00ff88;">+6,100%</div>
         </div>
-        <div class="caja-inferior">
-            <div style="font-size: 8px; color: #6b638a;">AI ANALYSIS</div>
-            <div style="font-size: 10px; font-weight: 700; color: #fff; margin-top: 2px;">✓ Liquidity Zone</div>
-            <div style="font-size: 8px; color: #6b638a;">Verified</div>
+        <div class="caja-metrica">
+            <div style="font-size: 7px; color: #6b638a;">VAULT BAL</div>
+            <div style="font-size: 10px; font-weight: 800; color: #00ff88;">+91,220</div>
+        </div>
+        <div class="caja-metrica">
+            <div style="font-size: 7px; color: #6b638a;">STATUS</div>
+            <div style="font-size: 9px; font-weight: 700; color: #fff;">VERIFIED</div>
         </div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # 5. Botón WIN final
+  # Botón WIN final idéntico
   st.markdown('<div class="boton-win-final">WIN 🚀</div>', unsafe_allow_html=True)
 
 else:
@@ -216,3 +225,5 @@ else:
     """,
       unsafe_allow_html=True,
   )
+
+st.markdown('</div>', unsafe_allow_html=True)
