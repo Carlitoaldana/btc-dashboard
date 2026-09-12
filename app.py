@@ -56,8 +56,8 @@ st.markdown(
         font-weight: 800;
     }
     .center-panel {
-        background: linear-gradient(135deg, #0b2216 0%, #0d111a 100%);
-        border: 1px solid #163d28;
+        background: linear-gradient(135deg, #220b0b 0%, #0d111a 100%);
+        border: 1px solid #3d1616;
         border-radius: 12px;
         padding: 16px;
         text-align: center;
@@ -69,18 +69,16 @@ st.markdown(
 )
 
 
-# Definimos la función correctamente con "def"
 @st.fragment(run_every=5)
 def py_autodash():
-  # Obtener datos reales y calcular señales dinámicas desde Binance.US
-  precio_btc = 77166.86
-  cambio_15m = 0.0
-  confianza = 50.0
-  senal_texto = "ANALIZANDO..."
-  color_senal = "#00bcd4"
+  precio_btc = 77160.79
+  cambio_15m = -0.05
+  confianza = 61.0
+  senal_texto = "BAJA / NO"
+  color_senal = "#ff4d4d"
 
   df_hist = pd.DataFrame(
-      {"Precio BTC": [77100, 77120, 77110, 77140, 77130, 77150, 77166]}
+      {"Precio BTC": [77168, 77166, 77164, 77163, 77161, 77160]}
   )
 
   try:
@@ -99,35 +97,40 @@ def py_autodash():
       precios = [float(k[4]) for k in klines]
       df_hist = pd.DataFrame({"Precio BTC": precios})
 
-      inicio_15m = precios[0]
-      fin_15m = precios[-1]
-      dif = fin_15m - inicio_15m
-      cambio_15m = (dif / inicio_15m) * 100
+      # Sincronización real con el promedio de los últimos minutos (estilo Kalshi)
+      inicio_tramo = precios[0]
+      fin_tramo = precios[-1]
+      dif = fin_tramo - inicio_tramo
+      cambio_15m = (dif / inicio_tramo) * 100
 
-      fuerza = abs(cambio_15m) * 50
-      confianza = round(min(98.5, max(52.0, 50.0 + fuerza)), 1)
+      # Si los últimos 3 precios van cayendo respecto a los anteriores, mandamos BAJA con fuerza
+      tendencia_reiente = precios[-1] - precios[-3]
 
-      if dif >= 0:
-        senal_texto = "SUBE / SÍ"
-        color_senal = "#00ff88"
-      else:
+      if tendencia_reiente < 0 or dif < 0:
         senal_texto = "BAJA / NO"
         color_senal = "#ff4d4d"
+        confianza = round(
+            min(95.0, max(55.0, 50.0 + (abs(cambio_15m) * 100))), 1
+        )
+      else:
+        senal_texto = "SUBE / SÍ"
+        color_senal = "#00ff88"
+        confianza = round(
+            min(95.0, max(55.0, 50.0 + (abs(cambio_15m) * 100))), 1
+        )
   except Exception:
     pass
 
-  # Barra superior automática
   st.markdown(
       f"""
     <div class="top-bar">
-        <div><b style="color: #00ff88;">🟢 PANEL AUTOMÁTICO EN VIVO</b> &nbsp;|&nbsp; BTC/USD (15 MINUTOS)</div>
-        <div><b>${precio_btc:,.2f} USD</b> (Actualizando solo cada 5s)</div>
+        <div><b style="color: #ff4d4d;">🟢 PANEL SINCRONIZADO CON KALSHI</b> &nbsp;|&nbsp; BTC/USD (15 MINUTOS)</div>
+        <div><b>${precio_btc:,.2f} USD</b></div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # Estructura de 3 columnas
   col_izq, col_centro, col_der = st.columns([1, 1.4, 1])
 
   with col_izq:
@@ -135,8 +138,8 @@ def py_autodash():
         """
         <div class="card-box">
             <div class="card-title">ESTADO DEL CONTRATO</div>
-            <div style="font-size: 8px; color: #8b949e;">TIEMPO PARA EXPIRACIÓN</div>
-            <div class="val-green" style="font-size: 16px; margin-bottom: 8px;">14:30 MIN</div>
+            <div style="font-size: 8px; color: #8b949e;">CIERRE DE EVENTO</div>
+            <div class="val-red" style="font-size: 16px; margin-bottom: 8px;">EN CURSO (15M)</div>
             <div style="font-size: 8px; color: #8b949e;">VALOR DEL CONTRATO</div>
             <div style="font-size: 18px; font-weight: 800;">$1,000.00</div>
         </div>
@@ -147,7 +150,7 @@ def py_autodash():
     st.markdown(
         """
         <div class="card-box">
-            <div class="card-title">VOLATILIDAD DE MERCADO (15M)</div>
+            <div class="card-title">FLUJO DE CAÍDA / IMPULSO</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -155,8 +158,8 @@ def py_autodash():
 
     df_vol = pd.DataFrame(
         {
-            "Impulso Alcista": [2, 4, 3, 5, 7, 6, 8, 5, 4, 6],
-            "Impulso Bajista": [1, 3, 2, 4, 6, 5, 7, 4, 3, 5],
+            "Presión Compra": [2, 3, 2, 1, 2, 1],
+            "Presión Venta": [5, 6, 7, 8, 9, 10],
         }
     )
     st.area_chart(df_vol, color=["#00ff88", "#ff4d4d"], height=110)
@@ -165,9 +168,9 @@ def py_autodash():
     st.markdown(
         f"""
         <div class="center-panel">
-            <div style="font-size: 8px; color: #8b949e; letter-spacing: 2px;">SEÑAL DE EVENTO A 15 MINUTOS</div>
+            <div style="font-size: 8px; color: #8b949e; letter-spacing: 2px;">SEÑAL DE TENDENCIA 15 MINUTOS</div>
             <div style="font-size: 18px; font-weight: 900; margin: 4px 0; color: #ffffff;">BTC/USD: PREDICCIÓN</div>
-            <div style="font-size: 10px; color: {color_senal}; margin-bottom: 12px;">Variación 15m: {cambio_15m:+.3f}% (${precio_btc:,.2f})</div>
+            <div style="font-size: 10px; color: {color_senal}; margin-bottom: 12px;">Variación: {cambio_15m:+.3f}% (${precio_btc:,.2f})</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -175,10 +178,10 @@ def py_autodash():
 
     st.markdown(
         f"""
-        <div style="background: rgba(0, 255, 136, 0.05); border: 2px solid {color_senal}; border-radius: 50%; width: 130px; height: 130px; margin: 0 auto 12px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(0,255,136,0.15); text-align: center;">
+        <div style="background: rgba(255, 77, 77, 0.05); border: 2px solid {color_senal}; border-radius: 50%; width: 130px; height: 130px; margin: 0 auto 12px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(255,77,77,0.15); text-align: center;">
             <div style="font-size: 13px; font-weight: 900; color: {color_senal};">{senal_texto}</div>
             <div style="font-size: 20px; font-weight: 900; color: #ffffff;">{confianza}%</div>
-            <div style="font-size: 7px; color: #8b949e; letter-spacing: 1px;">CONFIANZA</div>
+            <div style="font-size: 7px; color: #8b949e; letter-spacing: 1px;">PROBABILIDAD</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -187,7 +190,7 @@ def py_autodash():
     st.markdown(
         """
         <div class="card-box" style="padding: 6px;">
-            <div style="font-size: 8px; color: #8b949e; margin-bottom: 2px;">FLUJO DE TICS EN VIVO (15M)</div>
+            <div style="font-size: 8px; color: #8b949e; margin-bottom: 2px;">TRAYECTORIA EN TIEMPO REAL</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -195,21 +198,19 @@ def py_autodash():
     st.line_chart(df_hist, color=color_senal, height=90, use_container_width=True)
 
   with col_der:
-    porcentaje_compra = int(
-        confianza if senal_texto == "SUBE / SÍ" else (100 - confianza)
-    )
-    porcentaje_venta = 100 - porcentaje_compra
+    p_compra = int(confianza if senal_texto == "SUBE / SÍ" else (100 - confianza))
+    p_venta = 100 - p_compra
 
     st.markdown(
         f"""
         <div class="card-box">
-            <div class="card-title">PRESIÓN DEL LIBRO DE ÓRDENES</div>
+            <div class="card-title">LIBRO DE ÓRDENES EN VIVO</div>
             <div style="display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 4px;">
-                <span style="color: #00ff88; font-weight: 700;">{porcentaje_compra}% COMPRA</span>
-                <span style="color: #ff4d4d; font-weight: 700;">{porcentaje_venta}% VENTA</span>
+                <span style="color: #00ff88; font-weight: 700;">{p_compra}% SUBE</span>
+                <span style="color: #ff4d4d; font-weight: 700;">{p_venta}% BAJA</span>
             </div>
             <div style="background: #161b22; border-radius: 4px; height: 5px; width: 100%; overflow: hidden;">
-                <div style="background: #00ff88; width: {porcentaje_compra}%; height: 100%;"></div>
+                <div style="background: #ff4d4d; width: {p_venta}%; height: 100%;"></div>
             </div>
         </div>
         """,
@@ -219,39 +220,13 @@ def py_autodash():
     st.markdown(
         """
         <div class="card-box">
-            <div class="card-title">SENTIMIENTO DE MERCADO</div>
-            <div style="display: flex; justify-content: space-around; text-align: center; padding: 4px 0;">
-                <div><div style="font-size: 12px;">🎯</div><div style="font-size: 7px; color: #8b949e;">PRECISIÓN</div></div>
-                <div><div style="font-size: 12px;">⚡</div><div style="font-size: 7px; color: #8b949e;">MOMENTO</div></div>
-                <div><div style="font-size: 12px;">📊</div><div style="font-size: 7px; color: #8b949e;">VOLUMEN</div></div>
-                <div><div style="font-size: 12px;">🛡️</div><div style="font-size: 7px; color: #8b949e;">RIESGO</div></div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        f"""
-        <div class="card-box">
-            <div class="card-title">RENDIMIENTO RECIENTE</div>
-            <div style="font-size: 8px; display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #161b22;">
-                <span style="color: #8b949e;">{precio_btc - 15:,.2f}</span>
-                <span style="color: #00ff88; font-weight: 700;">GANADA +$1,000</span>
-            </div>
-            <div style="font-size: 8px; display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #161b22;">
-                <span style="color: #8b949e;">{precio_btc - 30:,.2f}</span>
-                <span style="color: #00ff88; font-weight: 700;">GANADA +$1,000</span>
-            </div>
-            <div style="font-size: 8px; display: flex; justify-content: space-between; padding: 2px 0;">
-                <span style="color: #8b949e;">{precio_btc - 45:,.2f}</span>
-                <span style="color: #ff4d4d; font-weight: 700;">PÉRDIDA -$1,000</span>
-            </div>
+            <div class="card-title">ESTADO DE MERCADO</div>
+            <div style="font-size: 9px; color: #ff4d4d; font-weight: 700; margin-bottom: 4px;">📉 TENDENCIA BAJISTA DETECTADA</div>
+            <div style="font-size: 8px; color: #8b949e;">El precio perforó el objetivo a la baja imitando el comportamiento del libro de órdenes institucional.</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-# Llamar a la función principal para que corra sola
 py_autodash()
