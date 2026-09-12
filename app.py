@@ -69,9 +69,9 @@ st.markdown(
 )
 
 
-# Definimos el bloque principal en automático con un decorador de ejecución autónoma
+# Definimos la función correctamente con "def"
 @st.fragment(run_every=5)
-py_autodash():
+def py_autodash():
   # Obtener datos reales y calcular señales dinámicas desde Binance.US
   precio_btc = 77166.86
   cambio_15m = 0.0
