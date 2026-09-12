@@ -164,7 +164,7 @@ html_code = """
             <div class="coin-title">
                 <span style="color: #f0b90b;">🟠</span> BTC 15 min <span style="font-size: 10px; color: #848e9c;">▼</span>
             </div>
-            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Smart Momentum AI</div>
+            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Live Sync AI</div>
         </div>
 
         <div class="prices-grid">
@@ -195,7 +195,7 @@ html_code = """
             </div>
             <div class="signal-box" id="signal-box">
                 <div id="signal-main">CALCULANDO...</div>
-                <div class="signal-sub" id="signal-sub">Analizando velocidad de ticks iniciales</div>
+                <div class="signal-sub" id="signal-sub">Sincronizando con el bloque de 15m</div>
             </div>
         </div>
     </div>
@@ -287,21 +287,22 @@ html_code = """
                 let currentPrice = parseFloat(data.data.amount);
 
                 priceHistory.push(currentPrice);
-                if (priceHistory.length > 30) priceHistory.shift();
+                if (priceHistory.length > 40) priceHistory.shift();
 
                 let now = new Date();
-                let utcHour = now.getUTCHours();
-                let utcMinute = now.getUTCMinutes();
-                let utcSecond = now.getUTCSeconds();
-                let blockMinute = Math.floor(utcMinute / 15) * 15;
-                
-                let blockKey = now.getUTCDate() + "-" + now.getUTCMonth() + "-" + utcHour + "-" + blockMinute;
+                let totalMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+                let currentSecondInBlock = (totalMinutes % 15) * 60 + now.getUTCSeconds();
+                let remainingSeconds = 900 - currentSecondInBlock;
+                if (remainingSeconds < 1) remainingSeconds = 1;
+
+                let blockKey = Math.floor(totalMinutes / 15);
 
                 let savedBlock = localStorage.getItem("kalshi_strike_block");
                 let savedStrike = localStorage.getItem("kalshi_strike_price");
 
                 let strikePrice = 0;
-                if (savedBlock === blockKey && savedStrike) {
+                // Si cambiamos de bloque de 15 minutos, capturamos el nuevo precio base de inmediato
+                if (savedBlock === String(blockKey) && savedStrike) {
                     strikePrice = parseFloat(savedStrike);
                 } else {
                     strikePrice = currentPrice;
@@ -311,9 +312,6 @@ html_code = """
                 }
 
                 let diff = currentPrice - strikePrice;
-                let secondsIntoBlock = (utcMinute % 15) * 60 + utcSecond;
-                let remainingSeconds = 900 - secondsIntoBlock;
-                if (remainingSeconds < 1) remainingSeconds = 1;
 
                 document.getElementById('target-price').innerText = "$" + strikePrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 document.getElementById('current-price').innerText = "$" + currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -338,31 +336,32 @@ html_code = """
                     }
                 }
 
-                if (secondsIntoBlock <= 180) {
+                // Primeros 3 minutos (180 segundos) exactos del ciclo de 15m
+                if (currentSecondInBlock <= 180) {
                     windowStatus.innerText = "⚡ VENTANA DE ENTRADA (0-3 MIN)";
                     
-                    if (momentumScore >= 3 && diff > 1.0) {
+                    if (momentumScore >= 3 && diff > 0.5) {
                         sBox.style.backgroundColor = "#0ecb81";
                         sBox.style.color = "#000";
                         sMain.innerText = "🟢 ENTRAR UP";
-                        sSub.innerText = "Impulso alcista detectado (Momento limpio)";
-                    } else if (momentumScore <= -3 && diff < -1.0) {
+                        sSub.innerText = "Impulso alcista limpio detectado";
+                    } else if (momentumScore <= -3 && diff < -0.5) {
                         sBox.style.backgroundColor = "#f6465d";
                         sBox.style.color = "#fff";
                         sMain.innerText = "🔴 ENTRAR DOWN";
-                        sSub.innerText = "Impulso bajista detectado (Momento limpio)";
+                        sSub.innerText = "Impulso bajista limpio detectado";
                     } else {
                         sBox.style.backgroundColor = "#2b313a";
                         sBox.style.color = "#f0b90b";
                         sMain.innerText = "⏳ LEYENDO MERCADO";
-                        sSub.innerText = "Esperando ruptura de velocidad limpia...";
+                        sSub.innerText = "Buscando ruptura limpia en el arranque...";
                     }
                 } else {
                     windowStatus.innerText = "🔒 BLOQUE AVANZADO (ZONA CERRADA)";
                     sBox.style.backgroundColor = "#1e2329";
                     sBox.style.color = "#848e9c";
-                    sMain.innerText = "🛡️ ESPERANDO SIGUIENTE BLOQUE";
-                    sSub.innerText = "Fuera de la ventana de entrada segura";
+                    sMain.innerText = "🛡️ VENTANA CERRADA";
+                    sSub.innerText = "Fuera del tiempo seguro de entrada";
                 }
 
                 let remainingMinutes = Math.floor(remainingSeconds / 60);
@@ -371,7 +370,7 @@ html_code = """
                 document.getElementById('timer-text').innerText = "Cierra " + remainingMinutes + ":" + secFormatted;
 
             } catch (e) {
-                console.error("Error en bot smart momentum", e);
+                console.error("Error en sincronización", e);
             }
         }
 
