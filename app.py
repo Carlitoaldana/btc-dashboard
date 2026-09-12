@@ -2,7 +2,7 @@ import pandas as pd
 import requests
 import streamlit as st
 
-# Configuración idéntica de página compacta
+# Configuración limpia de página
 st.set_page_config(
     page_title="PREDICTION BOT - MAKING A BAG",
     page_icon="🚀",
@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Estilos CSS exactos para replicar la tarjeta compacta de la captura
+# Estilos CSS idénticos y optimizados
 st.markdown(
     """
     <style>
@@ -38,13 +38,12 @@ st.markdown(
         text-transform: uppercase;
         margin-bottom: 6px;
     }
-    /* Tarjeta maestra que encierra el BUY UP y los mini círculos a la derecha */
     .tarjeta-maestra {
         background: linear-gradient(135deg, #0b2216 0%, #0d0a14 100%);
         border: 1px solid #163d28;
         border-radius: 10px;
         padding: 10px;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -56,7 +55,6 @@ st.markdown(
         letter-spacing: 1px;
         margin: 1px 0;
     }
-    /* Contenedor de los 4 botoncitos circulares/cuadrados en columna derecha */
     .columna-iconos {
         display: flex;
         flex-direction: column;
@@ -67,7 +65,7 @@ st.markdown(
         border: 1px solid #251d3b;
         border-radius: 6px;
         width: 32px;
-        height: 26px;
+        height: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -78,12 +76,12 @@ st.markdown(
         border: 1px solid #1f182e;
         border-radius: 8px;
         padding: 8px;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
     }
     .fila-metricas {
         display: flex;
         gap: 4px;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
     }
     .caja-metrica {
         flex: 1;
@@ -109,7 +107,7 @@ st.markdown(
 )
 
 # Obtener precio real de Binance.US
-precio_btc = 77075.25
+precio_btc = 77092.02
 try:
   res = requests.get(
       "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT", timeout=3
@@ -144,27 +142,27 @@ st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
 # Encabezado
 st.markdown('<div class="titulo-top">PREDICTION BOT: MAKING A BAG 🚀</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-top">15MIN MARKET</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-top">MERCADO 15 MINUTOS</div>', unsafe_allow_html=True)
 
-# Pestañas de navegación compactas
+# Pestañas de navegación traducidas al español
 pestana = st.radio(
     "Navegación",
-    ["Dashboard", "Scalping", "1H Desk", "Signals", "Journal"],
+    ["Panel", "Scalping", "Mesa 1H", "Señales", "Registro"],
     horizontal=True,
     label_visibility="collapsed",
 )
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-if pestana in ["Dashboard", "Signals", "Scalping"]:
+if pestana in ["Panel", "Señales", "Scalping"]:
 
-  # Tarjeta Superior Maestra (BUY UP a la izquierda + 4 iconos exactos a la derecha como en la foto)
+  # Tarjeta Superior Maestra (con traducción de etiqueta LIVE a EN VIVO)
   st.markdown(
       f"""
     <div class="tarjeta-maestra">
         <div>
-            <div style="font-size: 7px; color: #6b638a; letter-spacing: 1px;">BTC / USD (SPOT) • ${precio_btc:,.2f} • LIVE</div>
-            <div class="texto-buy">BUY UP 🔺</div>
+            <div style="font-size: 7px; color: #6b638a; letter-spacing: 1px;">BTC / USD (CONTADO) • ${precio_btc:,.2f} • EN VIVO</div>
+            <div class="texto-buy">COMPRAR SUBIDA 🔺</div>
             <div style="font-size: 15px; font-weight: 800; color: #00ff88;">82.6%</div>
             <div style="margin-top: 3px; background: #130f20; border-radius: 4px; height: 3px; width: 140px;">
                 <div style="background: #00ff88; width: 82.6%; height: 3px; border-radius: 4px;"></div>
@@ -181,9 +179,9 @@ if pestana in ["Dashboard", "Signals", "Scalping"]:
       unsafe_allow_html=True,
   )
 
-  # Gráfico de Tendencia Verde Integrado
+  # Gráfico de Tendencia
   st.markdown('<div class="caja-oscura">', unsafe_allow_html=True)
-  st.markdown('<div style="font-size: 7px; color: #6b638a; letter-spacing: 1px; margin-bottom: 2px;">ESTRUCTURA DE CICLO 15M (TICK FLOW)</div>', unsafe_allow_html=True)
+  st.markdown('<div style="font-size: 7px; color: #6b638a; letter-spacing: 1px; margin-bottom: 2px;">ESTRUCTURA DE CICLO 15M (FLUJO DE TICKS)</div>', unsafe_allow_html=True)
   df_grafico = obtener_velas()
   if df_grafico is not None:
     st.line_chart(df_grafico, color="#00ff88", height=120)
@@ -191,36 +189,36 @@ if pestana in ["Dashboard", "Signals", "Scalping"]:
     st.info(f"Precio: ${precio_btc:,.2f}")
   st.markdown('</div>', unsafe_allow_html=True)
 
-  # Fila de métricas inferiores (3 columnas idénticas a la captura de TikTok)
+  # Fila de métricas inferiores traducidas
   st.markdown(
       """
     <div class="fila-metricas">
         <div class="caja-metrica">
-            <div style="font-size: 7px; color: #6b638a;">WIN RATE</div>
+            <div style="font-size: 7px; color: #6b638a;">TASA DE ACIERTO</div>
             <div style="font-size: 11px; font-weight: 800; color: #00ff88;">+6,100%</div>
         </div>
         <div class="caja-metrica">
-            <div style="font-size: 7px; color: #6b638a;">VAULT BAL</div>
+            <div style="font-size: 7px; color: #6b638a;">SALDO BÓVEDA</div>
             <div style="font-size: 10px; font-weight: 800; color: #00ff88;">+91,220</div>
         </div>
         <div class="caja-metrica">
-            <div style="font-size: 7px; color: #6b638a;">STATUS</div>
-            <div style="font-size: 9px; font-weight: 700; color: #fff;">VERIFIED</div>
+            <div style="font-size: 7px; color: #6b638a;">ESTADO</div>
+            <div style="font-size: 9px; font-weight: 700; color: #fff;">VERIFICADO</div>
         </div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # Botón WIN final idéntico
-  st.markdown('<div class="boton-win-final">WIN 🚀</div>', unsafe_allow_html=True)
+  # Botón WIN final traducido
+  st.markdown('<div class="boton-win-final">GANADA 🚀</div>', unsafe_allow_html=True)
 
 else:
   st.markdown(
       f"""
     <div class="caja-oscura">
         <h3>Módulo: {pestana}</h3>
-        <p style="color: #6b638a;">Sincronizado con Binance.US.</p>
+        <p style="color: #6b638a;">Sincronizado con Binance.US en tiempo real.</p>
     </div>
     """,
       unsafe_allow_html=True,
