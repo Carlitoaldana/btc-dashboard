@@ -54,6 +54,14 @@ st.markdown(
         padding: 12px;
         margin-bottom: 8px;
     }
+    .status-row-card {
+        background-color: #120f1c;
+        border: 1px solid #231b36;
+        border-radius: 10px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        text-align: center;
+    }
     .win-btn {
         background-color: #00ff88;
         color: #07050d;
@@ -65,20 +73,13 @@ st.markdown(
         letter-spacing: 1px;
         margin-top: 8px;
     }
-    .metric-box {
-        background-color: #161224;
-        border: 1px solid #292042;
-        border-radius: 10px;
-        text-align: center;
-        padding: 8px;
-    }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
 # Obtener precio real de Binance.US
-precio_btc = 77146.13
+precio_btc = 77100.00
 try:
   res = requests.get(
       "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT", timeout=3
@@ -123,46 +124,38 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 if pestana in ["Dashboard", "Signals", "Scalping"]:
 
-  # Contenedor principal dividido en dos columnas (Izquierda: Señal y Gráfico | Derecha: Métricas circulares de la foto)
-  col_izq, col_der = st.columns([3, 1])
+  # 1. Tarjeta principal "BUY UP"
+  st.markdown(
+      f"""
+    <div class="main-vault-card">
+        <div style="font-size: 9px; color: #7b7299; letter-spacing: 1px;">BTC / USD (SPOT) • ${precio_btc:,.2f} • LIVE</div>
+        <div class="buy-text">BUY UP 🔺</div>
+        <div style="font-size: 20px; font-weight: 800; color: #00ff88;">82.6%</div>
+        <div style="margin-top: 4px; background: #161224; border-radius: 4px; height: 4px; width: 100%;">
+            <div style="background: #00ff88; width: 82.6%; height: 4px; border-radius: 4px;"></div>
+        </div>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
 
-  with col_izq:
-    # Tarjeta de Señal "BUY UP"
-    st.markdown(
-        f"""
-        <div class="main-vault-card">
-            <div style="font-size: 9px; color: #7b7299; letter-spacing: 1px;">BTC / USD (SPOT) • ${precio_btc:,.2f} • LIVE</div>
-            <div class="buy-text">BUY UP 🔺</div>
-            <div style="font-size: 20px; font-weight: 800; color: #00ff88;">82.6%</div>
-            <div style="margin-top: 4px; background: #161224; border-radius: 4px; height: 4px; width: 100%;">
-                <div style="background: #00ff88; width: 82.6%; height: 4px; border-radius: 4px;"></div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+  # 2. Las 3 barras horizontales con iconos idénticas a tu foto
+  st.markdown(
+      """
+    <div class="status-row-card">
+        <span style="font-size: 13px;">🎯</span> <span style="font-size: 10px; font-weight: 700; color: #00ff88; letter-spacing: 1px;">LOCK</span>
+    </div>
+    <div class="status-row-card">
+        <span style="font-size: 13px;">⚡</span> <span style="font-size: 10px; font-weight: 700; color: #7b7299; letter-spacing: 1px;">15M</span>
+    </div>
+    <div class="status-row-card">
+        <span style="font-size: 13px;">📊</span> <span style="font-size: 10px; font-weight: 700; color: #00ff88; letter-spacing: 1px;">PRO</span>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
 
-  with col_der:
-    # Mini iconos redondos laterales idénticos a la disposición de la captura
-    st.markdown(
-        """
-        <div class="metric-box" style="margin-bottom: 4px;">
-            <div style="font-size: 12px;">🎯</div>
-            <div style="font-size: 8px; color: #00ff88; font-weight: 700;">LOCK</div>
-        </div>
-        <div class="metric-box" style="margin-bottom: 4px;">
-            <div style="font-size: 12px;">⚡</div>
-            <div style="font-size: 8px; color: #7b7299;">15M</div>
-        </div>
-        <div class="metric-box">
-            <div style="font-size: 12px;">📊</div>
-            <div style="font-size: 8px; color: #00ff88;">PRO</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-  # Gráfico de Tendencia Verde Estilizado
+  # 3. Gráfico de Tendencia Verde Estilizado
   st.markdown('<div class="card-box">', unsafe_allow_html=True)
   st.markdown('<div style="font-size: 9px; color: #7b7299; letter-spacing: 1px; margin-bottom: 4px;">ESTRUCTURA DE CICLO 15M (TICK FLOW)</div>', unsafe_allow_html=True)
   df_grafico = cargar_velas_15m()
@@ -172,12 +165,12 @@ if pestana in ["Dashboard", "Signals", "Scalping"]:
     st.info(f"Precio actual: ${precio_btc:,.2f}")
   st.markdown('</div>', unsafe_allow_html=True)
 
-  # Bloques inferiores de Análisis y Ganancia en vivo (Lado a lado)
+  # 4. Bloques inferiores de Análisis y Ganancia en vivo (Lado a lado)
   col_a, col_b = st.columns(2)
   with col_a:
     st.markdown(
         """
-        <div class="card-box">
+        <div class="card-box" style="margin-bottom: 0px;">
             <div style="font-size: 8px; color: #7b7299;">LIVE RESULT</div>
             <div style="font-size: 13px; font-weight: 800; color: #00ff88; margin-top: 2px;">+91,220.00</div>
             <div style="font-size: 9px; color: #00ff88;">+6,100%</div>
@@ -188,7 +181,7 @@ if pestana in ["Dashboard", "Signals", "Scalping"]:
   with col_b:
     st.markdown(
         """
-        <div class="card-box">
+        <div class="card-box" style="margin-bottom: 0px;">
             <div style="font-size: 8px; color: #7b7299;">AI ANALYSIS</div>
             <div style="font-size: 11px; font-weight: 700; color: #fff; margin-top: 2px;">✓ Liquidity Zone Verified</div>
             <div style="font-size: 9px; color: #7b7299;">Immutability Confirmed</div>
