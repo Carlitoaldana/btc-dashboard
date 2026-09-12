@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="BTC Kalshi Sniper Pro", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="BTC Kalshi Smart Sniper", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -18,7 +18,7 @@ html_code = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC 15 Min Sniper Pro</title>
+    <title>BTC Smart Momentum Sniper</title>
     <style>
         body {
             background-color: #0b0e11;
@@ -164,12 +164,12 @@ html_code = """
             <div class="coin-title">
                 <span style="color: #f0b90b;">🟠</span> BTC 15 min <span style="font-size: 10px; color: #848e9c;">▼</span>
             </div>
-            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Blindaje Activo</div>
+            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Smart Momentum AI</div>
         </div>
 
         <div class="prices-grid">
             <div class="price-box">
-                <label>Strike Oficial (Bloque)</label>
+                <label>Strike Base</label>
                 <div id="target-price" class="val target">Cargando...</div>
             </div>
             <div class="price-box">
@@ -190,12 +190,12 @@ html_code = """
 
         <div class="signal-card">
             <div class="signal-header">
-                <span>SEÑAL OFICIAL 15M</span>
+                <span id="window-status">IA: MOTOR DE IMPULSO</span>
                 <span id="timer-text" style="background: #2b313a; color: #fff; padding: 2px 6px; border-radius: 4px;">Cierra --:--</span>
             </div>
             <div class="signal-box" id="signal-box">
-                <div id="signal-main">ANALIZANDO...</div>
-                <div class="signal-sub" id="signal-sub">Filtros anti-amague activados</div>
+                <div id="signal-main">CALCULANDO...</div>
+                <div class="signal-sub" id="signal-sub">Analizando velocidad de ticks iniciales</div>
             </div>
         </div>
     </div>
@@ -209,8 +209,6 @@ html_code = """
 
     <script>
         let priceHistory = [];
-        let persistedUpCount = 0;
-        let persistedDownCount = 0;
         
         const canvas = document.getElementById('priceCanvas');
         const ctx = canvas.getContext('2d');
@@ -289,7 +287,7 @@ html_code = """
                 let currentPrice = parseFloat(data.data.amount);
 
                 priceHistory.push(currentPrice);
-                if (priceHistory.length > 40) priceHistory.shift();
+                if (priceHistory.length > 30) priceHistory.shift();
 
                 let now = new Date();
                 let utcHour = now.getUTCHours();
@@ -297,7 +295,6 @@ html_code = """
                 let utcSecond = now.getUTCSeconds();
                 let blockMinute = Math.floor(utcMinute / 15) * 15;
                 
-                // Clave única para fijar el Strike exacto al iniciar el bloque de 15 min
                 let blockKey = now.getUTCDate() + "-" + now.getUTCMonth() + "-" + utcHour + "-" + blockMinute;
 
                 let savedBlock = localStorage.getItem("kalshi_strike_block");
@@ -311,33 +308,12 @@ html_code = """
                     localStorage.setItem("kalshi_strike_block", blockKey);
                     localStorage.setItem("kalshi_strike_price", strikePrice);
                     priceHistory = [currentPrice];
-                    persistedUpCount = 0;
-                    persistedDownCount = 0;
                 }
 
                 let diff = currentPrice - strikePrice;
                 let secondsIntoBlock = (utcMinute % 15) * 60 + utcSecond;
                 let remainingSeconds = 900 - secondsIntoBlock;
                 if (remainingSeconds < 1) remainingSeconds = 1;
-
-                // Filtro de persistencia fuerte: exige distancia real de más de $15 dólares y constancia de 6 segundos
-                if (diff > 15.0) {
-                    persistedUpCount++;
-                    persistedDownCount = 0;
-                } else if (diff < -15.0) {
-                    persistedDownCount++;
-                    persistedUpCount = 0;
-                } else {
-                    persistedUpCount = Math.max(0, persistedUpCount - 1);
-                    persistedDownCount = Math.max(0, persistedDownCount - 1);
-                }
-
-                let probability = 50;
-                if (persistedUpCount >= 6) {
-                    probability = Math.min(96, 60 + Math.floor(diff * 0.8));
-                } else if (persistedDownCount >= 6) {
-                    probability = Math.min(96, 60 + Math.floor(Math.abs(diff) * 0.8));
-                }
 
                 document.getElementById('target-price').innerText = "$" + strikePrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 document.getElementById('current-price').innerText = "$" + currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -351,23 +327,42 @@ html_code = """
                 let sBox = document.getElementById('signal-box');
                 let sMain = document.getElementById('signal-main');
                 let sSub = document.getElementById('signal-sub');
+                let windowStatus = document.getElementById('window-status');
 
-                // Si no hay ruptura sólida, se queda esperando en lugar de adivinar a lo idiota
-                if (persistedUpCount >= 6) {
-                    sBox.style.backgroundColor = "#0ecb81";
-                    sBox.style.color = "#000";
-                    sMain.innerText = "🟢 UP";
-                    sSub.innerText = "Ruptura firme confirmada (" + probability + "%)";
-                } else if (persistedDownCount >= 6) {
-                    sBox.style.backgroundColor = "#f6465d";
-                    sBox.style.color = "#fff";
-                    sMain.innerText = "🔴 DOWN";
-                    sSub.innerText = "Ruptura firme confirmada (" + probability + "%)";
+                let momentumScore = 0;
+                if (priceHistory.length >= 5) {
+                    let recent = priceHistory.slice(-5);
+                    for (let i = 1; i < recent.length; i++) {
+                        if (recent[i] > recent[i-1]) momentumScore++;
+                        else if (recent[i] < recent[i-1]) momentumScore--;
+                    }
+                }
+
+                if (secondsIntoBlock <= 180) {
+                    windowStatus.innerText = "⚡ VENTANA DE ENTRADA (0-3 MIN)";
+                    
+                    if (momentumScore >= 3 && diff > 1.0) {
+                        sBox.style.backgroundColor = "#0ecb81";
+                        sBox.style.color = "#000";
+                        sMain.innerText = "🟢 ENTRAR UP";
+                        sSub.innerText = "Impulso alcista detectado (Momento limpio)";
+                    } else if (momentumScore <= -3 && diff < -1.0) {
+                        sBox.style.backgroundColor = "#f6465d";
+                        sBox.style.color = "#fff";
+                        sMain.innerText = "🔴 ENTRAR DOWN";
+                        sSub.innerText = "Impulso bajista detectado (Momento limpio)";
+                    } else {
+                        sBox.style.backgroundColor = "#2b313a";
+                        sBox.style.color = "#f0b90b";
+                        sMain.innerText = "⏳ LEYENDO MERCADO";
+                        sSub.innerText = "Esperando ruptura de velocidad limpia...";
+                    }
                 } else {
-                    sBox.style.backgroundColor = "#2b313a";
-                    sBox.style.color = "#f0b90b";
-                    sMain.innerText = "⏳ ESPERANDO DIRECCIÓN";
-                    sSub.innerText = "Zona de indecisión / Faltan $15 de distancia";
+                    windowStatus.innerText = "🔒 BLOQUE AVANZADO (ZONA CERRADA)";
+                    sBox.style.backgroundColor = "#1e2329";
+                    sBox.style.color = "#848e9c";
+                    sMain.innerText = "🛡️ ESPERANDO SIGUIENTE BLOQUE";
+                    sSub.innerText = "Fuera de la ventana de entrada segura";
                 }
 
                 let remainingMinutes = Math.floor(remainingSeconds / 60);
@@ -376,7 +371,7 @@ html_code = """
                 document.getElementById('timer-text').innerText = "Cierra " + remainingMinutes + ":" + secFormatted;
 
             } catch (e) {
-                console.error("Error en bot blindado", e);
+                console.error("Error en bot smart momentum", e);
             }
         }
 
