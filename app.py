@@ -1,19 +1,16 @@
 import streamlit as st
 
-st.set_page_config(page_title="VIXY'S VAULT - BTC 15 min", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="VIXY'S VAULT V2", layout="centered", initial_sidebar_state="collapsed")
 
-# Ocultar la barra superior y el footer por defecto de Streamlit para que parezca una app móvil nativa
-hide_streamlit_style = """
+st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .block-container {padding: 0px !important; max-width: 100% !important;}
     </style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# Interfaz completa de Vixy's Vault adaptada con la gráfica y barra móvil
 st.components.v1.html("""
 <!DOCTYPE html>
 <html lang="es">
@@ -31,248 +28,43 @@ st.components.v1.html("""
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            min-height: 100vh;
-            padding: 12px 12px 80px 12px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 440px;
-        }
-
-        /* Top Bar */
-        .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-            padding: 0 4px;
-        }
-
-        .title-badge {
-            font-size: 15px;
-            font-weight: 700;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .sync-pill {
-            background: rgba(0, 255, 102, 0.1);
-            border: 1px solid rgba(0, 255, 102, 0.3);
-            color: var(--neon-green);
-            font-size: 10px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .sync-dot {
-            width: 6px;
-            height: 6px;
-            background-color: var(--neon-green);
-            border-radius: 50%;
-            box-shadow: 0 0 6px var(--neon-green);
-        }
-
-        /* Prices Grid */
-        .prices-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .price-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 12px;
-        }
-
-        .price-card .label {
-            font-size: 9px;
-            color: var(--text-muted);
-            letter-spacing: 1px;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-        }
-
-        .price-card .val {
-            font-size: 16px;
-            font-weight: 800;
-            font-family: monospace;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; padding: 12px 12px 80px 12px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 440px; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; }
+        .title-badge { font-size: 15px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+        .sync-pill { background: rgba(0, 255, 102, 0.1); border: 1px solid rgba(0, 255, 102, 0.3); color: var(--neon-green); font-size: 10px; padding: 4px 10px; border-radius: 20px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+        .sync-dot { width: 6px; height: 6px; background-color: var(--neon-green); border-radius: 50%; box-shadow: 0 0 6px var(--neon-green); }
+        .prices-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .price-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; }
+        .price-card .label { font-size: 9px; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; }
+        .price-card .val { font-size: 16px; font-weight: 800; font-family: monospace; }
         .val-target { color: #f59e0b; }
         .val-current { color: var(--neon-green); }
-
-        /* Chart Card */
-        .chart-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 12px;
-            margin-bottom: 12px;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 10px;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            letter-spacing: 0.5px;
-        }
-
-        .chart-profit {
-            color: var(--neon-green);
-            font-weight: 700;
-        }
-
-        .canvas-container {
-            width: 100%;
-            height: 110px;
-            background: rgba(10, 5, 20, 0.6);
-            border-radius: 8px;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: flex-end;
-        }
-
-        /* Simulated Live SVG Line Chart */
-        .chart-svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Status Block Card */
-        .status-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 14px;
-            text-align: center;
-            margin-bottom: 12px;
-        }
-
-        .status-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 10px;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-            letter-spacing: 1px;
-        }
-
-        .time-badge {
-            background: rgba(255, 255, 255, 0.08);
-            padding: 3px 8px;
-            border-radius: 6px;
-            color: #fff;
-            font-weight: 600;
-        }
-
-        .time-box {
-            background: rgba(10, 5, 20, 0.7);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 10px;
-            padding: 12px;
-        }
-
-        .time-title {
-            font-size: 15px;
-            font-weight: 900;
-            color: #ef4444;
-            letter-spacing: 1.5px;
-            margin-bottom: 4px;
-        }
-
-        .time-desc {
-            font-size: 9px;
-            color: var(--text-muted);
-        }
-
-        /* Bottom Fixed Navigation Bar */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: #0b0614;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            justify-content: space-around;
-            padding: 10px 0;
-            z-index: 100;
-        }
-
-        .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            font-size: 9px;
-            color: var(--text-muted);
-            cursor: pointer;
-            gap: 3px;
-        }
-
-        .nav-item.active {
-            color: var(--neon-green);
-            font-weight: 700;
-        }
-
-        .nav-item span.icon {
-            font-size: 16px;
-        }
-        
-        .action-btn {
-            background: #ef4444;
-            color: white;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
-        }
+        .chart-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+        .chart-header { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 8px; }
+        .chart-profit { color: var(--neon-green); font-weight: 700; }
+        .canvas-container { width: 100%; height: 110px; background: rgba(10, 5, 20, 0.6); border-radius: 8px; position: relative; overflow: hidden; display: flex; align-items: flex-end; }
+        .chart-svg { width: 100%; height: 100%; }
+        .status-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px; text-align: center; margin-bottom: 12px; }
+        .status-header { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted); margin-bottom: 10px; }
+        .time-badge { background: rgba(255, 255, 255, 0.08); padding: 3px 8px; border-radius: 6px; color: #fff; font-weight: 600; }
+        .time-box { background: rgba(10, 5, 20, 0.7); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 12px; }
+        .time-title { font-size: 15px; font-weight: 900; color: #ef4444; letter-spacing: 1.5px; margin-bottom: 4px; }
+        .time-desc { font-size: 9px; color: var(--text-muted); }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #0b0614; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: var(--text-muted); gap: 3px; }
+        .nav-item.active { color: var(--neon-green); font-weight: 700; }
+        .nav-item span.icon { font-size: 16px; }
+        .action-btn { background: #ef4444; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
     </style>
 </head>
 <body>
-
     <div class="container">
-        <!-- Top Bar -->
         <div class="top-bar">
-            <div class="title-badge">
-                <span>⚪</span> BTC 15 min ▾
-            </div>
-            <div class="sync-pill">
-                <div class="sync-dot"></div> Kalshi Sync
-            </div>
+            <div class="title-badge"><span>⚪</span> BTC 15 min ▾</div>
+            <div class="sync-pill"><div class="sync-dot"></div> Kalshi Sync</div>
         </div>
-
-        <!-- Prices Grid -->
         <div class="prices-grid">
             <div class="price-card">
                 <div class="label">STRIKE OBJETIVO</div>
@@ -283,8 +75,6 @@ st.components.v1.html("""
                 <div class="val val-current" id="current-price">$77,249.17</div>
             </div>
         </div>
-
-        <!-- Chart Card -->
         <div class="chart-card">
             <div class="chart-header">
                 <span>FLUJO DE PRECIO EN VIVO</span>
@@ -303,51 +93,30 @@ st.components.v1.html("""
                 </svg>
             </div>
         </div>
-
-        <!-- Block Status Card -->
         <div class="status-card">
             <div class="status-header">
                 <span>🔒 BLOQUE AVANZADO (ZONA CERRADA)</span>
-                <span class="time-badge" id="close-time">CIERRA 8:04</span>
+                <span class="time-badge">CIERRA 8:04</span>
             </div>
-            
             <div class="time-box">
                 <div class="time-title">🛡️ FUERA DE TIEMPO</div>
                 <div class="time-desc">Ventana de 3 min finalizada - Evitar riesgo</div>
             </div>
         </div>
     </div>
-
-    <!-- Bottom Navigation Bar -->
     <div class="bottom-nav">
-        <div class="nav-item">
-            <span class="icon">🤖</span>
-            <span>Bot</span>
-        </div>
-        <div class="nav-item active">
-            <span class="icon">📈</span>
-            <span>Operaciones</span>
-        </div>
-        <div class="nav-item">
-            <span class="icon">💰</span>
-            <span>Saldo</span>
-        </div>
-        <div class="nav-item">
-            <span class="icon">⚪</span>
-            <span>Stats</span>
-        </div>
-        <div class="nav-item">
-            <div class="action-btn">👑</div>
-        </div>
+        <div class="nav-item"><span class="icon">🤖</span><span>Bot</span></div>
+        <div class="nav-item active"><span class="icon">📈</span><span>Operaciones</span></div>
+        <div class="nav-item"><span class="icon">💰</span><span>Saldo</span></div>
+        <div class="nav-item"><span class="icon">⚪</span><span>Stats</span></div>
+        <div class="nav-item"><div class="action-btn">👑</div></div>
     </div>
-
     <script>
         function liveUpdate() {
             const base = 77240.00 + (Math.random() * 20);
             const current = base + (Math.random() * 6 - 3);
             document.getElementById('strike-price').innerText = `$${base.toFixed(2)}`;
             document.getElementById('current-price').innerText = `$${current.toFixed(2)}`;
-            
             const profit = (Math.random() * 5 - 2).toFixed(2);
             const profitEl = document.getElementById('profit-val');
             profitEl.innerText = (profit >= 0 ? `+$${profit}` : `-$${Math.abs(profit)}`);
@@ -357,4 +126,5 @@ st.components.v1.html("""
     </script>
 </body>
 </html>
+""", height=620, scrolling=False)
 """, height=620, scrolling=False)
