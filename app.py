@@ -127,4 +127,3 @@ st.components.v1.html("""
 </body>
 </html>
 """, height=620, scrolling=False)
-""", height=620, scrolling=False)
