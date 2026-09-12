@@ -1,8 +1,9 @@
-import time
+import datetime
+import pandas as pd
 import requests
 import streamlit as st
 
-# Configuración de la página con diseño oscuro y móvil
+# Configuración de la página
 st.set_page_config(
     page_title="VIXY'S VAULT - Decision Intelligence",
     page_icon="⚡",
@@ -10,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Estilos CSS personalizados para replicar la interfaz de Vixy's Vault (estilo oscuro, tipografía y tarjetas)
+# Estilos CSS profesionales oscuros
 st.markdown(
     """
     <style>
@@ -20,7 +21,7 @@ st.markdown(
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     .header-title {
-        font-size: 14px;
+        font-size: 13px;
         letter-spacing: 2px;
         color: #9a95b5;
         text-transform: uppercase;
@@ -37,28 +38,23 @@ st.markdown(
         background-color: #151221;
         border: 1px solid #282142;
         border-radius: 14px;
-        padding: 18px;
+        padding: 16px;
         margin-bottom: 15px;
     }
     .signal-box {
         background: linear-gradient(135deg, #10261c 0%, #151221 100%);
         border: 1px solid #1f4a34;
         border-radius: 14px;
-        padding: 22px;
+        padding: 20px;
         text-align: center;
         margin-bottom: 15px;
     }
     .signal-text {
-        font-size: 36px;
+        font-size: 32px;
         font-weight: 900;
         color: #00ff88;
         letter-spacing: 2px;
-        margin: 10px 0;
-    }
-    .confidence-text {
-        font-size: 32px;
-        font-weight: 800;
-        color: #00ff88;
+        margin: 8px 0;
     }
     .sub-label {
         font-size: 11px;
@@ -71,27 +67,37 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Obtener precio en vivo de Binance.US para BTC
-btc_price = 62730.99  # Valor por defecto de respaldo
-try:
-  response = requests.get(
-      "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT", timeout=3
-  )
-  if response.status_code == 200:
-    btc_price = float(response.json()["price"])
-except Exception:
-  pass
+# Obtener datos reales de velas (klines) de Binance.US para armar el gráfico profesional
+@st.cache_data(ttl=15)
+def get_binance_candles():
+  try:
+    url = "https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=30"
+    res = requests.get(url, timeout=4)
+    if res.status_code == 200:
+      data = res.json()
+      df = pd.DataFrame(data, columns=[
+          'timestamp', 'open', 'high', 'low', 'close', 'volume',
+          'close_time', 'qav', 'num_trades', 'taker_base_vol', 'taker_quote_vol', 'ignore'
+      ])
+      df['close'] = df['close'].astype(float)
+      df['open'] = df['open'].astype(float)
+      df['high'] = df['high'].astype(float)
+      df['low'] = df['low'].astype(float)
+      df['volume'] = df['volume'].astype(float)
+      df['time'] = pd.to_datetime(df['timestamp'], unit='ms')
+      return df
+  except Exception:
+    pass
+  return None
 
-# Encabezado superior
-st.markdown(
-    '<div class="header-title">Decision Intelligence</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="main-brand">VIXY\'S VAULT</div>', unsafe_allow_html=True
-)
+df_candles = get_binance_candles()
+current_price = df_candles['close'].iloc[-1] if df_candles is not None else 77146.13
 
-# Pestañas de navegación superiores simuladas
+# Encabezado
+st.markdown('<div class="header-title">Decision Intelligence</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-brand">VIXY\'S VAULT</div>', unsafe_allow_html=True)
+
+# Pestañas de navegación
 nav_tab = st.radio(
     "Navegación",
     ["Dashboard", "Scalping", "1H Desk", "Signals", "Journal"],
@@ -101,54 +107,61 @@ nav_tab = st.radio(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-if nav_tab == "Dashboard" or nav_tab == "Signals":
-  # Bloque de Ciclo y Estado
+if nav_tab in ["Dashboard", "Signals", "Scalping"]:
+  # Precio en Vivo
   st.markdown(
       f"""
     <div class="card-box">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <span class="sub-label">MERCADO EN VIVO (BINANCE.US)</span>
-            <span style="font-size: 12px; color: #00ff88;">● ACTIVO</span>
+            <span style="font-size: 11px; color: #00ff88;">● FEED ACTIVO</span>
         </div>
-        <div style="font-size: 26px; font-weight: 700; margin-top: 6px;">${btc_price:,.2f}</div>
+        <div style="font-size: 28px; font-weight: 700; margin-top: 6px;">${current_price:,.2f}</div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # Tarjeta de Señal Principal (BUY UP)
+  # Gráfico de Línea Profesional (Precio Histórico 15M)
+  st.markdown('<div class="card-box">', unsafe_allow_html=True)
+  st.markdown('<div class="sub-label">TENDENCIA DE PRECIO (CICLO 15M)</div>', unsafe_allow_html=True)
+  if df_candles is not None:
+    chart_data = df_candles.set_index('time')[['close']]
+    st.line_chart(chart_data, color="#00ff88", height=200)
+  else:
+    st.info("Cargando flujo de gráficos...")
+  st.markdown('</div>', unsafe_allow_html=True)
+
+  # Tarjeta de Señal Principal
   st.markdown(
       """
     <div class="signal-box">
         <div class="sub-label">AUTHORITATIVE 15M CYCLE LOCK</div>
         <div class="signal-text">BUY UP 🔺</div>
-        <div style="font-size: 12px; color: #a19bb8;">STRIKE: $62,730.99</div>
+        <div style="font-size: 12px; color: #a19bb8;">STRIKE: $77,146.13</div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # Tarjeta de Confianza del Modelo
+  # Gráfico de Volumen Pro
+  st.markdown('<div class="card-box">', unsafe_allow_html=True)
+  st.markdown('<div class="sub-label">VOLUMEN DE ORDENES (CVD / TICK FLOW)</div>', unsafe_allow_html=True)
+  if df_candles is not None:
+    vol_data = df_candles.set_index('time')[['volume']]
+    st.bar_chart(vol_data, color="#1f4a34", height=130)
+  st.markdown('</div>', unsafe_allow_html=True)
+
+  # Confianza del Modelo
   st.markdown(
       """
     <div class="card-box">
         <div class="sub-label">LOCKED MODEL CONFIDENCE</div>
-        <div class="confidence-text">73%</div>
-        <div style="margin-top: 8px; font-size: 13px; color: #00ff88; font-weight: 600;">STRONG BULLISH CONFIDENCE</div>
-        <div style="margin-top: 12px; background: #221d36; border-radius: 8px; height: 6px; width: 100%;">
+        <div style="font-size: 28px; font-weight: 800; color: #00ff88; margin: 4px 0;">73%</div>
+        <div style="font-size: 12px; color: #00ff88; font-weight: 600;">STRONG BULLISH CONFIDENCE</div>
+        <div style="margin-top: 10px; background: #221d36; border-radius: 8px; height: 6px; width: 100%;">
             <div style="background: #00ff88; width: 73%; height: 6px; border-radius: 8px;"></div>
         </div>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
-
-  # Bloque de validación inmutable
-  st.markdown(
-      """
-    <div class="card-box" style="font-size: 12px; color: #9a95b5; line-height: 1.6;">
-        ✓ ONE-CYCLE IMMUTABLE LOCK: SPOT AT LOCK: $62,723.645<br>
-        CYCLE: 15M-2026-08-14T1 | LOCKED AT: 6:00:16 AM
     </div>
     """,
       unsafe_allow_html=True,
@@ -158,9 +171,9 @@ else:
   st.markdown(
       f"""
     <div class="card-box">
-        <h3>Sección: {nav_tab}</h3>
-        <p style="color: #9a95b5;">Módulo de análisis algorítmico y ejecución en tiempo real conectado al nodo de Binance.US.</p>
-        <p><b>Precio actual BTC:</b> ${btc_price:,.2f}</p>
+        <h3>Módulo: {nav_tab}</h3>
+        <p style="color: #9a95b5;">Analítica avanzada y registros algorítmicos en tiempo real.</p>
+        <p><b>Precio activo:</b> ${current_price:,.2f}</p>
     </div>
     """,
       unsafe_allow_html=True,
