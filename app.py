@@ -1,9 +1,8 @@
 
 import streamlit as st
-import pandas as pd
 import requests
 
-st.set_page_config(page_title="BTC Bot 15m - Kalshi", layout="centered")
+st.set_page_config(page_title="BTC Bot Kalshi (15m)", layout="centered")
 
 st.markdown("""
     <style>
@@ -14,47 +13,40 @@ st.markdown("""
 
 st.title("⚡ BTC Bot Kalshi (15m)")
 
-# Función robusta para traer velas de 1 minuto reales y calcular tendencia exacta
-@st.cache_data(ttl=15)
-def analizar_mercado_btc():
+# Usamos Coinbase para evitar bloqueos y refrescar directo
+@st.cache_data(ttl=5)
+def obtener_precio():
     try:
-        # Consultar las velas de 1 minuto de Binance (Klines)
-        url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=15"
+        url = "https://api.coinbase.com/v2/prices/BTC-USD/spot"
         res = requests.get(url, timeout=3).json()
-        
-        df = pd.DataFrame(res, columns=[
-            'timestamp', 'open', 'high', 'low', 'close', 'volume',
-            'close_time', 'quote_asset_volume', 'number_of_trades',
-            'taker_buy_base_vol', 'taker_buy_quote_vol', 'ignore'
-        ])
-        
-        df['close'] = df['close'].astype(float)
-        df['volume'] = df['volume'].astype(float)
-        
-        precio_actual = df['close'].iloc[-1]
-        precio_anterior = df['close'].iloc[-2] # Vela de hace 1 minuto
-        
-        # Calcular EMA rápida (últimos 5 minutos)
-        ema_5 = df['close'].ewm(span=5, adjust=False).mean().iloc[-1]
-        
-        # Lógica de fuerza basada en estructura de mercado de 1m
-        diferencia = ((precio_actual - ema_5) / ema_5) * 100
-        
-        # Puntaje base
-        score = 50.0 + (diferencia * 150) # Amplifica la micro-tendencia
-        score = max(min(score, 95.0), 5.0) # Limitar entre 5% y 95%
-        
-        return precio_actual, round(score, 1), round(100 - score, 1), "OK"
-    except Exception as e:
-        return 0.0, 50.0, 50.0, str(e)
+        return float(res['data']['amount'])
+    except:
+        return 0.0
 
-precio, up_val, down_val, estado = analizar_mercado_btc()
+precio_actual = obtener_precio()
 
-# Definir la señal de compra para Kalshi
-if up_val >= 58:
+if 'prev' not in st.session_state:
+    st.session_state.prev = precio_actual
+if 'score' not in st.session_state:
+    st.session_state.score = 50.0
+
+if precio_actual > 0 and st.session_state.prev > 0:
+    diff = precio_actual - st.session_state.prev
+    if diff > 0:
+        st.session_state.score = min(st.session_state.score + 8.0, 92.0)
+    elif diff < 0:
+        st.session_state.score = max(st.session_state.score - 8.0, 8.0)
+    st.session_state.prev = precio_actual
+elif precio_actual > 0 and st.session_state.prev == 0:
+    st.session_state.prev = precio_actual
+
+up_val = round(st.session_state.score, 1)
+down_val = round(100 - up_val, 1)
+
+if up_val >= 60:
     senal = "🚀 COMPRAR UP"
     color_box = "#0e4429"
-elif up_val <= 42:
+elif up_val <= 40:
     senal = "📉 COMPRAR DOWN"
     color_box = "#51151e"
 else:
@@ -76,5 +68,5 @@ with col2:
 st.progress(up_val / 100)
 
 st.divider()
-st.text(f"Precio Actual BTC: ${precio:,.2f}")
-st.caption("🤖 Bot conectado a la estructura de velas de 1m de Binance. Actualiza cada 15 segundos.")
+st.text(f"Precio Coinbase BTC-USD: ${precio_actual:,.2f}")
+st.caption("🟢 Conectado en tiempo real sin bloqueos.")
