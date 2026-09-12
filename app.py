@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="BTC Kalshi Smart Sniper", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="BTC Kalshi Exact Sniper", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -18,7 +18,7 @@ html_code = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC Smart Momentum Sniper</title>
+    <title>BTC Exact Strike Sniper</title>
     <style>
         body {
             background-color: #0b0e11;
@@ -164,12 +164,12 @@ html_code = """
             <div class="coin-title">
                 <span style="color: #f0b90b;">🟠</span> BTC 15 min <span style="font-size: 10px; color: #848e9c;">▼</span>
             </div>
-            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Live Sync AI</div>
+            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Exact Kalshi Sync</div>
         </div>
 
         <div class="prices-grid">
             <div class="price-box">
-                <label>Strike Base</label>
+                <label>Strike Objetivo</label>
                 <div id="target-price" class="val target">Cargando...</div>
             </div>
             <div class="price-box">
@@ -190,12 +190,12 @@ html_code = """
 
         <div class="signal-card">
             <div class="signal-header">
-                <span id="window-status">IA: MOTOR DE IMPULSO</span>
+                <span id="window-status">ESTADO DEL BLOQUE</span>
                 <span id="timer-text" style="background: #2b313a; color: #fff; padding: 2px 6px; border-radius: 4px;">Cierra --:--</span>
             </div>
             <div class="signal-box" id="signal-box">
                 <div id="signal-main">CALCULANDO...</div>
-                <div class="signal-sub" id="signal-sub">Sincronizando con el bloque de 15m</div>
+                <div class="signal-sub" id="signal-sub">Sincronizando strike exacto de apertura</div>
             </div>
         </div>
     </div>
@@ -286,30 +286,28 @@ html_code = """
                 let data = await res.json();
                 let currentPrice = parseFloat(data.data.amount);
 
-                priceHistory.push(currentPrice);
-                if (priceHistory.length > 40) priceHistory.shift();
-
                 let now = new Date();
                 let totalMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
                 let currentSecondInBlock = (totalMinutes % 15) * 60 + now.getUTCSeconds();
                 let remainingSeconds = 900 - currentSecondInBlock;
                 if (remainingSeconds < 1) remainingSeconds = 1;
 
-                let blockKey = Math.floor(totalMinutes / 15);
+                // Identificador único del bloque actual (ej: bloque 15m del día)
+                let blockId = Math.floor(totalMinutes / 15) + "-" + now.getUTCDate();
 
-                let savedBlock = localStorage.getItem("kalshi_strike_block");
-                let savedStrike = localStorage.getItem("kalshi_strike_price");
+                let activeBlock = localStorage.getItem("kalshi_exact_block");
+                let strikePrice = parseFloat(localStorage.getItem("kalshi_exact_strike") || "0");
 
-                let strikePrice = 0;
-                // Si cambiamos de bloque de 15 minutos, capturamos el nuevo precio base de inmediato
-                if (savedBlock === String(blockKey) && savedStrike) {
-                    strikePrice = parseFloat(savedStrike);
-                } else {
+                // Si es un bloque nuevo O el strike no está guardado, el primer precio que llegue ES el Strike oficial de apertura
+                if (activeBlock !== blockId || !strikePrice || strikePrice === 0) {
                     strikePrice = currentPrice;
-                    localStorage.setItem("kalshi_strike_block", blockKey);
-                    localStorage.setItem("kalshi_strike_price", strikePrice);
+                    localStorage.setItem("kalshi_exact_block", blockId);
+                    localStorage.setItem("kalshi_exact_strike", strikePrice);
                     priceHistory = [currentPrice];
                 }
+
+                priceHistory.push(currentPrice);
+                if (priceHistory.length > 40) priceHistory.shift();
 
                 let diff = currentPrice - strikePrice;
 
@@ -336,32 +334,32 @@ html_code = """
                     }
                 }
 
-                // Primeros 3 minutos (180 segundos) exactos del ciclo de 15m
+                // Ventana de apertura estricta: primeros 180 segundos (3 minutos)
                 if (currentSecondInBlock <= 180) {
-                    windowStatus.innerText = "⚡ VENTANA DE ENTRADA (0-3 MIN)";
+                    windowStatus.innerText = "⚡ VENTANA DE APERTURA (0-3 MIN)";
                     
-                    if (momentumScore >= 3 && diff > 0.5) {
+                    if (momentumScore >= 2 && diff > 1.0) {
                         sBox.style.backgroundColor = "#0ecb81";
                         sBox.style.color = "#000";
                         sMain.innerText = "🟢 ENTRAR UP";
-                        sSub.innerText = "Impulso alcista limpio detectado";
-                    } else if (momentumScore <= -3 && diff < -0.5) {
+                        sSub.innerText = "Ruptura alcista limpia desde el strike";
+                    } else if (momentumScore <= -2 && diff < -1.0) {
                         sBox.style.backgroundColor = "#f6465d";
                         sBox.style.color = "#fff";
                         sMain.innerText = "🔴 ENTRAR DOWN";
-                        sSub.innerText = "Impulso bajista limpio detectado";
+                        sSub.innerText = "Ruptura bajista limpia desde el strike";
                     } else {
                         sBox.style.backgroundColor = "#2b313a";
                         sBox.style.color = "#f0b90b";
-                        sMain.innerText = "⏳ LEYENDO MERCADO";
-                        sSub.innerText = "Buscando ruptura limpia en el arranque...";
+                        sMain.innerText = "⏳ ESPERANDO RUPTURA";
+                        sSub.innerText = "Monitoreando salida del strike base...";
                     }
                 } else {
                     windowStatus.innerText = "🔒 BLOQUE AVANZADO (ZONA CERRADA)";
                     sBox.style.backgroundColor = "#1e2329";
                     sBox.style.color = "#848e9c";
-                    sMain.innerText = "🛡️ VENTANA CERRADA";
-                    sSub.innerText = "Fuera del tiempo seguro de entrada";
+                    sMain.innerText = "🛡️ FUERA DE TIEMPO";
+                    sSub.innerText = "Ventana de 3 min finalizada - Evitar riesgo";
                 }
 
                 let remainingMinutes = Math.floor(remainingSeconds / 60);
@@ -370,7 +368,7 @@ html_code = """
                 document.getElementById('timer-text').innerText = "Cierra " + remainingMinutes + ":" + secFormatted;
 
             } catch (e) {
-                console.error("Error en sincronización", e);
+                console.error("Error en sincronización exacta", e);
             }
         }
 
