@@ -2,77 +2,83 @@ import pandas as pd
 import requests
 import streamlit as st
 
-# Configuración de página minimalista oscura
+# Configuración de página limpia y oscura
 st.set_page_config(
-    page_title="VIXY'S VAULT - Decision Intelligence",
-    page_icon="⚡",
+    page_title="PREDICTION BOT - MAKING A BAG",
+    page_icon="🚀",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
 
-# Estilos CSS profesionales exactos al diseño de la bóveda
+# Estilos CSS exactos para replicar la interfaz de la captura
 st.markdown(
     """
     <style>
     .stApp {
-        background-color: #0b0914;
+        background-color: #07050d;
         color: #ffffff;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    .top-badge {
-        font-size: 11px;
-        letter-spacing: 2px;
-        color: #00ff88;
-        font-weight: 800;
-        text-transform: uppercase;
-        margin-bottom: 2px;
-    }
-    .main-title {
-        font-size: 20px;
+    .top-title {
+        font-size: 16px;
         font-weight: 900;
+        color: #00ff88;
         letter-spacing: 1px;
-        color: #ffffff;
-        margin-bottom: 12px;
+        margin-bottom: 0px;
     }
-    .card-box {
-        background-color: #151221;
-        border: 1px solid #282142;
+    .sub-title {
+        font-size: 9px;
+        letter-spacing: 2px;
+        color: #7b7299;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }
+    .main-vault-card {
+        background: linear-gradient(135deg, #0d2618 0%, #120f1c 100%);
+        border: 1px solid #1a4a30;
         border-radius: 12px;
         padding: 14px;
-        margin-bottom: 10px;
-    }
-    .signal-card {
-        background: linear-gradient(135deg, #0e2419 0%, #151221 100%);
-        border: 1px solid #1c4832;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
     .buy-text {
-        font-size: 30px;
+        font-size: 26px;
         font-weight: 900;
         color: #00ff88;
         letter-spacing: 2px;
-        margin: 4px 0;
+        margin: 2px 0;
     }
-    .metric-value {
+    .card-box {
+        background-color: #120f1c;
+        border: 1px solid #231b36;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 8px;
+    }
+    .win-btn {
+        background-color: #00ff88;
+        color: #07050d;
+        font-weight: 900;
+        text-align: center;
+        border-radius: 10px;
+        padding: 10px;
         font-size: 16px;
-        font-weight: 800;
-        color: #ffffff;
-    }
-    .sub-label {
-        font-size: 10px;
-        color: #8c85a8;
         letter-spacing: 1px;
-        text-transform: uppercase;
+        margin-top: 8px;
+    }
+    .metric-box {
+        background-color: #161224;
+        border: 1px solid #292042;
+        border-radius: 10px;
+        text-align: center;
+        padding: 8px;
     }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Obtener precio real desde Binance.US
-precio_btc = 77150.00
+# Obtener precio real de Binance.US
+precio_btc = 77146.13
 try:
   res = requests.get(
       "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT", timeout=3
@@ -82,7 +88,7 @@ try:
 except Exception:
   pass
 
-# Generar datos limpios para el gráfico de 15M
+# Generar datos para el gráfico de velas 15M
 @st.cache_data(ttl=15)
 def cargar_velas_15m():
   try:
@@ -101,11 +107,11 @@ def cargar_velas_15m():
   return None
 
 
-# Cabecera principal estilo Bóveda
-st.markdown('<div class="top-badge">PREDICTION BOT: MAKING A BAG 🚀</div>', unsafe_allow_html=True)
-st.markdown('<div class="main-title">15MIN MARKET INTEL</div>', unsafe_allow_html=True)
+# Encabezado principal
+st.markdown('<div class="top-title">PREDICTION BOT: MAKING A BAG 🚀</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">15MIN MARKET</div>', unsafe_allow_html=True)
 
-# Pestañas de navegación superiores (Iconos / Secciones)
+# Pestañas de navegación superiores
 pestana = st.radio(
     "Navegación",
     ["Dashboard", "Scalping", "1H Desk", "Signals", "Journal"],
@@ -116,86 +122,90 @@ pestana = st.radio(
 st.markdown("<br>", unsafe_allow_html=True)
 
 if pestana in ["Dashboard", "Signals", "Scalping"]:
-  
-  # Tarjeta de Señal Principal (BUY UP + Confianza)
-  st.markdown(
-      f"""
-    <div class="signal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span class="sub-label">BTC / USD (SPOT) • $77,146.13 • LIVE</span>
-            <span style="color: #00ff88; font-size: 11px; font-weight: 700;">PROFITABLE LOCK ⚡</span>
-        </div>
-        <div class="buy-text">BUY UP 🔺</div>
-        <div style="font-size: 24px; font-weight: 800; color: #00ff88; margin-top: 4px;">82.6%</div>
-        <div style="margin-top: 8px; background: #1c172d; border-radius: 6px; height: 5px; width: 100%;">
-            <div style="background: #00ff88; width: 82.6%; height: 5px; border-radius: 6px;"></div>
-        </div>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
 
-  # Gráfico de Tendencia Estilizado Verde
+  # Contenedor principal dividido en dos columnas (Izquierda: Señal y Gráfico | Derecha: Métricas circulares de la foto)
+  col_izq, col_der = st.columns([3, 1])
+
+  with col_izq:
+    # Tarjeta de Señal "BUY UP"
+    st.markdown(
+        f"""
+        <div class="main-vault-card">
+            <div style="font-size: 9px; color: #7b7299; letter-spacing: 1px;">BTC / USD (SPOT) • ${precio_btc:,.2f} • LIVE</div>
+            <div class="buy-text">BUY UP 🔺</div>
+            <div style="font-size: 20px; font-weight: 800; color: #00ff88;">82.6%</div>
+            <div style="margin-top: 4px; background: #161224; border-radius: 4px; height: 4px; width: 100%;">
+                <div style="background: #00ff88; width: 82.6%; height: 4px; border-radius: 4px;"></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  with col_der:
+    # Mini iconos redondos laterales idénticos a la disposición de la captura
+    st.markdown(
+        """
+        <div class="metric-box" style="margin-bottom: 4px;">
+            <div style="font-size: 12px;">🎯</div>
+            <div style="font-size: 8px; color: #00ff88; font-weight: 700;">LOCK</div>
+        </div>
+        <div class="metric-box" style="margin-bottom: 4px;">
+            <div style="font-size: 12px;">⚡</div>
+            <div style="font-size: 8px; color: #7b7299;">15M</div>
+        </div>
+        <div class="metric-box">
+            <div style="font-size: 12px;">📊</div>
+            <div style="font-size: 8px; color: #00ff88;">PRO</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  # Gráfico de Tendencia Verde Estilizado
   st.markdown('<div class="card-box">', unsafe_allow_html=True)
-  st.markdown('<div class="sub-label">ESTRUCTURA DE CICLO 15M (TICK FLOW)</div>', unsafe_allow_html=True)
+  st.markdown('<div style="font-size: 9px; color: #7b7299; letter-spacing: 1px; margin-bottom: 4px;">ESTRUCTURA DE CICLO 15M (TICK FLOW)</div>', unsafe_allow_html=True)
   df_grafico = cargar_velas_15m()
   if df_grafico is not None:
-    st.line_chart(df_grafico, color="#00ff88", height=180)
+    st.line_chart(df_grafico, color="#00ff88", height=150)
   else:
-    st.info(f"Precio actual de mercado: ${precio_btc:,.2f}")
+    st.info(f"Precio actual: ${precio_btc:,.2f}")
   st.markdown('</div>', unsafe_allow_html=True)
 
-  # Minitarjetas de métricas inferiores (Columnas compactas)
-  col1, col2, col3 = st.columns(3)
-  with col1:
+  # Bloques inferiores de Análisis y Ganancia en vivo (Lado a lado)
+  col_a, col_b = st.columns(2)
+  with col_a:
     st.markdown(
         """
-        <div class="card-box" style="text-align: center; padding: 10px;">
-            <div class="sub-label">STRIKE</div>
-            <div style="font-size: 13px; font-weight: 700; color: #fff; margin-top: 4px;">$77,146</div>
+        <div class="card-box">
+            <div style="font-size: 8px; color: #7b7299;">LIVE RESULT</div>
+            <div style="font-size: 13px; font-weight: 800; color: #00ff88; margin-top: 2px;">+91,220.00</div>
+            <div style="font-size: 9px; color: #00ff88;">+6,100%</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-  with col2:
+  with col_b:
     st.markdown(
         """
-        <div class="card-box" style="text-align: center; padding: 10px;">
-            <div class="sub-label">CICLO</div>
-            <div style="font-size: 13px; font-weight: 700; color: #00ff88; margin-top: 4px;">15M</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with col3:
-    st.markdown(
-        """
-        <div class="card-box" style="text-align: center; padding: 10px;">
-            <div class="sub-label">ESTADO</div>
-            <div style="font-size: 13px; font-weight: 700; color: #00ff88; margin-top: 4px;">LOCKED</div>
+        <div class="card-box">
+            <div style="font-size: 8px; color: #7b7299;">AI ANALYSIS</div>
+            <div style="font-size: 11px; font-weight: 700; color: #fff; margin-top: 2px;">✓ Liquidity Zone Verified</div>
+            <div style="font-size: 9px; color: #7b7299;">Immutability Confirmed</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-  # Panel de Estado Inmutable inferior
-  st.markdown(
-      """
-    <div class="card-box" style="font-size: 11px; color: #9a95b5; line-height: 1.5;">
-        ✓ ONE-CYCLE IMMUTABLE LOCK: SPOT AT LOCK: $77,140.20<br>
-        15M ENGINE INGESTED • STATUS: OPTIMIZED
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
+  # Botón inferior verde "WIN"
+  st.markdown('<div class="win-btn">WIN 🚀</div>', unsafe_allow_html=True)
 
 else:
   st.markdown(
       f"""
     <div class="card-box">
         <h3>Módulo: {pestana}</h3>
-        <p style="color: #9a95b5;">Control operacional de la bóveda en directo con Binance.US.</p>
-        <p><b>Cotización actual:</b> ${precio_btc:,.2f}</p>
+        <p style="color: #7b7299;">Panel operativo sincronizado con Binance.US.</p>
     </div>
     """,
       unsafe_allow_html=True,
