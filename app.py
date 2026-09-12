@@ -2,7 +2,7 @@ import pandas as pd
 import requests
 import streamlit as st
 
-# Configuración de página limpia y oscura
+# Configuración limpia de página
 st.set_page_config(
     page_title="PREDICTION BOT - MAKING A BAG",
     page_icon="🚀",
@@ -10,68 +10,90 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Estilos CSS exactos para replicar la interfaz de la captura
+# Estilos CSS con Flexbox estricto para la fila horizontal
 st.markdown(
     """
     <style>
     .stApp {
-        background-color: #07050d;
+        background-color: #05040a;
         color: #ffffff;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    .top-title {
-        font-size: 16px;
+    .titulo-top {
+        font-size: 15px;
         font-weight: 900;
         color: #00ff88;
         letter-spacing: 1px;
         margin-bottom: 0px;
     }
-    .sub-title {
-        font-size: 9px;
+    .sub-top {
+        font-size: 8px;
         letter-spacing: 2px;
-        color: #7b7299;
+        color: #6b638a;
         text-transform: uppercase;
-        margin-bottom: 10px;
-    }
-    .main-vault-card {
-        background: linear-gradient(135deg, #0d2618 0%, #120f1c 100%);
-        border: 1px solid #1a4a30;
-        border-radius: 12px;
-        padding: 14px;
         margin-bottom: 8px;
     }
-    .buy-text {
-        font-size: 26px;
+    .tarjeta-verde {
+        background: linear-gradient(135deg, #0b2216 0%, #0f0c18 100%);
+        border: 1px solid #163d28;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 6px;
+    }
+    .texto-buy {
+        font-size: 24px;
         font-weight: 900;
         color: #00ff88;
         letter-spacing: 2px;
         margin: 2px 0;
     }
-    .card-box {
-        background-color: #120f1c;
-        border: 1px solid #231b36;
-        border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 8px;
-    }
-    .status-row-card {
-        background-color: #120f1c;
-        border: 1px solid #231b36;
-        border-radius: 10px;
-        padding: 8px 12px;
-        margin-bottom: 6px;
-        text-align: center;
-    }
-    .win-btn {
-        background-color: #00ff88;
-        color: #07050d;
-        font-weight: 900;
-        text-align: center;
+    .caja-oscura {
+        background-color: #0f0c18;
+        border: 1px solid #1f182e;
         border-radius: 10px;
         padding: 10px;
-        font-size: 16px;
+        margin-bottom: 6px;
+    }
+    /* Contenedor Flexbox para forzar los 3 elementos en UNA SOLA FILA */
+    .fila-horizontal {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 6px;
+        width: 100%;
+    }
+    .item-fila {
+        flex: 1;
+        background-color: #0f0c18;
+        border: 1px solid #1f182e;
+        border-radius: 8px;
+        text-align: center;
+        padding: 8px 4px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #00ff88;
+    }
+    .fila-inferior {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+    .caja-inferior {
+        flex: 1;
+        background-color: #0f0c18;
+        border: 1px solid #1f182e;
+        border-radius: 10px;
+        padding: 10px;
+    }
+    .boton-win-final {
+        background-color: #00ff88;
+        color: #05040a;
+        font-weight: 900;
+        text-align: center;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 15px;
         letter-spacing: 1px;
-        margin-top: 8px;
+        margin-top: 6px;
     }
     </style>
 """,
@@ -79,7 +101,7 @@ st.markdown(
 )
 
 # Obtener precio real de Binance.US
-precio_btc = 77100.00
+precio_btc = 77083.50
 try:
   res = requests.get(
       "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT", timeout=3
@@ -89,9 +111,10 @@ try:
 except Exception:
   pass
 
-# Generar datos para el gráfico de velas 15M
-@st.cache_data(ttl=15)
-def cargar_velas_15m():
+
+# Datos para el gráfico de velas 15M
+@st.cache_data(ttl=10)
+def obtener_velas():
   try:
     url = "https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=25"
     res = requests.get(url, timeout=3)
@@ -108,11 +131,11 @@ def cargar_velas_15m():
   return None
 
 
-# Encabezado principal
-st.markdown('<div class="top-title">PREDICTION BOT: MAKING A BAG 🚀</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">15MIN MARKET</div>', unsafe_allow_html=True)
+# Encabezado
+st.markdown('<div class="titulo-top">PREDICTION BOT: MAKING A BAG 🚀</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-top">15MIN MARKET</div>', unsafe_allow_html=True)
 
-# Pestañas de navegación superiores
+# Pestañas de navegación
 pestana = st.radio(
     "Navegación",
     ["Dashboard", "Scalping", "1H Desk", "Signals", "Journal"],
@@ -124,81 +147,71 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 if pestana in ["Dashboard", "Signals", "Scalping"]:
 
-  # 1. Tarjeta principal "BUY UP"
+  # 1. Tarjeta superior BUY UP
   st.markdown(
       f"""
-    <div class="main-vault-card">
-        <div style="font-size: 9px; color: #7b7299; letter-spacing: 1px;">BTC / USD (SPOT) • ${precio_btc:,.2f} • LIVE</div>
-        <div class="buy-text">BUY UP 🔺</div>
-        <div style="font-size: 20px; font-weight: 800; color: #00ff88;">82.6%</div>
-        <div style="margin-top: 4px; background: #161224; border-radius: 4px; height: 4px; width: 100%;">
-            <div style="background: #00ff88; width: 82.6%; height: 4px; border-radius: 4px;"></div>
+    <div class="tarjeta-verde">
+        <div style="font-size: 8px; color: #6b638a; letter-spacing: 1px;">BTC / USD (SPOT) • ${precio_btc:,.2f} • LIVE</div>
+        <div class="texto-buy">BUY UP 🔺</div>
+        <div style="font-size: 18px; font-weight: 800; color: #00ff88;">82.6%</div>
+        <div style="margin-top: 4px; background: #130f20; border-radius: 4px; height: 3px; width: 100%;">
+            <div style="background: #00ff88; width: 82.6%; height: 3px; border-radius: 4px;"></div>
         </div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # 2. Las 3 barras horizontales con iconos idénticas a tu foto
+  # 2. Los 3 botones/iconos en UNA SOLA FILA usando Flexbox (Garantizado horizontal)
   st.markdown(
       """
-    <div class="status-row-card">
-        <span style="font-size: 13px;">🎯</span> <span style="font-size: 10px; font-weight: 700; color: #00ff88; letter-spacing: 1px;">LOCK</span>
-    </div>
-    <div class="status-row-card">
-        <span style="font-size: 13px;">⚡</span> <span style="font-size: 10px; font-weight: 700; color: #7b7299; letter-spacing: 1px;">15M</span>
-    </div>
-    <div class="status-row-card">
-        <span style="font-size: 13px;">📊</span> <span style="font-size: 10px; font-weight: 700; color: #00ff88; letter-spacing: 1px;">PRO</span>
+    <div class="fila-horizontal">
+        <div class="item-fila">🎯 LOCK</div>
+        <div class="item-fila" style="color:#6b638a;">⚡ 15M</div>
+        <div class="item-fila">📊 PRO</div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # 3. Gráfico de Tendencia Verde Estilizado
-  st.markdown('<div class="card-box">', unsafe_allow_html=True)
-  st.markdown('<div style="font-size: 9px; color: #7b7299; letter-spacing: 1px; margin-bottom: 4px;">ESTRUCTURA DE CICLO 15M (TICK FLOW)</div>', unsafe_allow_html=True)
-  df_grafico = cargar_velas_15m()
+  # 3. Gráfico de Tendencia
+  st.markdown('<div class="caja-oscura">', unsafe_allow_html=True)
+  st.markdown('<div style="font-size: 8px; color: #6b638a; letter-spacing: 1px; margin-bottom: 4px;">ESTRUCTURA DE CICLO 15M (TICK FLOW)</div>', unsafe_allow_html=True)
+  df_grafico = obtener_velas()
   if df_grafico is not None:
-    st.line_chart(df_grafico, color="#00ff88", height=150)
+    st.line_chart(df_grafico, color="#00ff88", height=140)
   else:
     st.info(f"Precio actual: ${precio_btc:,.2f}")
   st.markdown('</div>', unsafe_allow_html=True)
 
-  # 4. Bloques inferiores de Análisis y Ganancia en vivo (Lado a lado)
-  col_a, col_b = st.columns(2)
-  with col_a:
-    st.markdown(
-        """
-        <div class="card-box" style="margin-bottom: 0px;">
-            <div style="font-size: 8px; color: #7b7299;">LIVE RESULT</div>
-            <div style="font-size: 13px; font-weight: 800; color: #00ff88; margin-top: 2px;">+91,220.00</div>
-            <div style="font-size: 9px; color: #00ff88;">+6,100%</div>
+  # 4. Bloques inferiores lado a lado con Flexbox
+  st.markdown(
+      """
+    <div class="fila-inferior">
+        <div class="caja-inferior">
+            <div style="font-size: 8px; color: #6b638a;">LIVE RESULT</div>
+            <div style="font-size: 12px; font-weight: 800; color: #00ff88; margin-top: 2px;">+91,220.00</div>
+            <div style="font-size: 8px; color: #00ff88;">+6,100%</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with col_b:
-    st.markdown(
-        """
-        <div class="card-box" style="margin-bottom: 0px;">
-            <div style="font-size: 8px; color: #7b7299;">AI ANALYSIS</div>
-            <div style="font-size: 11px; font-weight: 700; color: #fff; margin-top: 2px;">✓ Liquidity Zone Verified</div>
-            <div style="font-size: 9px; color: #7b7299;">Immutability Confirmed</div>
+        <div class="caja-inferior">
+            <div style="font-size: 8px; color: #6b638a;">AI ANALYSIS</div>
+            <div style="font-size: 10px; font-weight: 700; color: #fff; margin-top: 2px;">✓ Liquidity Zone</div>
+            <div style="font-size: 8px; color: #6b638a;">Verified</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
 
-  # Botón inferior verde "WIN"
-  st.markdown('<div class="win-btn">WIN 🚀</div>', unsafe_allow_html=True)
+  # 5. Botón WIN final
+  st.markdown('<div class="boton-win-final">WIN 🚀</div>', unsafe_allow_html=True)
 
 else:
   st.markdown(
       f"""
-    <div class="card-box">
+    <div class="caja-oscura">
         <h3>Módulo: {pestana}</h3>
-        <p style="color: #7b7299;">Panel operativo sincronizado con Binance.US.</p>
+        <p style="color: #6b638a;">Sincronizado con Binance.US.</p>
     </div>
     """,
       unsafe_allow_html=True,
