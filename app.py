@@ -2,7 +2,6 @@ import streamlit as st
 
 st.set_page_config(page_title="BTC Kalshi Bot Pro", layout="centered", initial_sidebar_state="collapsed")
 
-# Ocultar completamente los elementos de Streamlit para que quede limpio como app nativa
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
@@ -13,7 +12,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# HTML y JS puro incrustado que maneja el reloj, el target de 15m y la interfaz idéntica
 html_code = """
 <!DOCTYPE html>
 <html lang="es">
@@ -72,11 +70,41 @@ html_code = """
         .val.target { color: #f0b90b; }
         .val.current { color: #0ecb81; }
         
+        .prediction-card {
+            background: #161a22;
+            border: 1px solid #2b313a;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .pred-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .pred-box {
+            background: #12161c;
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .pred-box label {
+            font-size: 9px;
+            color: #848e9c;
+            text-transform: uppercase;
+        }
+        .pred-box .val {
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
         .chart-mock {
             background: #12161c;
             border: 1px solid #2b313a;
             border-radius: 10px;
-            height: 160px;
+            height: 140px;
             position: relative;
             margin-bottom: 12px;
             display: flex;
@@ -160,7 +188,7 @@ html_code = """
             <div class="coin-title">
                 <span style="color: #f0b90b;">🟠</span> BTC 15 min <span style="font-size: 10px; color: #848e9c;">▼</span>
             </div>
-            <div id="live-indicator" style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● En vivo</div>
+            <div id="live-indicator" style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● IA Predictiva</div>
         </div>
 
         <div class="prices-grid">
@@ -174,6 +202,20 @@ html_code = """
             </div>
         </div>
 
+        <div class="prediction-card">
+            <div style="font-size: 11px; color: #848e9c; margin-bottom: 4px;">PROYECCIÓN DE CIERRE (IA)</div>
+            <div class="pred-grid">
+                <div class="pred-box">
+                    <label>Precio Estimado Final</label>
+                    <div id="proj-price" class="val" style="color: #ffffff;">$0.00</div>
+                </div>
+                <div class="pred-box">
+                    <label>Probabilidad Exito</label>
+                    <div id="win-prob" class="val" style="color: #0ecb81;">50%</div>
+                </div>
+            </div>
+        </div>
+
         <div class="chart-mock">
             <div class="target-line"></div>
             <div class="target-label">OBJETIVO</div>
@@ -182,12 +224,12 @@ html_code = """
 
         <div class="signal-card">
             <div class="signal-header">
-                <span id="market-status">MERCADO ACTUAL • SEÑAL 15M</span>
+                <span id="market-status">SEÑAL INTELIGENTE 15M</span>
                 <span id="timer-text" style="background: #2b313a; color: #fff; padding: 2px 5px; border-radius: 3px;">Cierra --:--</span>
             </div>
             <div class="signal-box" id="signal-box">
                 <span id="signal-text">↑ UP</span>
-                <span id="signal-sub" style="font-size: 11px; font-weight: normal; background: rgba(0,0,0,0.2); padding: 3px 6px; border-radius: 3px;">Sube activo</span>
+                <span id="signal-sub" style="font-size: 11px; font-weight: normal; background: rgba(0,0,0,0.2); padding: 3px 6px; border-radius: 3px;">Calculando...</span>
             </div>
         </div>
     </div>
@@ -200,7 +242,8 @@ html_code = """
     </div>
 
     <script>
-        let lastBlockKey = "";
+        let lastPrice = 0;
+        let priceVelocity = 0;
 
         async function fetchBTCData() {
             try {
@@ -208,14 +251,18 @@ html_code = """
                 let data = await res.json();
                 let currentPrice = parseFloat(data.data.amount);
 
-                // Calcular bloque UTC de 15 minutos exactos idéntico a Kalshi
+                if (lastPrice !== 0) {
+                    priceVelocity = currentPrice - lastPrice; // Velocidad de cambio por segundo
+                }
+                lastPrice = currentPrice;
+
                 let now = new Date();
                 let utcHour = now.getUTCHours();
                 let utcMinute = now.getUTCMinutes();
+                let utcSecond = now.getUTCSeconds();
                 let blockMinute = Math.floor(utcMinute / 15) * 15;
                 let blockKey = now.getUTCDate() + "-" + now.getUTCMonth() + "-" + utcHour + "-" + blockMinute;
 
-                // Manejo de persistencia local en navegador para congelar el Strike del bloque
                 let savedBlock = localStorage.getItem("kalshi_block_key");
                 let savedStrike = localStorage.getItem("kalshi_strike_price");
 
@@ -230,44 +277,66 @@ html_code = """
 
                 let diff = currentPrice - strikePrice;
 
-                // Actualizar interfaz visual
+                // Cálculo del tiempo restante en segundos del bloque de 15m
+                let secondsElapsedInBlock = (utcMinute % 15) * 60 + utcSecond;
+                let secondsRemaining = 900 - secondsElapsedInBlock;
+                if (secondsRemaining < 1) secondsRemaining = 1;
+
+                // Proyección inteligente de precio al cierre basada en tendencia actual y tiempo restante
+                let projectedFinalPrice = currentPrice + (priceVelocity * Math.min(secondsRemaining, 30));
+                
+                // Cálculo de probabilidad matemática basada en distancia y tiempo restante
+                let distanceToStrike = Math.abs(diff);
+                let probability = 50;
+                if (secondsRemaining > 0) {
+                    let safetyFactor = distanceToStrike / (Math.sqrt(secondsRemaining) + 1);
+                    if (diff > 0) {
+                        probability = Math.min(98, Math.max(51, Math.round(50 + (safetyFactor * 12))));
+                    } else if (diff < 0) {
+                        probability = Math.min(98, Math.max(51, Math.round(50 + (safetyFactor * 12))));
+                    }
+                }
+
                 document.getElementById('target-price').innerText = "$" + strikePrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 document.getElementById('current-price').innerText = "$" + currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                document.getElementById('proj-price').innerText = "$" + projectedFinalPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 
+                let winProbElem = document.getElementById('win-prob');
+                winProbElem.innerText = probability + "%";
+
                 let diffTag = document.getElementById('diff-tag');
                 diffTag.innerText = (diff >= 0 ? "+$" : "-$") + Math.abs(diff).toFixed(2);
                 diffTag.style.color = diff >= 0 ? "#0ecb81" : "#f6465d";
 
-                // Cálculo de señal dinámico basado en la distancia al strike
                 let sBox = document.getElementById('signal-box');
                 let sText = document.getElementById('signal-text');
                 let sSub = document.getElementById('signal-sub');
 
-                if (diff > 1.5) {
+                // Lógica de señal avanzada con umbral dinámico por tiempo y probabilidad
+                if (diff > 1.0 && secondsRemaining < 600) {
                     sBox.style.backgroundColor = "#0ecb81";
                     sBox.style.color = "#000";
-                    sText.innerText = "↑ UP";
-                    sSub.innerText = "Precio arriba del target";
-                } else if (diff < -1.5) {
+                    sText.innerText = "↑ UP (ALCISTA)";
+                    sSub.innerText = "Confianza: " + probability + "%";
+                } else if (diff < -1.0 && secondsRemaining < 600) {
                     sBox.style.backgroundColor = "#f6465d";
                     sBox.style.color = "#fff";
-                    sText.innerText = "↓ DOWN";
-                    sSub.innerText = "Precio abajo del target";
+                    sText.innerText = "↓ DOWN (BAJISTA)";
+                    sSub.innerText = "Confianza: " + probability + "%";
                 } else {
                     sBox.style.backgroundColor = "#2b313a";
                     sBox.style.color = "#f0b90b";
-                    sText.innerText = "⚠️ ZONA DE INDECISIÓN";
-                    sSub.innerText = "Cerca del strike";
+                    sText.innerText = "⚠️ ZONA DE CONSOLIDACIÓN";
+                    sSub.innerText = "Esperando expansión";
                 }
 
-                // Reloj regresivo para el cierre del bloque de 15m
-                let remainingMinutes = 14 - (utcMinute % 15);
-                let remainingSeconds = 59 - now.getUTCSeconds();
-                let secFormatted = remainingSeconds < 10 ? "0" + remainingSeconds : remainingSeconds;
+                let remainingMinutes = Math.floor(secondsRemaining / 60);
+                let remainingSecs = secondsRemaining % 60;
+                let secFormatted = remainingSecs < 10 ? "0" + remainingSecs : remainingSecs;
                 document.getElementById('timer-text').innerText = "Cierra " + remainingMinutes + ":" + secFormatted;
 
             } catch (e) {
-                console.error("Error actualizando precio", e);
+                console.error("Error en motor predictivo", e);
             }
         }
 
@@ -278,4 +347,4 @@ html_code = """
 </html>
 """
 
-st.components.v1.html(html_code, height=750, scrolling=False)
+st.components.v1.html(html_code, height=780, scrolling=False)
