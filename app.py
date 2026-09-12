@@ -1,13 +1,13 @@
 import streamlit as st
 
-st.set_page_config(page_title="BTC Kalshi Exact Sniper", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="BTC Kalshi Pro Sniper", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
-        .stApp { background-color: #0b0e11; }
+        .stApp { background-color: #07090c; }
         .block-container { padding: 0 !important; max-width: 100% !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -18,142 +18,211 @@ html_code = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC Exact Strike Sniper</title>
+    <title>BTC Pro Sniper</title>
     <style>
+        :root {
+            --bg-main: #07090c;
+            --bg-card: #12161f;
+            --bg-card-hover: #181f2c;
+            --border-color: #1f2736;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-yellow: #f59e0b;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+        }
+        
         body {
-            background-color: #0b0e11;
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 12px;
+            padding: 14px;
             display: flex;
             justify-content: center;
+            -webkit-font-smoothing: antialiased;
         }
+
         .app-container {
             width: 100%;
             max-width: 420px;
-            padding-bottom: 75px;
+            padding-bottom: 80px;
         }
+
+        /* Top Header */
         .header-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
+            padding: 0 4px;
         }
-        .coin-title {
-            font-size: 16px;
-            font-weight: bold;
+        .coin-badge {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
         }
+        .sync-pill {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .sync-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        /* Prices Grid */
         .prices-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            background: #161a22;
-            padding: 10px;
-            border-radius: 10px;
-            border: 1px solid #2b313a;
-            margin-bottom: 12px;
+            gap: 10px;
+            background: var(--bg-card);
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
         .price-box label {
-            font-size: 10px;
-            color: #848e9c;
+            font-size: 11px;
+            color: var(--text-secondary);
             text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
         }
         .price-box .val {
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 3px;
+            font-size: 19px;
+            font-weight: 800;
+            margin-top: 4px;
+            letter-spacing: -0.5px;
         }
-        .val.target { color: #f0b90b; }
-        .val.current { color: #0ecb81; }
+        .val.target { color: var(--accent-yellow); }
+        .val.current { color: var(--accent-green); }
 
+        /* Chart Card */
         .chart-card {
-            background: #161a22;
-            border: 1px solid #2b313a;
-            border-radius: 10px;
-            padding: 10px;
-            margin-bottom: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
         .chart-header {
             display: flex;
             justify-content: space-between;
-            font-size: 10px;
-            color: #848e9c;
-            margin-bottom: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
             text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
         }
         .canvas-container {
             position: relative;
             width: 100%;
-            height: 150px;
-            background: #0b0e11;
-            border-radius: 6px;
+            height: 160px;
+            background: #040608;
+            border-radius: 10px;
             overflow: hidden;
-            border: 1px solid #2b313a;
+            border: 1px solid var(--border-color);
         }
         canvas {
             width: 100%;
             height: 100%;
             display: block;
         }
-        
+
+        /* Signal Card */
         .signal-card {
-            background: #161a22;
-            border: 1px solid #2b313a;
-            border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
         .signal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             font-size: 11px;
-            color: #848e9c;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .timer-badge {
+            background: #1a2230;
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
         }
         .signal-box {
-            background: #2b313a;
-            color: #f0b90b;
-            padding: 16px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 22px;
+            background: #1a2230;
+            color: var(--accent-yellow);
+            padding: 18px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 20px;
             text-align: center;
             letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
         .signal-sub {
-            font-size: 12px;
+            font-size: 13px;
             margin-top: 6px;
-            font-weight: normal;
-            opacity: 0.95;
+            font-weight: 500;
+            opacity: 0.9;
         }
-        
+
+        /* Bottom Nav */
         .bottom-nav {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: #12161c;
-            border-top: 1px solid #2b313a;
+            background: rgba(11, 15, 22, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
             display: flex;
             justify-content: space-around;
-            padding: 8px 0;
+            padding: 10px 0 16px 0;
             z-index: 1000;
         }
         .nav-item {
             text-align: center;
-            color: #848e9c;
-            font-size: 10px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 500;
             text-decoration: none;
+            transition: color 0.2s;
         }
         .nav-item.active {
-            color: #0ecb81;
+            color: var(--accent-green);
+        }
+        .nav-icon {
+            font-size: 18px;
+            margin-bottom: 2px;
         }
     </style>
 </head>
@@ -161,27 +230,29 @@ html_code = """
 
     <div class="app-container">
         <div class="header-row">
-            <div class="coin-title">
-                <span style="color: #f0b90b;">🟠</span> BTC 15 min <span style="font-size: 10px; color: #848e9c;">▼</span>
+            <div class="coin-title coin-badge">
+                <span style="color: var(--accent-yellow); font-size: 20px;">🪙</span> BTC 15 min <span style="font-size: 12px; color: var(--text-secondary);">▾</span>
             </div>
-            <div style="font-size: 11px; color: #0ecb81; background: rgba(14,203,129,0.1); padding: 3px 6px; border-radius: 4px;">● Exact Kalshi Sync</div>
+            <div class="sync-pill">
+                <div class="sync-dot"></div> Kalshi Sync
+            </div>
         </div>
 
         <div class="prices-grid">
             <div class="price-box">
                 <label>Strike Objetivo</label>
-                <div id="target-price" class="val target">Cargando...</div>
+                <div id="target-price" class="val target">--.--</div>
             </div>
             <div class="price-box">
                 <label>Actual (Current)</label>
-                <div id="current-price" class="val current">Cargando...</div>
+                <div id="current-price" class="val current">--.--</div>
             </div>
         </div>
 
         <div class="chart-card">
             <div class="chart-header">
                 <span>Flujo de Precio en Vivo</span>
-                <span id="diff-tag" style="font-weight: bold; color: #0ecb81;">+$0.00</span>
+                <span id="diff-tag" style="font-weight: 700; color: var(--accent-green);">+$0.00</span>
             </div>
             <div class="canvas-container">
                 <canvas id="priceCanvas"></canvas>
@@ -191,20 +262,20 @@ html_code = """
         <div class="signal-card">
             <div class="signal-header">
                 <span id="window-status">ESTADO DEL BLOQUE</span>
-                <span id="timer-text" style="background: #2b313a; color: #fff; padding: 2px 6px; border-radius: 4px;">Cierra --:--</span>
+                <span id="timer-text" class="timer-badge">Cierra --:--</span>
             </div>
             <div class="signal-box" id="signal-box">
                 <div id="signal-main">CALCULANDO...</div>
-                <div class="signal-sub" id="signal-sub">Sincronizando strike exacto de apertura</div>
+                <div class="signal-sub" id="signal-sub">Sincronizando reloj de bloques</div>
             </div>
         </div>
     </div>
 
     <div class="bottom-nav">
-        <div class="nav-item active"><div>🤖</div><div>Bot</div></div>
-        <div class="nav-item"><div>📈</div><div>Operaciones</div></div>
-        <div class="nav-item"><div>💰</div><div>Saldo</div></div>
-        <div class="nav-item"><div>⚙️</div><div>Ajustes</div></div>
+        <div class="nav-item active"><div class="nav-icon">🤖</div><div>Bot</div></div>
+        <div class="nav-item"><div class="nav-icon">📈</div><div>Operaciones</div></div>
+        <div class="nav-item"><div class="nav-icon">💰</div><div>Saldo</div></div>
+        <div class="nav-item"><div class="nav-icon">⚙️</div><div>Ajustes</div></div>
     </div>
 
     <script>
@@ -232,28 +303,28 @@ html_code = """
             maxP += padding;
 
             function scaleY(p) {
-                return canvas.height - ((p - minP) / (maxP - minP)) * (canvas.height - 20) - 10;
+                return canvas.height - ((p - minP) / (maxP - minP)) * (canvas.height - 24) - 12;
             }
 
             let strikeY = scaleY(strikePrice);
-            ctx.strokeStyle = '#f0b90b';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([5, 5]);
             ctx.beginPath();
             ctx.moveTo(0, strikeY);
             ctx.lineTo(canvas.width, strikeY);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            ctx.fillStyle = '#f0b90b';
-            ctx.font = '9px sans-serif';
-            ctx.fillText('STRIKE', 6, strikeY - 4);
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillText('STRIKE', 8, strikeY - 6);
 
             let step = canvas.width / (priceHistory.length - 1);
             let gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             let isUp = currentPrice >= strikePrice;
-            gradient.addColorStop(0, isUp ? 'rgba(14, 203, 129, 0.25)' : 'rgba(246, 70, 93, 0.25)');
-            gradient.addColorStop(1, 'rgba(11, 14, 17, 0.0)');
+            gradient.addColorStop(0, isUp ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)');
+            gradient.addColorStop(1, 'rgba(7, 9, 12, 0.0)');
 
             ctx.beginPath();
             ctx.moveTo(0, canvas.height);
@@ -275,8 +346,8 @@ html_code = """
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
-            ctx.strokeStyle = isUp ? '#0ecb81' : '#f6465d';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = isUp ? '#10b981' : '#ef4444';
+            ctx.lineWidth = 2.2;
             ctx.stroke();
         }
 
@@ -287,18 +358,15 @@ html_code = """
                 let currentPrice = parseFloat(data.data.amount);
 
                 let now = new Date();
-                let totalMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-                let currentSecondInBlock = (totalMinutes % 15) * 60 + now.getUTCSeconds();
-                let remainingSeconds = 900 - currentSecondInBlock;
-                if (remainingSeconds < 1) remainingSeconds = 1;
+                let totalSecondsToday = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
+                let secondsIntoBlock = totalSecondsToday % 900;
+                let remainingSeconds = 900 - secondsIntoBlock;
 
-                // Identificador único del bloque actual (ej: bloque 15m del día)
-                let blockId = Math.floor(totalMinutes / 15) + "-" + now.getUTCDate();
+                let blockId = Math.floor(totalSecondsToday / 900) + "-" + now.getUTCDate();
 
                 let activeBlock = localStorage.getItem("kalshi_exact_block");
                 let strikePrice = parseFloat(localStorage.getItem("kalshi_exact_strike") || "0");
 
-                // Si es un bloque nuevo O el strike no está guardado, el primer precio que llegue ES el Strike oficial de apertura
                 if (activeBlock !== blockId || !strikePrice || strikePrice === 0) {
                     strikePrice = currentPrice;
                     localStorage.setItem("kalshi_exact_block", blockId);
@@ -316,7 +384,7 @@ html_code = """
 
                 let diffTag = document.getElementById('diff-tag');
                 diffTag.innerText = (diff >= 0 ? "+$" : "-$") + Math.abs(diff).toFixed(2);
-                diffTag.style.color = diff >= 0 ? "#0ecb81" : "#f6465d";
+                diffTag.style.color = diff >= 0 ? "#10b981" : "#ef4444";
 
                 drawChart(strikePrice, currentPrice);
 
@@ -334,30 +402,33 @@ html_code = """
                     }
                 }
 
-                // Ventana de apertura estricta: primeros 180 segundos (3 minutos)
-                if (currentSecondInBlock <= 180) {
+                if (secondsIntoBlock <= 180) {
                     windowStatus.innerText = "⚡ VENTANA DE APERTURA (0-3 MIN)";
                     
                     if (momentumScore >= 2 && diff > 1.0) {
-                        sBox.style.backgroundColor = "#0ecb81";
-                        sBox.style.color = "#000";
+                        sBox.style.backgroundColor = "#10b981";
+                        sBox.style.color = "#07090c";
+                        sBox.style.borderColor = "#34d399";
                         sMain.innerText = "🟢 ENTRAR UP";
                         sSub.innerText = "Ruptura alcista limpia desde el strike";
                     } else if (momentumScore <= -2 && diff < -1.0) {
-                        sBox.style.backgroundColor = "#f6465d";
-                        sBox.style.color = "#fff";
+                        sBox.style.backgroundColor = "#ef4444";
+                        sBox.style.color = "#ffffff";
+                        sBox.style.borderColor = "#f87171";
                         sMain.innerText = "🔴 ENTRAR DOWN";
                         sSub.innerText = "Ruptura bajista limpia desde el strike";
                     } else {
-                        sBox.style.backgroundColor = "#2b313a";
-                        sBox.style.color = "#f0b90b";
+                        sBox.style.backgroundColor = "#1a2230";
+                        sBox.style.color = "#f59e0b";
+                        sBox.style.borderColor = "var(--border-color)";
                         sMain.innerText = "⏳ ESPERANDO RUPTURA";
                         sSub.innerText = "Monitoreando salida del strike base...";
                     }
                 } else {
                     windowStatus.innerText = "🔒 BLOQUE AVANZADO (ZONA CERRADA)";
-                    sBox.style.backgroundColor = "#1e2329";
-                    sBox.style.color = "#848e9c";
+                    sBox.style.backgroundColor = "#141923";
+                    sBox.style.color = "#64748b";
+                    sBox.style.borderColor = "var(--border-color)";
                     sMain.innerText = "🛡️ FUERA DE TIEMPO";
                     sSub.innerText = "Ventana de 3 min finalizada - Evitar riesgo";
                 }
