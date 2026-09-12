@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 
@@ -70,3 +69,4 @@ st.progress(up_val / 100)
 st.divider()
 st.text(f"Precio Binance BTCUSDT: ${precio_actual:,.2f}")
 st.info("💡 Cada vez que le des a recargar a la página, medirá el cambio exacto contra Binance al instante.")
+
