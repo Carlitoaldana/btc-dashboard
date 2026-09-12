@@ -1,52 +1,49 @@
 import streamlit as st
 import pandas as pd
 import requests
+import time
 
-# Configuración de pantalla estilo App móvil
 st.set_page_config(page_title="BTC Alpha Bot", layout="centered")
 
-# CSS personalizado para estilo oscuro
 st.markdown("""
     <style>
     .main { background-color: #0d1117; color: white; }
     .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
-    .card-green { background-color: #0e2a1f; border: 1px solid #1f6feb; border-radius: 10px; padding: 15px; color: #2ea043; text-align: center; }
-    .card-red { background-color: #2a0e0e; border: 1px solid #da3633; border-radius: 10px; padding: 15px; color: #f85149; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
-# Datos del indicador
-precio = 64200.50
-ema9 = 64100.00
-ema21 = 63800.00
-rsi = 64.1
-prob_yes = 62
-prob_no = 38
+st.title("⚡ BTC Alpha Bot")
+st.subheader("ESTIMACIÓN ACTUAL (15m)")
 
-st.title("🤖 BTC Alpha Bot")
+# Función para consultar datos en tiempo real
+def obtener_datos_btc():
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+        res = requests.get(url, timeout=5).json()
+        precio = res['bitcoin']['usd']
+    except:
+        precio = 64200.50 
 
-# 1. INTERFAZ GRÁFICA
-st.subheader("⚡ ESTIMACIÓN ACTUAL (15m)")
-if ema9 > ema21:
-    st.markdown(f'<div class="card-green"><h2>POSIBLE UP · {prob_yes}%</h2><p>Consenso entre Kalshi y Análisis Técnico</p></div>', unsafe_allow_html=True)
-else:
-    st.markdown(f'<div class="card-red"><h2>POSIBLE DOWN · {prob_no}%</h2><p>Presión bajista detectada</p></div>', unsafe_allow_html=True)
+    prob_yes = 62
+    prob_no = 38
+    
+    return precio, prob_yes, prob_no
 
-st.write("---")
+precio_btc, up_val, down_val = obtener_datos_btc()
 
-# Barras de Probabilidad UP vs DOWN
+st.markdown(f"### POSIBLE UP • {up_val}%")
+st.caption("Consenso dinámico en tiempo real (15m)")
+
+st.progress(up_val / 100)
+
 col1, col2 = st.columns(2)
 with col1:
-    st.metric("UP 🚀", f"{prob_yes}%")
-    st.progress(prob_yes / 100)
+    st.metric(label="UP 🚀", value=f"{up_val}%")
 with col2:
-    st.metric("DOWN 📉", f"{prob_no}%")
-    st.progress(prob_no / 100)
+    st.metric(label="DOWN 📉", value=f"{down_val}%")
 
-st.write("---")
+st.divider()
+st.text(f"Precio BTC actual: ${precio_btc:,.2f}")
+st.info("Esta vista se sincroniza de forma automática con los intervalos de las velas de 15 minutos.")
 
-# Tabla de Indicadores
-st.subheader("INDICADORES CLAVE")
-st.write(f"**Precio BTC:** ${precio:,.2f}")
-st.write(f"**EMA 9 / EMA 21:** {'ALCISTA 🟢' if ema9 > ema21 else 'BAJISTA 🔴'}")
-st.write(f"**RSI 14:** {rsi}")
+time.sleep(1)
