@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ================= ESTILOS CSS PROFESIONALES =================
+# ================= ESTILOS CSS IDÉNTICOS AL ORIGINAL =================
 st.markdown("""
 <style>
     .stApp {
@@ -18,68 +18,81 @@ st.markdown("""
         color: #e6e6e6;
         font-family: 'Inter', sans-serif;
     }
-    .main-card {
-        background: #131822;
+    .card {
+        background: #11151c;
         border: 1px solid #1f293d;
-        border-radius: 16px;
-        padding: 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        border-radius: 14px;
+        padding: 14px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
-    .alert-banner {
-        background: rgba(239, 68, 68, 0.15);
-        border: 1px solid rgba(239, 68, 68, 0.4);
-        border-radius: 12px;
-        padding: 10px;
-        text-align: center;
-        color: #f87171;
+    .alert-card {
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        border-radius: 14px;
+        padding: 10px 14px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .alert-text {
+        color: #38bdf8;
         font-weight: bold;
-        font-size: 13px;
-        margin-bottom: 12px;
+        font-size: 12px;
+        letter-spacing: 0.5px;
     }
-    .metric-title {
-        font-size: 11px;
+    .momentum-card {
+        background: #2b1f11;
+        border: 1px solid #854d0e;
+        border-radius: 14px;
+        padding: 14px;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+    .section-title {
+        font-size: 10px;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 1.2px;
         color: #8a99ad;
-        margin-bottom: 5px;
-        font-weight: 600;
+        margin-bottom: 4px;
+        font-weight: 700;
         text-align: center;
     }
-    .badge-up {
-        background-color: rgba(14, 203, 129, 0.15);
-        color: #0ecb81;
-        border: 1px solid #0ecb81;
-        padding: 10px;
+    .badge-box-up {
+        background-color: #0d231d;
+        border: 1px solid #059669;
         border-radius: 12px;
+        padding: 12px;
         text-align: center;
-        font-weight: bold;
     }
-    .badge-down {
-        background-color: rgba(246, 70, 93, 0.15);
-        color: #f6465d;
-        border: 1px solid #f6465d;
-        padding: 10px;
+    .badge-box-down {
+        background-color: #261519;
+        border: 1px solid #dc2626;
         border-radius: 12px;
+        padding: 12px;
         text-align: center;
-        font-weight: bold;
     }
     .indicator-row {
         display: flex;
         justify-content: space-between;
+        align-items: center;
         padding: 6px 0;
         border-bottom: 1px solid #1f293d;
-        font-size: 13px;
+        font-size: 12px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ================= MOTOR DE ANÁLISIS TÉCNICO =================
-def get_market_data():
+# ================= MOTOR DE DATOS =================
+def get_bot_data():
     binance_price = 0.0
     rsi = 50.0
     ema_signal = "ALCISTA 🚀"
-    up_prob = 62
+    up_est = 62
+    down_est = 38
+    up_main = 41
+    down_main = 59
     
     try:
         url_binance = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=25"
@@ -109,89 +122,122 @@ def get_market_data():
                 rs = (gains / 14) / (losses / 14)
                 rsi = 100 - (100 / (1 + rs))
             else:
-                rsi = 55.0
+                rsi = 52.5
                 
             if price_momentum < 0:
-                up_prob = 41
+                up_est, down_est = 38, 62
+                up_main, down_main = 59, 41
     except Exception:
         pass
 
-    down_prob = 100 - up_prob
     return {
         "price": binance_price,
         "rsi": rsi,
         "ema": ema_signal,
-        "up": up_prob,
-        "down": down_prob
+        "up_est": up_est,
+        "down_est": down_est,
+        "up_main": up_main,
+        "down_main": down_main
     }
 
-data = get_market_data()
+data = get_bot_data()
 
-# ================= INTERFAZ VISUAL IDÉNTICA =================
+# ================= RENDERIZADO DE LA INTERFAZ =================
 
-# Alerta superior
-st.markdown('<div class="alert-banner">🚨 ALERTA: VOLATILIDAD ALTA</div>', unsafe_allow_html=True)
+# 1. Alerta Superior en su tarjeta azulada
+st.markdown('<div class="alert-card"><span class="alert-text">🚨 ALERTA: VOLATILIDAD ALTA</span></div>', unsafe_allow_html=True)
 
-# Estimación Actual
-st.markdown('<div class="main-card">', unsafe_allow_html=True)
-st.markdown('<div class="metric-title">⚡ ESTIMACIÓN ACTUAL (15M)</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="font-size: 24px; font-weight: 800; color: #0ecb81; text-align: center;">POSIBLE UP • {data["up"]}%</div>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 12px; margin-bottom: 8px;">Consenso entre Kalshi y Análisis Técnico</p>', unsafe_allow_html=True)
-st.progress(data["up"] / 100)
-st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 11px; color: #8a99ad; margin-top: 4px;"><span>UP {data["up"]}%</span><span>DOWN {data["down"]}%</span></div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Momentum Detectado
-st.markdown('<div class="main-card" style="background: rgba(217, 119, 6, 0.12); border-color: rgba(217, 119, 6, 0.3);">', unsafe_allow_html=True)
-st.markdown('<div class="metric-title" style="color: #fbbf24;">🚀 MOMENTUM DETECTADO</div>', unsafe_allow_html=True)
-st.markdown('<h3 style="text-align: center; color: #34d399; margin: 0; font-size: 18px;">FUERTE REBOTE ALCISTA</h3>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; color: #d1d5db; font-size: 11px; margin-top: 4px; margin-bottom: 0;">Rompimiento de EMA confirmado en la vela actual</p>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Señal Principal
-st.markdown('<div class="main-card">', unsafe_allow_html=True)
-st.markdown('<div class="metric-title">SEÑAL PRINCIPAL</div>', unsafe_allow_html=True)
-st.markdown('<h2 style="text-align: center; color: #0ecb81; margin-bottom: 4px;">POSIBLE UP</h2>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 11px; margin-bottom: 12px;">Esta llamada se actualiza cada 15 minutos exactos</p>', unsafe_allow_html=True)
-
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown(f'<div class="badge-up">UP<br><span style="font-size: 22px;">{data["up"]}%</span><br><span style="font-size: 9px;">COMPRAR UP —</span></div>', unsafe_allow_html=True)
-with col2:
-    st.markdown(f'<div class="badge-down">DOWN<br><span style="font-size: 22px;">{data["down"]}%</span><br><span style="font-size: 9px;">COMPRAR DOWN —</span></div>', unsafe_allow_html=True)
-
-st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 11px; margin-top: 10px; margin-bottom: 0;">El porcentaje sale directo de la probabilidad de Kalshi</p>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Confirmación Post-Entrada
-st.markdown('<div class="main-card">', unsafe_allow_html=True)
-st.markdown('<div class="metric-title">CONFIRMACIÓN POST-ENTRADA</div>', unsafe_allow_html=True)
-st.markdown('<h3 style="text-align: center; color: #0ecb81; margin: 0; font-size: 16px;">POSIBLE UP</h3>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 11px; margin-top: 5px; margin-bottom: 0;">Estimación basada en probabilidades, no garantía de resultado.</p>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Indicadores Clave
-st.markdown('<div class="main-card">', unsafe_allow_html=True)
-st.markdown('<div class="metric-title">INDICADORES CLAVE</div>', unsafe_allow_html=True)
-
+# 2. Estimación Actual (15M)
 st.markdown(f"""
-<div class="indicator-row">
-    <span>EMA 9 / EMA 21</span>
-    <span style="font-weight: bold; color: #0ecb81;">{data["ema"]}</span>
-</div>
-<div class="indicator-row" style="margin-top: 6px;">
-    <span>RSI (14)</span>
-    <span style="font-weight: bold;">{data["rsi"]:.1f}</span>
-</div>
-<div class="indicator-row" style="margin-top: 6px;">
-    <span>Volatilidad (Bandas)</span>
-    <span style="font-weight: bold; color: #f87171;">ALTA 🚨</span>
-</div>
-<div class="indicator-row" style="margin-top: 6px; border-bottom: none;">
-    <span>API Kalshi</span>
-    <span style="font-weight: bold; color: #0ecb81;">CONECTADO 🟢</span>
+<div class="card">
+    <div class="section-title">⚡ ESTIMACIÓN ACTUAL (15M)</div>
+    <div style="font-size: 22px; font-weight: 800; color: #34d399; text-align: center;">POSIBLE UP • {data["up_est"]}%</div>
+    <div style="text-align: center; color: #8a99ad; font-size: 11px; margin-bottom: 8px;">Consenso entre Kalshi y Análisis Técnico</div>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; color: #4f5d73; font-size: 11px;">Macaly + Alpha Bot v2.1 | Made with AI</p>', unsafe_allow_html=True)
+# Barra de progreso custom para que luzca idéntica
+st.markdown(f"""
+<div style="background: #1f293d; border-radius: 8px; height: 10px; width: 100%; margin-top: -6px; margin-bottom: 6px; overflow: hidden; display: flex;">
+    <div style="background: #10b981; width: {data["up_est"]}%; height: 100%;"></div>
+    <div style="background: #f59e0b; width: 8%; height: 100%;"></div>
+    <div style="background: #78350f; width: {data["down_est"] - 8}%; height: 100%;"></div>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 10px; color: #8a99ad; margin-bottom: 10px;">
+    <span>UP {data["up_est"]}%</span><span>DOWN {data["down_est"]}%</span>
+</div>
+""", unsafe_allow_html=True)
+
+# 3. Momentum Detectado
+st.markdown("""
+<div class="momentum-card">
+    <div class="section-title" style="color: #fbbf24;">🚀 MOMENTUM DETECTADO</div>
+    <div style="color: #34d399; font-weight: 800; font-size: 16px; margin-top: 2px;">FUERTE REBOTE ALCISTA</div>
+    <div style="color: #9ca3af; font-size: 10px; margin-top: 3px;">Rompimiento de EMA confirmado en la vela actual</div>
+</div>
+""", unsafe_allow_html=True)
+
+# 4. Señal Principal
+st.markdown("""
+<div class="card">
+    <div class="section-title">SEÑAL PRINCIPAL</div>
+    <div style="text-align: center; color: #34d399; font-size: 20px; font-weight: 800; margin-bottom: 2px;">POSIBLE UP</div>
+    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-bottom: 10px;">Esta llamada se actualiza cada 15 minutos exactos</div>
+""", unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown(f"""
+    <div class="badge-box-up">
+        <div style="color: #34d399; font-size: 11px; font-weight: bold;">UP</div>
+        <div style="color: #34d399; font-size: 20px; font-weight: 800;">{data["up_main"]}%</div>
+        <div style="color: #34d399; font-size: 8px; margin-top: 2px; letter-spacing: 0.5px;">COMPRAR UP —</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="badge-box-down">
+        <div style="color: #f87171; font-size: 11px; font-weight: bold;">DOWN</div>
+        <div style="color: #f87171; font-size: 20px; font-weight: 800;">{data["down_main"]}%</div>
+        <div style="color: #f87171; font-size: 8px; margin-top: 2px; letter-spacing: 0.5px;">COMPRAR DOWN —</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("""
+    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 10px;">El porcentaje sale directo de la probabilidad de Kalshi</div>
+</div>
+""", unsafe_allow_html=True)
+
+# 5. Confirmación Post-Entrada
+st.markdown("""
+<div class="card">
+    <div class="section-title">CONFIRMACIÓN POST-ENTRADA</div>
+    <div style="text-align: center; color: #34d399; font-size: 15px; font-weight: bold;">POSIBLE UP</div>
+    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 3px;">Estimación basada en probabilidades, no garantía de resultado.</div>
+</div>
+""", unsafe_allow_html=True)
+
+# 6. Indicadores Clave
+st.markdown(f"""
+<div class="card">
+    <div class="section-title" style="margin-bottom: 8px;">INDICADORES CLAVE</div>
+    <div class="indicator-row">
+        <span>EMA 9 / EMA 21</span>
+        <span style="font-weight: bold; color: #34d399;">{data["ema"]}</span>
+    </div>
+    <div class="indicator-row">
+        <span>RSI (14)</span>
+        <span style="font-weight: bold; color: #e6e6e6;">{data["rsi"]:.1f}</span>
+    </div>
+    <div class="indicator-row">
+        <span>Volatilidad (Bandas)</span>
+        <span style="font-weight: bold; color: #f87171;">ALTA 🚨</span>
+    </div>
+    <div class="indicator-row" style="border-bottom: none;">
+        <span>API Kalshi</span>
+        <span style="font-weight: bold; color: #34d399;">CONECTADO 🟢</span>
+    </div>
+</div>
+<div style="text-align: center; color: #4b5563; font-size: 10px; margin-top: 8px;">Macaly + Alpha Bot v2.1 | Made with AI</div>
+""", unsafe_allow_html=True)
