@@ -78,8 +78,38 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ================= CREDENCIALES CONFIGURADAS DIRECTAMENTE =================
+KALSHI_API_KEY_ID = "D4e07b80-de19-4b54-a6d6-fb44316d92e9"
+KALSHI_PRIVATE_KEY = """-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEAx+hDc1bJLwI4f/uHtjwILsv+bSM5jXRlVKiQZx2gvBIACIuB
+TJR0NRZrbn4uxm5UJDyhLu2FW7aXNxf1Vp5TA5vexN+i8lduxLgq0MRJBOhCi1YT
+2PwPKHXY0dpdwvWq/hMTTvicIKcP7kEHk6JEmVoq26Xa/AIcibzzcO8wpYFlay6Z
+Y5q68D9ome7Ba8l5ScrD9GDCrtB22jw/IfKOWotIC9lK4biHPxB+s4hhjnbg1zaj
+r7JInOne02hQO5KOq6zV2co8NxILT9g8VVZa4stnvyZV8OhW1k5P11aom9SanG2D
+MC9QmhMSkJyTxLLmNjWFWp1ES1AGG0RdKId1KQIDAQABAoIBAAGdvVd6o9/wXYpL
+mWO9V85GEgladh1o6xQU1GkwJ9LoqELAktS6Gg727Da5py2wV3ytbUZthWaVtFTx
+5ZwJa0iV9ljKt0zc2IrpDV1vVZSZ5+RUrqnSVOJGYLIKvcqSPF/Ypq0sVUP+cVjx
+lV7qxUHIWOOcX5AEFHtYuIrUKi18heMbN62xRHtEJXAVTTt4WVWUKYw58tBfz2Ca
+Zr3phxsd3KO0Dwt9WhpbghJWuH9ps2NiG++Owz4BDsDxEJD3U/0WUoGoVpGQM2tU
+4c8beR+1rJHwSLiBmrj/UjmPsvReowXX6+GzQIDs1CgmmXw2Qz+/jAEFkaLsjXcQ
+yYwkIL8CgYEA/RweH/Yp8gKFc+WzSOGLhVvg7LXLJ2oqSijwVeZ4CXWh2KM0VaMf
+hw0zw4rBDUipnl/f6rmN/awCvuTOgSnlZ0Qwof9z2M73kEg56QluqG+Aiodmo5ad
+WyAvCFyuYcF2AbM2/q4n1BcJFtKxXQ0MO9K2ISmm1xKWonMn2okgYw8CgYEAyjCg
+N4YzWBacOuYSm/evi3JSmxPWIW6RZSl0UeWLqFT0aKdxM34nG+/tuOznqCfFMX6J
+PnxypDklLecsfy7XNLjPUB4Q2OeCEOscLvYlVn/HDnDhAmru+UhMoWOYQLFf50aA
+Ou5bpL6tfrHHCgnlNo1tCarmk06+zc2f9WYEREcCgYAm2Uj6aOMZRS/MkSYKeqva
+hTapvmF3JEFnbo8s8BnegdKcmLgwqL/vD6SxT7u/2TZHm7mXonFbzSoCuMXFZ3PR
+fNLmGnpifanb2GojDZKRgcO9/3hOhZCTawYtB2SwlmwRaLt5LavpTrvTZ/VXLeiB
+yh6wSl9URYMfXgNw9HknGwKBgHeFWSCZdz6KVx5GJRgHycC/+u7rQfiPWOmZIMbM
+z8rZNYWr/bH3z/ymzzsy6BoyMFJ6v3ytqkND+KNy9Y3VTag/22U78K+X4v5HTWjB
+Xv8MF8qEla6NMekwgQQiUL1lXRDlTyYHAyuXAA5V3xgjE1k1LxC48wZ/VTFpbTZu
+cPU/AoGBAPBNJRUKusjvw22rvWv3NZ7eFjvhy7sCA5PDBnWi5lLxuZqEOVAfwEfc
+h21tRreALVHZzyJV1Ntn8klfxUL4H6I9pTRZ7XOlN+XOW9/KeG+CJQuNJWJrhEds
+X/2r5Fcp7+T0p87uk90/Wl2ghgUkRtKhiEx9Gg0t3X5ehlY19sVd
+-----END RSA PRIVATE KEY-----"""
+
 # ================= FUNCIÓN DE AUTENTICACIÓN KALSHI =================
-def get_kalshi_auth_headers(key_id, private_key_pem, method, path):
+def get_kalshi_auth_headers(method, path):
     try:
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import padding
@@ -89,11 +119,7 @@ def get_kalshi_auth_headers(key_id, private_key_pem, method, path):
         msg_string = timestamp + method.upper() + path
         message = msg_string.encode('utf-8')
         
-        # Limpiar saltos de línea por si acaso la llave tiene formato extraño
-        if "-----BEGIN" not in private_key_pem:
-            private_key_pem = f"-----BEGIN RSA PRIVATE KEY-----\n{private_key_pem}\n-----END RSA PRIVATE KEY-----"
-            
-        private_key = load_pem_private_key(private_key_pem.encode('utf-8'), password=None)
+        private_key = load_pem_private_key(KALSHI_PRIVATE_KEY.encode('utf-8'), password=None)
         signature = private_key.sign(
             message,
             padding.PKCS1v15(),
@@ -103,12 +129,11 @@ def get_kalshi_auth_headers(key_id, private_key_pem, method, path):
         
         return {
             "Content-Type": "application/json",
-            "KALSHI-ACCESS-KEY": key_id,
+            "KALSHI-ACCESS-KEY": KALSHI_API_KEY_ID,
             "KALSHI-ACCESS-SIGNATURE": sig_b64,
             "KALSHI-ACCESS-TIMESTAMP": timestamp
         }
-    except Exception as e:
-        st.error(f"Error detallado de firma RSA: {e}")
+    except Exception:
         return None
 
 # ================= OBTENCIÓN DE DATOS Y SEÑAL =================
@@ -151,27 +176,21 @@ def get_sniper_signal():
     except Exception:
         pass
 
-    # 2. Conexión Kalshi con depuración de secretos
-    if "kalshi" in st.secrets:
-        try:
-            k_id = st.secrets["kalshi"]["api_key_id"]
-            k_priv = st.secrets["kalshi"]["private_key"]
-            
-            path = "/trade-api/v2/markets?series_ticker=KXBTC"
-            url_kalshi = f"https://trading-api.kalshi.com{path}"
-            
-            headers = get_kalshi_auth_headers(k_id, k_priv, "GET", path)
-            if headers:
-                req_k = urllib.request.Request(url_kalshi, headers=headers)
-                with urllib.request.urlopen(req_k, timeout=5.0) as resp_k:
-                    k_data = json.loads(resp_k.read().decode())
-                    if "markets" in k_data and len(k_data["markets"]) > 0:
-                        kalshi_up_prob = float(k_data["markets"][0].get("yes_bid", 50))
-                        kalshi_connected = True
-        except Exception as e:
-            st.warning(f"Aviso de conexión Kalshi HTTP: {e}")
-    else:
-        st.warning("Falta configurar la sección [kalshi] en los Secrets de Streamlit.")
+    # 2. Conexión Kalshi
+    try:
+        path = "/trade-api/v2/markets?series_ticker=KXBTC"
+        url_kalshi = f"https://trading-api.kalshi.com{path}"
+        
+        headers = get_kalshi_auth_headers("GET", path)
+        if headers:
+            req_k = urllib.request.Request(url_kalshi, headers=headers)
+            with urllib.request.urlopen(req_k, timeout=5.0) as resp_k:
+                k_data = json.loads(resp_k.read().decode())
+                if "markets" in k_data and len(k_data["markets"]) > 0:
+                    kalshi_up_prob = float(k_data["markets"][0].get("yes_bid", 50))
+                    kalshi_connected = True
+    except Exception:
+        pass
 
     # 3. Consenso Final
     if kalshi_connected:
@@ -208,11 +227,11 @@ st.markdown('<div class="metric-title">⚡ ESTIMACIÓN ACTUAL (15m)</div>', unsa
 
 if data["up"] > data["down"]:
     st.markdown(f'<div class="metric-value-up">POSIBLE UP • {data["up"]}%</div>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 13px;">Consenso entre Binance Data y Análisis Técnico</p>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 13px;">Consenso entre Binance Data y Kalshi API</p>', unsafe_allow_html=True)
     st.progress(data["up"] / 100)
 else:
     st.markdown(f'<div class="metric-value-down">POSIBLE DOWN • {data["down"]}%</div>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 13px;">Consenso entre Binance Data y Análisis Técnico</p>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 13px;">Consenso entre Binance Data y Kalshi API</p>', unsafe_allow_html=True)
     st.progress(data["up"] / 100)
 st.markdown('</div>', unsafe_allow_html=True)
 
