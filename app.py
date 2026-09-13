@@ -2,14 +2,15 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
+from datetime import datetime, timezone
 
 # =========================================================
-# MACALY + ALPHA BOT v4.3
-# AUTO REFRESH + COINBASE + KALSHI BTC 15 MIN
+# MACALY + ALPHA BOT v4.4
+# BTC 15 MIN + TARGET AUTO + COUNTDOWN
 # =========================================================
 
 st.set_page_config(
-    page_title="Macaly + Alpha Bot v4.3",
+    page_title="Macaly + Alpha Bot v4.4",
     page_icon="⚡",
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -52,7 +53,7 @@ header {visibility:hidden;}
     text-align:center;
     color:#38bdf8;
     font-weight:900;
-    letter-spacing:3px;
+    letter-spacing:2px;
 }
 
 .bot-label {
@@ -60,14 +61,14 @@ header {visibility:hidden;}
     color:#94a3b8;
     font-size:13px;
     font-weight:800;
-    letter-spacing:3px;
+    letter-spacing:2px;
     margin-bottom:12px;
 }
 
 .bot-row {
     display:flex;
     justify-content:space-between;
-    gap:15px;
+    gap:12px;
     padding:11px 0;
     border-bottom:1px solid #334155;
 }
@@ -85,6 +86,22 @@ header {visibility:hidden;}
     font-weight:800;
     text-align:right;
 }
+
+.target-box {
+    background:#101827;
+    border:1px solid #475569;
+    border-radius:16px;
+    padding:15px;
+    margin-bottom:12px;
+    text-align:center;
+}
+
+.small-note {
+    color:#64748b;
+    font-size:12px;
+    line-height:1.5;
+    text-align:center;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -93,7 +110,7 @@ header {visibility:hidden;}
 # COINBASE
 # =========================================================
 
-@st.cache_data(ttl=8)
+@st.cache_data(ttl=2)
 def get_btc_data():
 
     url = (
@@ -103,24 +120,17 @@ def get_btc_data():
 
     response = requests.get(
         url,
-        params={
-            "granularity": 60
-        },
-        headers={
-            "User-Agent": "MacalyAlphaBot/4.3"
-        },
-        timeout=12
+        params={"granularity": 60},
+        headers={"User-Agent": "MacalyAlphaBot/4.4"},
+        timeout=10
     )
 
     response.raise_for_status()
 
     data = response.json()
 
-    if not isinstance(data, list):
-        raise ValueError("Respuesta Coinbase inválida.")
-
-    if len(data) < 30:
-        raise ValueError("Coinbase no devolvió suficientes velas.")
+    if not isinstance(data, list) or len(data) < 30:
+        raise ValueError("Coinbase no devolvió suficientes datos.")
 
     df = pd.DataFrame(
         data,
@@ -152,21 +162,18 @@ def get_btc_data():
         utc=True
     )
 
-    df = (
-        df
-        .dropna()
+    return (
+        df.dropna()
         .sort_values("time")
         .reset_index(drop=True)
     )
-
-    return df
 
 
 # =========================================================
 # KALSHI BTC 15 MIN
 # =========================================================
 
-@st.cache_data(ttl=8)
+@st.cache_data(ttl=2)
 def get_kalshi_btc_market():
 
     url = (
@@ -181,17 +188,13 @@ def get_kalshi_btc_market():
             "status": "open",
             "series_ticker": "KXBTC15M"
         },
-        headers={
-            "User-Agent": "MacalyAlphaBot/4.3"
-        },
-        timeout=12
+        headers={"User-Agent": "MacalyAlphaBot/4.4"},
+        timeout=10
     )
 
     response.raise_for_status()
 
-    payload = response.json()
-
-    markets = payload.get(
+    markets = response.json().get(
         "markets",
         []
     )
@@ -199,9 +202,10 @@ def get_kalshi_btc_market():
     if not markets:
         return None
 
+    # Elegir la ronda BTC 15m que cierra primero.
     markets.sort(
-        key=lambda market: str(
-            market.get("close_time") or "9999"
+        key=lambda m: str(
+            m.get("close_time") or "9999"
         )
     )
 
@@ -218,23 +222,19 @@ def add_indicators(df):
 
     close = df["close"]
 
-    # EMA 9
     df["ema9"] = close.ewm(
         span=9,
         adjust=False
     ).mean()
 
-    # EMA 21
     df["ema21"] = close.ewm(
         span=21,
         adjust=False
     ).mean()
 
-    # RSI 14
     delta = close.diff()
 
     gain = delta.clip(lower=0)
-
     loss = -delta.clip(upper=0)
 
     avg_gain = gain.ewm(
@@ -259,35 +259,10 @@ def add_indicators(df):
         (100 / (1 + rs))
     ).fillna(50)
 
-    # BOLLINGER
-    middle = close.rolling(20).mean()
+    df["mom3"] = close.pct_change(3) * 100
+    df["mom5"] = close.pct_change(5) * 100
+    df["mom15"] = close.pct_change(15) * 100
 
-    std = close.rolling(20).std()
-
-    df["bb_upper"] = (
-        middle +
-        (2 * std)
-    )
-
-    df["bb_lower"] = (
-        middle -
-        (2 * std)
-    )
-
-    # MOMENTUM
-    df["mom3"] = (
-        close.pct_change(3) * 100
-    )
-
-    df["mom5"] = (
-        close.pct_change(5) * 100
-    )
-
-    df["mom15"] = (
-        close.pct_change(15) * 100
-    )
-
-    # VOLUMEN
     avg_volume = (
         df["volume"]
         .rolling(20)
@@ -303,211 +278,128 @@ def add_indicators(df):
 
 
 # =========================================================
-# MOTOR DE SEÑALES
+# TARGET AUTOMÁTICO
 # =========================================================
 
-def build_signal(df):
+def get_target_from_market(market):
 
-    last = df.iloc[-1]
+    if not market:
+        return None
 
-    score = 0.0
+    strike_type = str(
+        market.get("strike_type") or ""
+    ).lower()
 
-    # EMA
-    if last["ema9"] > last["ema21"]:
+    floor_strike = market.get(
+        "floor_strike"
+    )
 
-        score += 2.0
-        ema_text = "ALCISTA 🚀"
+    cap_strike = market.get(
+        "cap_strike"
+    )
 
-    else:
-
-        score -= 2.0
-        ema_text = "BAJISTA 🔻"
-
-    # RSI
-    rsi = float(last["rsi"])
-
-    if 52 <= rsi <= 68:
-        score += 1.25
-
-    elif 32 <= rsi <= 48:
-        score -= 1.25
-
-    elif rsi > 75:
-        score -= 0.50
-
-    elif rsi < 25:
-        score += 0.50
-
-    # MOMENTUM
-    if pd.notna(last["mom3"]):
-        mom3 = float(last["mom3"])
-    else:
-        mom3 = 0.0
-
-    if pd.notna(last["mom5"]):
-        mom5 = float(last["mom5"])
-    else:
-        mom5 = 0.0
-
-    if pd.notna(last["mom15"]):
-        mom15 = float(last["mom15"])
-    else:
-        mom15 = 0.0
-
-    if mom3 > 0.02:
-        score += 1.25
-
-    elif mom3 < -0.02:
-        score -= 1.25
-
-    if mom5 > 0.03:
-        score += 1.00
-
-    elif mom5 < -0.03:
-        score -= 1.00
-
-    if mom15 > 0.05:
-        score += 0.75
-
-    elif mom15 < -0.05:
-        score -= 0.75
-
-    # VOLUMEN
-    if pd.notna(last["vol_ratio"]):
-        vol_ratio = float(last["vol_ratio"])
-    else:
-        vol_ratio = 0.0
-
-    if vol_ratio > 1.15:
-
-        if mom5 > 0:
-            score += 0.50
-
-        elif mom5 < 0:
-            score -= 0.50
-
-    # PRECIO
-    price = float(last["close"])
-
-    # VOLATILIDAD
-    if (
-        pd.notna(last["bb_upper"])
-        and
-        pd.notna(last["bb_lower"])
-    ):
-
-        width = (
-            (
-                float(last["bb_upper"])
-                -
-                float(last["bb_lower"])
-            )
-            /
-            price
-            *
-            100
-        )
-
-    else:
-        width = 0.0
-
-    if width > 0.8:
-        volatility = "ALTA"
-
-    elif width > 0.4:
-        volatility = "MEDIA"
-
-    else:
-        volatility = "BAJA"
-
-    # DECISIÓN
-    if score >= 2.5:
-
-        signal = "POSIBLE UP"
-        decision = "SEÑAL UP"
-        signal_class = "up"
-        icon = "🚀"
-
-        up = int(
-            round(
-                min(
-                    78,
-                    50 + abs(score) * 5
-                )
-            )
-        )
-
-        down = 100 - up
-
-    elif score <= -2.5:
-
-        signal = "POSIBLE DOWN"
-        decision = "SEÑAL DOWN"
-        signal_class = "down"
-        icon = "🔻"
-
-        down = int(
-            round(
-                min(
-                    78,
-                    50 + abs(score) * 5
-                )
-            )
-        )
-
-        up = 100 - down
-
-    else:
-
-        signal = "NO TRADE"
-        decision = "ESPERAR"
-        signal_class = "neutral"
-        icon = "⚪"
-
-        up = 50
-        down = 50
-
-    # MOMENTUM VISUAL
-    if mom3 > 0.02:
-        momentum = "MOMENTUM ALCISTA"
-
-    elif mom3 < -0.02:
-        momentum = "MOMENTUM BAJISTA"
-
-    else:
-        momentum = "MOMENTUM NEUTRAL"
-
-    return {
-        "price": price,
-        "score": score,
-        "signal": signal,
-        "decision": decision,
-        "signal_class": signal_class,
-        "icon": icon,
-        "up": up,
-        "down": down,
-        "ema": ema_text,
-        "rsi": rsi,
-        "mom3": mom3,
-        "mom5": mom5,
-        "mom15": mom15,
-        "vol_ratio": vol_ratio,
-        "volatility": volatility,
-        "momentum": momentum
-    }
-
-
-# =========================================================
-# PRECIO KALSHI
-# =========================================================
-
-def kalshi_price(dollar_value, cent_value):
-
-    if dollar_value not in [None, ""]:
+    # Contratos de tipo "greater" / arriba de un precio.
+    if floor_strike not in [None, ""]:
 
         try:
-            value = float(dollar_value)
-            return f"${value:.2f}"
+            floor_value = float(floor_strike)
+
+            if floor_value > 1000:
+                return floor_value
+
+        except Exception:
+            pass
+
+    # Fallback solamente si el contrato usa cap strike.
+    if cap_strike not in [None, ""]:
+
+        try:
+            cap_value = float(cap_strike)
+
+            if cap_value > 1000:
+                return cap_value
+
+        except Exception:
+            pass
+
+    # No inventamos un target.
+    return None
+
+
+# =========================================================
+# COUNTDOWN
+# =========================================================
+
+def get_seconds_remaining(market):
+
+    if not market:
+        return None
+
+    close_time = market.get(
+        "close_time"
+    )
+
+    if not close_time:
+        return None
+
+    try:
+
+        close_dt = datetime.fromisoformat(
+            str(close_time).replace(
+                "Z",
+                "+00:00"
+            )
+        )
+
+        now = datetime.now(
+            timezone.utc
+        )
+
+        seconds = int(
+            (
+                close_dt -
+                now
+            ).total_seconds()
+        )
+
+        return max(
+            0,
+            seconds
+        )
+
+    except Exception:
+        return None
+
+
+def format_countdown(seconds):
+
+    if seconds is None:
+        return "--:--"
+
+    minutes = seconds // 60
+    secs = seconds % 60
+
+    return f"{minutes:02d}:{secs:02d}"
+
+
+# =========================================================
+# KALSHI PRICE
+# =========================================================
+
+def kalshi_price(
+    dollar_value,
+    cent_value
+):
+
+    if dollar_value not in [
+        None,
+        ""
+    ]:
+
+        try:
+            return (
+                f"${float(dollar_value):.2f}"
+            )
 
         except Exception:
             return str(dollar_value)
@@ -515,8 +407,9 @@ def kalshi_price(dollar_value, cent_value):
     if cent_value is not None:
 
         try:
-            value = float(cent_value)
-            return f"{value:g}¢"
+            return (
+                f"${float(cent_value) / 100:.2f}"
+            )
 
         except Exception:
             return str(cent_value)
@@ -525,28 +418,277 @@ def kalshi_price(dollar_value, cent_value):
 
 
 # =========================================================
-# TITULO
+# MOTOR v4.4
+# =========================================================
+
+def build_signal(
+    df,
+    target,
+    seconds_left
+):
+
+    last = df.iloc[-1]
+
+    price = float(
+        last["close"]
+    )
+
+    rsi = float(
+        last["rsi"]
+    )
+
+    mom3 = (
+        float(last["mom3"])
+        if pd.notna(last["mom3"])
+        else 0.0
+    )
+
+    mom5 = (
+        float(last["mom5"])
+        if pd.notna(last["mom5"])
+        else 0.0
+    )
+
+    mom15 = (
+        float(last["mom15"])
+        if pd.notna(last["mom15"])
+        else 0.0
+    )
+
+    vol_ratio = (
+        float(last["vol_ratio"])
+        if pd.notna(last["vol_ratio"])
+        else 0.0
+    )
+
+    technical_score = 0.0
+
+    # EMA
+    if last["ema9"] > last["ema21"]:
+
+        technical_score += 2.0
+        ema_text = "ALCISTA 🚀"
+
+    else:
+
+        technical_score -= 2.0
+        ema_text = "BAJISTA 🔻"
+
+    # RSI
+    if rsi >= 55:
+        technical_score += 1.0
+
+    elif rsi <= 45:
+        technical_score -= 1.0
+
+    # Momentum corto
+    if mom3 > 0.02:
+        technical_score += 1.25
+
+    elif mom3 < -0.02:
+        technical_score -= 1.25
+
+    if mom5 > 0.03:
+        technical_score += 1.0
+
+    elif mom5 < -0.03:
+        technical_score -= 1.0
+
+    if mom15 > 0.05:
+        technical_score += 0.75
+
+    elif mom15 < -0.05:
+        technical_score -= 0.75
+
+    # Volumen confirma dirección
+    if vol_ratio > 1.20:
+
+        if mom3 > 0:
+            technical_score += 0.50
+
+        elif mom3 < 0:
+            technical_score -= 0.50
+
+    # =====================================================
+    # TARGET
+    # =====================================================
+
+    distance = None
+    distance_pct = None
+
+    target_score = 0.0
+
+    if target is not None:
+
+        distance = (
+            price -
+            target
+        )
+
+        distance_pct = (
+            distance /
+            target *
+            100
+        )
+
+        # Peso base por estar arriba/abajo.
+        if distance > 0:
+            target_score += 2.0
+
+        elif distance < 0:
+            target_score -= 2.0
+
+        # Cuanto más cerca del cierre,
+        # más importante es la posición frente al target.
+        if seconds_left is not None:
+
+            abs_distance = abs(
+                distance
+            )
+
+            if seconds_left <= 30:
+
+                if distance > 0:
+                    target_score += 4.0
+
+                elif distance < 0:
+                    target_score -= 4.0
+
+            elif seconds_left <= 60:
+
+                if distance > 0:
+                    target_score += 3.0
+
+                elif distance < 0:
+                    target_score -= 3.0
+
+            elif seconds_left <= 180:
+
+                if distance > 0:
+                    target_score += 2.0
+
+                elif distance < 0:
+                    target_score -= 2.0
+
+            elif seconds_left <= 300:
+
+                if distance > 0:
+                    target_score += 1.0
+
+                elif distance < 0:
+                    target_score -= 1.0
+
+            # Muy cerca del target = más incertidumbre.
+            if abs_distance < 10:
+                target_score *= 0.60
+
+            elif abs_distance < 20:
+                target_score *= 0.80
+
+    final_score = (
+        technical_score +
+        target_score
+    )
+
+    # =====================================================
+    # DECISIÓN
+    # =====================================================
+
+    if target is None:
+
+        decision = "NO TRADE"
+        signal = "TARGET NO DISPONIBLE"
+        icon = "⚠️"
+        color = "#fbbf24"
+
+    elif (
+        seconds_left is not None
+        and
+        seconds_left <= 15
+        and
+        abs(distance) < 20
+    ):
+
+        decision = "NO TRADE"
+        signal = "DEMASIADO CERRADO"
+        icon = "⚠️"
+        color = "#fbbf24"
+
+    elif final_score >= 4:
+
+        decision = "POSIBLE UP"
+        signal = "SEÑAL UP"
+        icon = "🚀"
+        color = "#34d399"
+
+    elif final_score <= -4:
+
+        decision = "POSIBLE DOWN"
+        signal = "SEÑAL DOWN"
+        icon = "🔻"
+        color = "#fb7185"
+
+    else:
+
+        decision = "NO TRADE"
+        signal = "ESPERAR"
+        icon = "⚪"
+        color = "#fbbf24"
+
+    # Momentum visual
+    if mom3 > 0.02:
+        momentum = "ALCISTA"
+
+    elif mom3 < -0.02:
+        momentum = "BAJISTA"
+
+    else:
+        momentum = "NEUTRAL"
+
+    return {
+        "price": price,
+        "rsi": rsi,
+        "mom3": mom3,
+        "mom5": mom5,
+        "mom15": mom15,
+        "vol_ratio": vol_ratio,
+        "ema": ema_text,
+        "technical_score": technical_score,
+        "target_score": target_score,
+        "final_score": final_score,
+        "distance": distance,
+        "distance_pct": distance_pct,
+        "decision": decision,
+        "signal": signal,
+        "icon": icon,
+        "color": color,
+        "momentum": momentum
+    }
+
+
+# =========================================================
+# TÍTULO
 # =========================================================
 
 st.markdown(
-    '<div class="bot-title">⚡ MACALY + ALPHA BOT • v4.3</div>',
+    '<div class="bot-title">⚡ MACALY + ALPHA BOT • v4.4</div>',
     unsafe_allow_html=True
 )
 
 
 # =========================================================
-# TODO LO DE AQUÍ SE ACTUALIZA CADA 10 SEGUNDOS
+# DASHBOARD LIVE
 # =========================================================
 
-@st.fragment(run_every="10s")
+@st.fragment(run_every="3s")
 def live_dashboard():
 
-    # -----------------------------------------
-    # COINBASE
-    # -----------------------------------------
-
-    btc_ok = False
     btc_error = ""
+    kalshi_error = ""
+
+    # =====================================================
+    # BTC
+    # =====================================================
 
     try:
 
@@ -556,57 +698,35 @@ def live_dashboard():
             btc_df
         )
 
-        sig = build_signal(
-            btc_df
-        )
-
         btc_ok = True
 
     except Exception as error:
 
+        btc_ok = False
         btc_error = str(error)
+        btc_df = None
 
-        sig = {
-            "price": 0.0,
-            "score": 0.0,
-            "signal": "SIN DATOS",
-            "decision": "SIN CONEXIÓN",
-            "signal_class": "neutral",
-            "icon": "⚪",
-            "up": 50,
-            "down": 50,
-            "ema": "SIN DATOS",
-            "rsi": 50.0,
-            "mom3": 0.0,
-            "mom5": 0.0,
-            "mom15": 0.0,
-            "vol_ratio": 0.0,
-            "volatility": "SIN DATOS",
-            "momentum": "MOMENTUM NEUTRAL"
-        }
-
-    # -----------------------------------------
+    # =====================================================
     # KALSHI
-    # -----------------------------------------
-
-    kalshi_ok = False
-    kalshi_error = ""
-    market = None
+    # =====================================================
 
     try:
 
         market = get_kalshi_btc_market()
 
-        if market is not None:
-            kalshi_ok = True
+        kalshi_ok = (
+            market is not None
+        )
 
     except Exception as error:
 
+        kalshi_ok = False
         kalshi_error = str(error)
+        market = None
 
-    # -----------------------------------------
-    # DATOS DEL MERCADO
-    # -----------------------------------------
+    # =====================================================
+    # MARKET INFO
+    # =====================================================
 
     if market:
 
@@ -615,202 +735,237 @@ def live_dashboard():
             "--"
         )
 
-        yes_bid_dollars = market.get(
-            "yes_bid_dollars"
+        target = get_target_from_market(
+            market
         )
 
-        yes_ask_dollars = market.get(
-            "yes_ask_dollars"
+        seconds_left = (
+            get_seconds_remaining(
+                market
+            )
         )
 
-        last_price_dollars = market.get(
-            "last_price_dollars"
+        countdown = (
+            format_countdown(
+                seconds_left
+            )
         )
 
-        yes_bid = market.get(
-            "yes_bid"
+        yes_bid_display = kalshi_price(
+            market.get("yes_bid_dollars"),
+            market.get("yes_bid")
         )
 
-        yes_ask = market.get(
-            "yes_ask"
+        yes_ask_display = kalshi_price(
+            market.get("yes_ask_dollars"),
+            market.get("yes_ask")
         )
 
-        last_price = market.get(
-            "last_price"
+        last_display = kalshi_price(
+            market.get("last_price_dollars"),
+            market.get("last_price")
         )
 
     else:
 
         ticker = "--"
+        target = None
+        seconds_left = None
+        countdown = "--:--"
 
-        yes_bid_dollars = None
-        yes_ask_dollars = None
-        last_price_dollars = None
+        yes_bid_display = "--"
+        yes_ask_display = "--"
+        last_display = "--"
 
-        yes_bid = None
-        yes_ask = None
-        last_price = None
-
-    kalshi_bid_display = kalshi_price(
-        yes_bid_dollars,
-        yes_bid
-    )
-
-    kalshi_ask_display = kalshi_price(
-        yes_ask_dollars,
-        yes_ask
-    )
-
-    kalshi_last_display = kalshi_price(
-        last_price_dollars,
-        last_price
-    )
-
-    # -----------------------------------------
-    # ESTADOS
-    # -----------------------------------------
-
-    if kalshi_ok:
-
-        kalshi_status = "CONECTADO 🟢"
-        market_status = "MERCADO ENCONTRADO ✅"
-
-    else:
-
-        kalshi_status = "SIN MERCADO ⚠️"
-        market_status = "NO SE ENCONTRÓ MERCADO"
+    # =====================================================
+    # SIGNAL
+    # =====================================================
 
     if btc_ok:
-        coinbase_status = "CONECTADO 🟢"
 
-    else:
-        coinbase_status = "SIN CONEXIÓN 🔴"
-
-    # -----------------------------------------
-    # COLORES
-    # -----------------------------------------
-
-    if sig["signal_class"] == "up":
-
-        signal_color = "#34d399"
-
-    elif sig["signal_class"] == "down":
-
-        signal_color = "#fb7185"
+        sig = build_signal(
+            btc_df,
+            target,
+            seconds_left
+        )
 
     else:
 
-        signal_color = "#fbbf24"
-
-    if "ALCISTA" in sig["momentum"]:
-
-        momentum_color = "#34d399"
-
-    elif "BAJISTA" in sig["momentum"]:
-
-        momentum_color = "#fb7185"
-
-    else:
-
-        momentum_color = "#fbbf24"
+        sig = {
+            "price": 0,
+            "rsi": 50,
+            "mom3": 0,
+            "mom5": 0,
+            "mom15": 0,
+            "vol_ratio": 0,
+            "ema": "SIN DATOS",
+            "technical_score": 0,
+            "target_score": 0,
+            "final_score": 0,
+            "distance": None,
+            "distance_pct": None,
+            "decision": "NO TRADE",
+            "signal": "SIN DATOS",
+            "icon": "⚠️",
+            "color": "#fbbf24",
+            "momentum": "NEUTRAL"
+        }
 
     # =====================================================
-    # SEÑAL PRINCIPAL
+    # PRINCIPAL
     # =====================================================
 
-    signal_html = (
+    main_html = (
         '<div class="bot-card" style="text-align:center;">'
-        '<div class="bot-label">SEÑAL TÉCNICA BTC</div>'
-        f'<div style="font-size:30px;font-weight:900;color:{signal_color};">'
-        f'{sig["icon"]} {sig["signal"]}'
+        '<div class="bot-label">BITCOIN • KALSHI 15 MIN</div>'
+        f'<div style="font-size:30px;font-weight:900;color:{sig["color"]};">'
+        f'{sig["icon"]} {sig["decision"]}'
         '</div>'
-        '<div style="color:#cbd5e1;font-size:19px;margin-top:8px;">'
+        f'<div style="font-size:19px;margin-top:8px;color:#e2e8f0;">'
         f'BTC ${sig["price"]:,.2f}'
         '</div>'
         '</div>'
     )
 
     st.markdown(
-        signal_html,
+        main_html,
         unsafe_allow_html=True
     )
 
     # =====================================================
-    # UP / DOWN
+    # TARGET
     # =====================================================
 
-    col_up, col_down = st.columns(2)
+    if target is not None:
 
-    with col_up:
-
-        up_html = (
-            '<div style="'
-            'background:#073326;'
-            'border:1px solid #10b981;'
-            'border-radius:18px;'
-            'padding:20px 8px;'
-            'text-align:center;'
-            'color:#34d399;'
-            'font-weight:900;'
-            '">'
-            'UP'
-            '<div style="font-size:34px;margin-top:5px;">'
-            f'{sig["up"]}%'
-            '</div>'
-            '</div>'
+        target_text = (
+            f"${target:,.2f}"
         )
 
-        st.markdown(
-            up_html,
-            unsafe_allow_html=True
+    else:
+
+        target_text = (
+            "NO DISPONIBLE"
         )
 
-    with col_down:
+    if sig["distance"] is not None:
 
-        down_html = (
-            '<div style="'
-            'background:#35171d;'
-            'border:1px solid #ef4444;'
-            'border-radius:18px;'
-            'padding:20px 8px;'
-            'text-align:center;'
-            'color:#fb7185;'
-            'font-weight:900;'
-            '">'
-            'DOWN'
-            '<div style="font-size:34px;margin-top:5px;">'
-            f'{sig["down"]}%'
-            '</div>'
-            '</div>'
-        )
+        distance = sig["distance"]
 
-        st.markdown(
-            down_html,
-            unsafe_allow_html=True
-        )
+        if distance > 0:
 
-    st.write("")
+            distance_text = (
+                f"+${abs(distance):,.2f} ARRIBA"
+            )
 
-    # =====================================================
-    # MOMENTUM
-    # =====================================================
+            distance_color = (
+                "#34d399"
+            )
 
-    momentum_html = (
-        '<div class="bot-card" style="text-align:center;">'
-        '<div class="bot-label">MOMENTUM</div>'
-        f'<div style="font-size:21px;font-weight:900;color:{momentum_color};">'
-        f'{sig["momentum"]}'
+        elif distance < 0:
+
+            distance_text = (
+                f"-${abs(distance):,.2f} ABAJO"
+            )
+
+            distance_color = (
+                "#fb7185"
+            )
+
+        else:
+
+            distance_text = (
+                "$0.00"
+            )
+
+            distance_color = (
+                "#fbbf24"
+            )
+
+    else:
+
+        distance_text = "--"
+        distance_color = "#94a3b8"
+
+    target_html = (
+        '<div class="bot-card">'
+        '<div class="bot-label">RONDA ACTUAL</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">Target</span>'
+        f'<span class="bot-right">{target_text}</span>'
         '</div>'
-        '<div style="color:#64748b;margin-top:7px;">'
-        f'3 min: {sig["mom3"]:+.3f}%'
-        '&nbsp;&nbsp; • &nbsp;&nbsp;'
-        f'15 min: {sig["mom15"]:+.3f}%'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">BTC actual</span>'
+        f'<span class="bot-right">${sig["price"]:,.2f}</span>'
         '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">Distancia</span>'
+        f'<span class="bot-right" style="color:{distance_color};">'
+        f'{distance_text}'
+        '</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">Tiempo restante</span>'
+        f'<span class="bot-right">{countdown}</span>'
+        '</div>'
+
         '</div>'
     )
 
     st.markdown(
-        momentum_html,
+        target_html,
+        unsafe_allow_html=True
+    )
+
+    # =====================================================
+    # KALSHI
+    # =====================================================
+
+    kalshi_status = (
+        "CONECTADO 🟢"
+        if kalshi_ok
+        else
+        "SIN MERCADO ⚠️"
+    )
+
+    kalshi_html = (
+        '<div class="bot-card">'
+        '<div class="bot-label">KALSHI • BTC 15 MIN</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">Ticker</span>'
+        f'<span class="bot-right">{ticker}</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">YES bid</span>'
+        f'<span class="bot-right">{yes_bid_display}</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">YES ask</span>'
+        f'<span class="bot-right">{yes_ask_display}</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">Último</span>'
+        f'<span class="bot-right">{last_display}</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">API Kalshi</span>'
+        f'<span class="bot-right">{kalshi_status}</span>'
+        '</div>'
+
+        '</div>'
+    )
+
+    st.markdown(
+        kalshi_html,
         unsafe_allow_html=True
     )
 
@@ -818,9 +973,16 @@ def live_dashboard():
     # INDICADORES
     # =====================================================
 
+    coinbase_status = (
+        "CONECTADO 🟢"
+        if btc_ok
+        else
+        "SIN CONEXIÓN 🔴"
+    )
+
     indicators_html = (
         '<div class="bot-card">'
-        '<div class="bot-label">INDICADORES</div>'
+        '<div class="bot-label">ANÁLISIS TÉCNICO</div>'
 
         '<div class="bot-row">'
         '<span class="bot-left">EMA 9 / 21</span>'
@@ -853,11 +1015,6 @@ def live_dashboard():
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">Volatilidad</span>'
-        f'<span class="bot-right">{sig["volatility"]}</span>'
-        '</div>'
-
-        '<div class="bot-row">'
         '<span class="bot-left">Coinbase</span>'
         f'<span class="bot-right">{coinbase_status}</span>'
         '</div>'
@@ -871,51 +1028,6 @@ def live_dashboard():
     )
 
     # =====================================================
-    # KALSHI
-    # =====================================================
-
-    kalshi_html = (
-        '<div class="bot-card">'
-        '<div class="bot-label">KALSHI • BTC 15 MIN</div>'
-
-        '<div style="text-align:center;font-weight:900;margin-bottom:15px;">'
-        f'{market_status}'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">Ticker</span>'
-        f'<span class="bot-right">{ticker}</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">YES bid</span>'
-        f'<span class="bot-right">{kalshi_bid_display}</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">YES ask</span>'
-        f'<span class="bot-right">{kalshi_ask_display}</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">Último</span>'
-        f'<span class="bot-right">{kalshi_last_display}</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">API Kalshi</span>'
-        f'<span class="bot-right">{kalshi_status}</span>'
-        '</div>'
-
-        '</div>'
-    )
-
-    st.markdown(
-        kalshi_html,
-        unsafe_allow_html=True
-    )
-
-    # =====================================================
     # DECISIÓN
     # =====================================================
 
@@ -923,26 +1035,26 @@ def live_dashboard():
         '<div class="bot-card" style="text-align:center;">'
         '<div class="bot-label">DECISIÓN DEL MOTOR</div>'
 
-        f'<div style="font-size:28px;font-weight:900;color:{signal_color};">'
-        f'{sig["decision"]}'
+        f'<div style="font-size:27px;font-weight:900;color:{sig["color"]};">'
+        f'{sig["signal"]}'
         '</div>'
 
-        '<div style="color:#64748b;margin-top:10px;">'
-        f'Score técnico: {sig["score"]:.2f}'
-        '</div>'
-
-        '<div style="color:#64748b;font-size:12px;line-height:1.6;margin-top:15px;">'
-        'Coinbase + Kalshi BTC 15 min'
+        '<div style="margin-top:12px;color:#94a3b8;">'
+        f'Score técnico: {sig["technical_score"]:.2f}'
         '<br>'
-        'Actualización automática cada 10 segundos 🔄'
+        f'Score target/tiempo: {sig["target_score"]:.2f}'
+        '<br>'
+        f'Score combinado: {sig["final_score"]:.2f}'
+        '</div>'
+
+        '<div class="small-note" style="margin-top:16px;">'
+        'Actualización automática cada 3 segundos 🔄'
+        '<br>'
+        'Siempre BTC 15 min'
         '<br>'
         'Modo análisis / paper'
         '<br>'
         'No envía órdenes reales'
-        '<br><br>'
-        'UP/DOWN es un score técnico experimental.'
-        '<br>'
-        'No representa la probabilidad oficial de Kalshi.'
         '</div>'
 
         '</div>'
@@ -957,25 +1069,31 @@ def live_dashboard():
     # ERRORES
     # =====================================================
 
+    if target is None and kalshi_ok:
+
+        st.warning(
+            "Kalshi está conectado, pero esta ronda no "
+            "entregó un strike numérico utilizable como "
+            "target. El bot NO inventará uno."
+        )
+
     if btc_error:
 
         st.error(
-            "Error Coinbase: "
-            +
+            "Error Coinbase: " +
             btc_error
         )
 
     if kalshi_error:
 
         st.error(
-            "Error Kalshi: "
-            +
+            "Error Kalshi: " +
             kalshi_error
         )
 
 
 # =========================================================
-# ARRANCAR DASHBOARD
+# INICIAR
 # =========================================================
 
 live_dashboard()
