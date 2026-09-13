@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS exactos para replicar la interfaz al milímetro
+# Estilos CSS exactos para replicar la interfaz
 st.markdown("""
 <style>
     /* Ocultar elementos nativos de Streamlit */
@@ -146,16 +146,11 @@ st.markdown("""
         padding: 12px;
         text-align: center;
     }
-    .mini-bar {
-        height: 6px;
-        border-radius: 3px;
-        margin: 8px 0;
-    }
-    .mini-bar-up { background-color: #4CAF50; width: 41%; }
-    .mini-bar-down { background-color: #E57373; width: 59%; }
-    .mini-bar-bg { background-color: #262931; width: 100%; border-radius: 3px; }
+    .mini-bar-bg { background-color: #262931; width: 100%; border-radius: 3px; height: 6px; margin: 8px 0; }
+    .mini-bar-up { background-color: #4CAF50; width: 41%; height: 6px; border-radius: 3px; }
+    .mini-bar-down { background-color: #E57373; width: 59%; height: 6px; border-radius: 3px; }
 
-    /* Bloque Confirmación y Bloque Indicadores */
+    /* Bloque Confirmación e Indicadores */
     .card-section {
         background-color: #141824;
         border: 1px solid #23293A;
@@ -239,13 +234,13 @@ st.markdown("""
         <div class="box-up">
             <div style="color: #81C784; font-size: 11px; font-weight: 700;">UP</div>
             <div style="color: #4CAF50; font-size: 28px; font-weight: 900; margin: 2px 0;">41%</div>
-            <div class="mini-bar-bg"><div class="mini-bar mini-bar-up"></div></div>
+            <div class="mini-bar-bg"><div class="mini-bar-up"></div></div>
             <div style="color: #81C784; font-size: 10px; font-weight: 700; margin-top: 4px;">COMPRAR UP —</div>
         </div>
         <div class="box-down">
             <div style="color: #E57373; font-size: 11px; font-weight: 700;">DOWN</div>
             <div style="color: #E57373; font-size: 28px; font-weight: 900; margin: 2px 0;">59%</div>
-            <div class="mini-bar-bg"><div class="mini-bar mini-bar-down"></div></div>
+            <div class="mini-bar-bg"><div class="mini-bar-down"></div></div>
             <div style="color: #E57373; font-size: 10px; font-weight: 700; margin-top: 4px;">COMPRAR DOWN —</div>
         </div>
     </div>
