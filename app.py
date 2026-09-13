@@ -78,7 +78,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= CREDENCIALES CONFIGURADAS DIRECTAMENTE =================
+# ================= CREDENCIALES CONFIGURADAS =================
 KALSHI_API_KEY_ID = "D4e07b80-de19-4b54-a6d6-fb44316d92e9"
 KALSHI_PRIVATE_KEY = """-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAx+hDc1bJLwI4f/uHtjwILsv+bSM5jXRlVKiQZx2gvBIACIuB
@@ -133,7 +133,8 @@ def get_kalshi_auth_headers(method, path):
             "KALSHI-ACCESS-SIGNATURE": sig_b64,
             "KALSHI-ACCESS-TIMESTAMP": timestamp
         }
-    except Exception:
+    except Exception as e:
+        st.error(f"Error en firma RSA: {e}")
         return None
 
 # ================= OBTENCIÓN DE DATOS Y SEÑAL =================
@@ -176,7 +177,7 @@ def get_sniper_signal():
     except Exception:
         pass
 
-    # 2. Conexión Kalshi
+    # 2. Conexión Kalshi con depuración visible
     try:
         path = "/trade-api/v2/markets?series_ticker=KXBTC"
         url_kalshi = f"https://trading-api.kalshi.com{path}"
@@ -189,8 +190,8 @@ def get_sniper_signal():
                 if "markets" in k_data and len(k_data["markets"]) > 0:
                     kalshi_up_prob = float(k_data["markets"][0].get("yes_bid", 50))
                     kalshi_connected = True
-    except Exception:
-        pass
+    except Exception as e:
+        st.warning(f"Error HTTP Kalshi: {e}")
 
     # 3. Consenso Final
     if kalshi_connected:
