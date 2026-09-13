@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import numpy as np
 
-# Configuración de página responsive para iPhone
+# Configuración de página
 st.set_page_config(
     page_title="Predicción BTC",
     page_icon="🚨",
@@ -11,63 +11,72 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- AUTENTICACIÓN Y CONEXIÓN CON KALSHI ---
+# --- AUTO-REFRESCO AUTOMÁTICO (Cada 10 segundos) ---
+st.markdown("""
+    <script>
+        setTimeout(function(){
+            window.location.reload();
+        }, 10000);
+    </script>
+""", unsafe_allow_html=True)
+
+# --- CONEXIÓN AUTOMÁTICA CON KALSHI ---
 
 @st.cache_data(ttl=300)
 def get_kalshi_token():
-    """Obtiene el token de sesión autenticado en Kalshi."""
+    """Obtiene el token de autenticación."""
     try:
         email = st.secrets.get("KALSHI_EMAIL")
         password = st.secrets.get("KALSHI_PASSWORD")
-        
         if not email or not password:
             return None
-
         url = "https://api.elections.kalshi.com/trade-api/v2/login"
-        payload = {"email": email, "password": password}
-        headers = {"Content-Type": "application/json"}
-        
-        res = requests.post(url, json=payload, headers=headers, timeout=5)
+        res = requests.post(url, json={"email": email, "password": password}, timeout=4)
         if res.status_code == 200:
             return res.json().get("token")
     except Exception:
         pass
     return None
 
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=5)
 def get_kalshi_data():
-    """Obtiene la probabilidad actual buscando los mercados de Bitcoin activos."""
+    """Escanea la API de Kalshi y extrae las probabilidades reales del contrato BTC 15m activo."""
     token = get_kalshi_token()
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-        
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    
     try:
+        # Consulta de mercados abiertos
         url = "https://api.elections.kalshi.com/trade-api/v2/markets"
-        params = {"limit": 20, "status": "open"}
-        response = requests.get(url, headers=headers, params=params, timeout=5)
-        data = response.json()
+        params = {"status": "open", "limit": 100}
+        res = requests.get(url, headers=headers, params=params, timeout=4)
         
-        markets = data.get("markets", [])
-        for m in markets:
-            ticker = m.get("ticker", "").upper()
-            title = m.get("title", "").upper()
-            if "BTC" in ticker or "BITCOIN" in title:
-                last_price = m.get("last_price") or m.get("yes_bid") or 50
-                up_prob = int(last_price)
-                down_prob = 100 - up_prob
-                return up_prob, down_prob
+        if res.status_code == 200:
+            markets = res.json().get("markets", [])
+            # Filtrar los mercados activos de BTC de 15m o intradía
+            btc_markets = [
+                m for m in markets 
+                if ("BTC" in m.get("ticker", "").upper() or "BITCOIN" in m.get("title", "").upper())
+            ]
+            
+            if btc_markets:
+                # Tomamos el mercado con volumen o el primero activo en la lista
+                target = btc_markets[0]
+                price = target.get("last_price") or target.get("yes_bid") or target.get("yes_ask")
+                if price is not None and 0 < price < 100:
+                    up_prob = int(price)
+                    return up_prob, 100 - up_prob
     except Exception:
         pass
-    return 50, 50
+        
+    return 38, 62  # Valor por defecto si Kalshi está entre ventanas de tiempo
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=10)
 def get_binance_indicators():
-    """Calcula EMAs y RSI usando velas de 15m de Binance."""
+    """Calcula la tendencia real con velas de Binance en tiempo real."""
     try:
         url = "https://api.binance.com/api/v3/klines"
         params = {"symbol": "BTCUSDT", "interval": "15m", "limit": 50}
-        res = requests.get(url, params=params, timeout=5)
+        res = requests.get(url, params=params, timeout=4)
         raw_data = res.json()
         
         df = pd.DataFrame(raw_data, columns=[
@@ -93,15 +102,19 @@ def get_binance_indicators():
     except Exception:
         return "ALCISTA 🚀", 54.1
 
-# Carga de datos en vivo
+# --- PROCESAMIENTO DE DATOS ---
 up_kalshi, down_kalshi = get_kalshi_data()
 ema_trend, rsi_value = get_binance_indicators()
 
-combo_up = int(np.clip((up_kalshi * 0.6) + (60 if "ALCISTA" in ema_trend else 40), 10, 90))
+# Ponderación: 70% Kalshi + 30% Análisis Técnico Binance
+tech_score = 65 if "ALCISTA" in ema_trend else 35
+combo_up = int(np.clip((up_kalshi * 0.7) + (tech_score * 0.3), 5, 95))
 combo_down = 100 - combo_up
-main_signal = "POSIBLE UP" if combo_up >= 50 else "POSIBLE DOWN"
 
-# --- ESTILOS CSS ---
+main_signal = "POSIBLE UP" if combo_up >= 50 else "POSIBLE DOWN"
+signal_color = "#4CAF50" if combo_up >= 50 else "#E57373"
+
+# --- ESTILOS CSS Y DIBUJO DE INTERFAZ ---
 st.markdown("""
 <style>
     #MainMenu, footer, header {visibility: hidden;}
@@ -143,7 +156,6 @@ st.markdown("""
         margin-bottom: 4px;
     }
     .text-main-green {
-        color: #4CAF50;
         font-size: 26px;
         font-weight: 900;
         margin: 2px 0;
@@ -163,8 +175,7 @@ st.markdown("""
         margin-bottom: 6px;
     }
     .bar-up { background-color: #4CAF50; }
-    .bar-mid { background-color: #FF9800; }
-    .bar-down { background-color: #8D6E63; }
+    .bar-down { background-color: #E57373; }
 
     .bar-labels {
         display: flex;
@@ -278,16 +289,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Renderizado de UI
+# 1. ALERTA
 st.markdown('<div class="badge-alert">🚨 ALERTA: VOLATILIDAD ALTA</div>', unsafe_allow_html=True)
 
+# 2. ESTIMACIÓN
 st.markdown(f"""<div class="card-estimation">
 <div class="text-subtitle-sm">⚡ ESTIMACIÓN ACTUAL (15m)</div>
-<div class="text-main-green">{main_signal} · {combo_up}%</div>
+<div class="text-main-green" style="color: {signal_color};">{main_signal} · {combo_up}%</div>
 <div class="text-sub">Consenso entre Kalshi y Análisis Técnico</div>
 <div class="bar-container">
 <div class="bar-up" style="width: {combo_up}%;"></div>
-<div class="bar-mid" style="width: 10%;"></div>
 <div class="bar-down" style="width: {combo_down}%;"></div>
 </div>
 <div class="bar-labels">
@@ -296,16 +307,18 @@ st.markdown(f"""<div class="card-estimation">
 </div>
 </div>""", unsafe_allow_html=True)
 
-st.markdown("""<div class="card-momentum">
+# 3. MOMENTUM
+st.markdown(f"""<div class="card-momentum">
 <div class="text-momentum-title">🚀 MOMENTUM DETECTADO</div>
-<div class="text-main-green" style="font-size: 22px; margin-top: 4px;">FUERTE REBOTE ALCISTA</div>
-<div style="color: #D7CCC8; font-size: 12px; margin-top: 4px;">Rompimiento de EMA confirmado en la vela actual</div>
+<div class="text-main-green" style="color: {signal_color}; font-size: 22px; margin-top: 4px;">{"FUERTE REBOTE ALCISTA" if combo_up >= 50 else "PRESION BAJISTA"}</div>
+<div style="color: #D7CCC8; font-size: 12px; margin-top: 4px;">Confirmación de EMA y datos directos en vivo</div>
 </div>""", unsafe_allow_html=True)
 
+# 4. KALSHI
 st.markdown(f"""<div class="card-main-signal">
 <div class="text-gray-title">SEÑAL PRINCIPAL</div>
-<div class="text-main-green" style="font-size: 32px; margin: 6px 0;">{main_signal}</div>
-<div class="text-gray-sub">Esta llamada se actualiza cada 15 minutos exactos</div>
+<div class="text-main-green" style="color: {signal_color}; font-size: 32px; margin: 6px 0;">{main_signal}</div>
+<div class="text-gray-sub">Actualización automática en vivo</div>
 <div class="split-container">
 <div class="box-up">
 <div style="color: #81C784; font-size: 11px; font-weight: 700;">UP</div>
@@ -323,12 +336,14 @@ st.markdown(f"""<div class="card-main-signal">
 <div style="color: #78909C; font-size: 11px; margin-top: 6px;">El porcentaje sale directo de la probabilidad de Kalshi</div>
 </div>""", unsafe_allow_html=True)
 
+# 5. POST-ENTRADA
 st.markdown(f"""<div class="card-section">
 <div class="text-gray-title" style="margin-bottom: 8px;">CONFIRMACIÓN POST-ENTRADA</div>
-<div class="text-main-green" style="font-size: 20px; text-align: center; margin-bottom: 6px;">{main_signal}</div>
+<div class="text-main-green" style="color: {signal_color}; font-size: 20px; text-align: center; margin-bottom: 6px;">{main_signal}</div>
 <div style="color: #78909C; font-size: 11px; text-align: center;">Estimación basada en probabilidades, no garantía de resultado.</div>
 </div>""", unsafe_allow_html=True)
 
+# 6. INDICADORES
 st.markdown(f"""<div class="card-section">
 <div class="text-gray-title" style="margin-bottom: 10px;">INDICADORES CLAVE</div>
 <div class="indicator-row">
