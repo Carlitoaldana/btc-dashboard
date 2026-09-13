@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ================= ESTILOS CSS PROFESIONALES =================
+# ================= ESTILOS CSS PROFESIONALES (DISEÑO ORIGINAL) =================
 st.markdown("""
 <style>
     .stApp {
@@ -103,7 +103,7 @@ def get_kalshi_auth_headers(key_id, private_key_pem, method, path):
             "KALSHI-ACCESS-SIGNATURE": sig_b64,
             "KALSHI-ACCESS-TIMESTAMP": timestamp
         }
-    except Exception as e:
+    except Exception:
         return None
 
 # ================= OBTENCIÓN DE DATOS Y SEÑAL =================
@@ -114,7 +114,7 @@ def get_sniper_signal():
     kalshi_up_prob = 50.0
     kalshi_connected = False
     
-    # 1. Obtener datos de Binance
+    # 1. Obtener datos de Binance (Velitas de 15m)
     try:
         url_binance = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=25"
         req = urllib.request.Request(url_binance, headers={'User-Agent': 'Mozilla/5.0'})
@@ -123,7 +123,6 @@ def get_sniper_signal():
             closes = [float(candle[4]) for candle in raw_data]
             binance_price = closes[-1]
             
-            # Cálculo rápido de EMA 9 y EMA 21
             if len(closes) >= 21:
                 ema9 = sum(closes[-9:]) / 9
                 ema21 = sum(closes[-21:]) / 21
@@ -132,7 +131,6 @@ def get_sniper_signal():
                 else:
                     ema_signal = "BAJISTA 🔴"
             
-            # Cálculo de RSI aproximado (14)
             gains, losses = 0, 0
             for i in range(-14, 0):
                 change = closes[i] - closes[i-1]
@@ -148,11 +146,11 @@ def get_sniper_signal():
     except Exception:
         pass
 
-    # 2. Conexión a la API de Kalshi con manejo de errores visible
-    try:
-        if "kalshi" in st.secrets and "api_key_id" in st.secrets["kalshi"]:
+    # 2. Conexión segura a la API de Kalshi
+    if "kalshi" in st.secrets:
+        try:
             k_id = st.secrets["kalshi"]["api_key_id"]
-            k_priv = st.secrets["kalshi"].get("private_key", "")
+            k_priv = st.secrets["kalshi"]["private_key"]
             
             path = "/trade-api/v2/markets?series_ticker=KXBTC"
             url_kalshi = f"https://trading-api.kalshi.com{path}"
@@ -160,20 +158,18 @@ def get_sniper_signal():
             headers = get_kalshi_auth_headers(k_id, k_priv, "GET", path)
             if headers:
                 req_k = urllib.request.Request(url_kalshi, headers=headers)
-                with urllib.request.urlopen(req_k, timeout=3.0) as resp_k:
+                with urllib.request.urlopen(req_k, timeout=4.0) as resp_k:
                     k_data = json.loads(resp_k.read().decode())
                     if "markets" in k_data and len(k_data["markets"]) > 0:
-                        kalshi_up_prob = k_data["markets"][0].get("yes_bid", 50)
+                        kalshi_up_prob = float(k_data["markets"][0].get("yes_bid", 50))
                         kalshi_connected = True
-    except Exception as e:
-        st.error(f"Error Kalshi: {str(e)}")
-        pass
+        except Exception:
+            pass
 
-    # 3. Consenso Final
+    # 3. Consenso Final (Kalshi + Técnico)
     if kalshi_connected:
         up_prob = kalshi_up_prob
     else:
-        # Ponderación técnica si no conecta
         up_prob = 50.0
         if rsi < 45:
             up_prob += 10
@@ -198,9 +194,8 @@ def get_sniper_signal():
 
 data = get_sniper_signal()
 
-# ================= INTERFAZ GRÁFICA =================
+# ================= INTERFAZ GRÁFICA PROFESIONAL =================
 
-# 1. Estimación Actual
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 st.markdown('<div class="metric-title">⚡ ESTIMACIÓN ACTUAL (15m)</div>', unsafe_allow_html=True)
 
@@ -214,7 +209,6 @@ else:
     st.progress(data["up"] / 100)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 2. Momentum Detectado
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 st.markdown('<div class="metric-title">🚀 MOMENTUM DETECTADO</div>', unsafe_allow_html=True)
 if data["up"] > data["down"]:
@@ -225,36 +219,33 @@ else:
     st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 12px; margin-top: 5px;">Vela impulsora bajo la EMA rápida</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 3. Señal Principal (Botones Visuales)
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 st.markdown('<div class="metric-title">SEÑAL PRINCIPAL</div>', unsafe_allow_html=True)
-if data["up"] > data["down"]:
-    st.markdown('<h2 style="text-align: center; color: #0ecb81;">POSIBLE UP</h2>', unsafe_allow_html=True)
-else:
-    st.markdown('<h2 style="text-align: center; color: #f6465d;">POSIBLE DOWN</h2>', unsafe_allow_html=True)
+st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 11px; margin-bottom: 10px;">Esta llamada se actualiza cada 15 minutos exactos</p>', unsafe_allow_html=True)
 
-st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 11px;">Esta llamada se actualiza cada 15 minutos exactos</p>', unsafe_allow_html=True)
+if data["up"] > data["down"]:
+    st.markdown('<h2 style="text-align: center; color: #0ecb81; margin-bottom: 15px;">POSIBLE UP</h2>', unsafe_allow_html=True)
+else:
+    st.markdown('<h2 style="text-align: center; color: #f6465d; margin-bottom: 15px;">POSIBLE DOWN</h2>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 with col1:
-    st.markdown(f'<div class="badge-up">UP<br><span style="font-size: 20px;">{data["up"]}%</span><br><span style="font-size: 10px;">COMPRAR UP</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="badge-up">UP<br><span style="font-size: 22px;">{data["up"]}%</span><br><span style="font-size: 10px; opacity: 0.8;">COMPRAR UP ↗</span></div>', unsafe_allow_html=True)
 with col2:
-    st.markdown(f'<div class="badge-down">DOWN<br><span style="font-size: 20px;">{data["down"]}%</span><br><span style="font-size: 10px;">COMPRAR DOWN</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="badge-down">DOWN<br><span style="font-size: 22px;">{data["down"]}%</span><br><span style="font-size: 10px; opacity: 0.8;">COMPRAR DOWN ↘</span></div>', unsafe_allow_html=True)
 
-st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 10px;">El porcentaje sale de probabilidad técnica combinada</p>', unsafe_allow_html=True)
+st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 11px; margin-top: 15px;">El porcentaje sale de probabilidad técnica combinada</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. Confirmación Post-Entrada
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 st.markdown('<div class="metric-title">CONFIRMACIÓN POST-ENTRADA</div>', unsafe_allow_html=True)
 if data["up"] > data["down"]:
-    st.markdown('<h3 style="text-align: center; color: #0ecb81; margin: 0;">POSIBLE UP</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="text-align: center; color: #0ecb81; font-size: 16px; margin: 0;">POSIBLE UP</h3>', unsafe_allow_html=True)
 else:
-    st.markdown('<h3 style="text-align: center; color: #f6465d; margin: 0;">POSIBLE DOWN</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="text-align: center; color: #f6465d; font-size: 16px; margin: 0;">POSIBLE DOWN</h3>', unsafe_allow_html=True)
 st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 11px; margin-top: 5px;">Estimación basada en probabilidades, no garantía de resultado.</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. Indicadores Clave
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 st.markdown('<div class="metric-title">INDICADORES CLAVE</div>', unsafe_allow_html=True)
 
@@ -276,6 +267,4 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-# Pie de página
 st.markdown('<p style="text-align: center; color: #4f5d73; font-size: 11px;">Macaly + Alpha Bot v2.1 | Made with AI</p>', unsafe_allow_html=True)
