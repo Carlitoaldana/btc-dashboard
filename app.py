@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- FUNCIONES DE ALTA VELOCIDAD (SIN CACHÉ PARA KALSHI) ---
+# --- FUNCIONES DE ALTA VELOCIDAD (CORREGIDAS CON TRADING-API) ---
 
 def get_kalshi_token():
     """Obtiene el token de autenticación."""
@@ -21,7 +21,7 @@ def get_kalshi_token():
         password = st.secrets.get("KALSHI_PASSWORD")
         if not email or not password:
             return None
-        url = "https://api.elections.kalshi.com/trade-api/v2/login"
+        url = "https://trading-api.kalshi.com/trade-api/v2/login"
         res = requests.post(url, json={"email": email, "password": password}, timeout=2)
         if res.status_code == 200:
             return res.json().get("token")
@@ -35,14 +35,13 @@ def get_kalshi_data():
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     
     try:
-        url = "https://api.elections.kalshi.com/trade-api/v2/markets"
+        url = "https://trading-api.kalshi.com/trade-api/v2/markets"
         params = {"series_ticker": "KXBTC15M", "status": "open", "limit": 5}
         res = requests.get(url, headers=headers, params=params, timeout=2)
         
         if res.status_code == 200:
             markets = res.json().get("markets", [])
             if markets:
-                # Filtrar y ordenar por tiempo de cierre para agarrar el contrato actual de la ventana
                 now_ts = int(time.time())
                 valid_markets = [m for m in markets if m.get("close_time_ts", 0) > now_ts or m.get("expiration_time_ts", 0) > now_ts]
                 
