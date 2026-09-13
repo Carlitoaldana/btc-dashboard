@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import numpy as np
 import time
-from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -12,9 +11,6 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
-
-# Refresco nativo cada 3 segundos (mantiene viva la app en iPhone sin congelar Safari)
-st_autorefresh(interval=3000, key="datarefresh")
 
 # --- FUNCIONES DE ALTA VELOCIDAD (SIN CACHÉ PARA KALSHI) ---
 
@@ -347,3 +343,7 @@ st.markdown(f"""<div class="card-section">
 </div>""", unsafe_allow_html=True)
 
 st.markdown('<div class="footer-credits">Macaly + Alpha Bot v3.0 | Auto-Sync Enabled</div>', unsafe_allow_html=True)
+
+# Bucle nativo de refresco en vivo (3 segundos)
+time.sleep(3)
+st.rerun()
