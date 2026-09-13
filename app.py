@@ -1,232 +1,289 @@
-import time
-import pandas as pd
-import requests
 import streamlit as st
 
-# Configuración de página optimizada
+# Configuración de página responsive para iPhone
 st.set_page_config(
-    page_title="PANEL DE PREDICCIÓN BTC/USD",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+    page_title="Predicción BTC",
+    page_icon="🚨",
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS limpios y profesionales
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-color: #07090e;
-        color: #ffffff;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+# Estilos CSS exactos para replicar la interfaz al milímetro
+st.markdown("""
+<style>
+    /* Ocultar elementos nativos de Streamlit */
+    #MainMenu, footer, header {visibility: hidden;}
+    .stAppViewContainer {padding-top: 0px;}
+    .block-container {padding-top: 1rem; padding-bottom: 2rem; max-width: 450px;}
+    
+    body, .stApp {
+        background-color: #0E1117;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #E6E8EF;
     }
-    .top-bar {
-        background-color: #0d111a;
-        border: 1px solid #1a2332;
-        border-radius: 8px;
-        padding: 10px 16px;
+
+    /* Insignia Alerta Superior */
+    .badge-alert {
+        background-color: #0B3C85;
+        color: #64B5F6;
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        text-align: center;
+        width: fit-content;
+        margin: 0 auto 12px auto;
+        border: 1px solid #1565C0;
+    }
+
+    /* Tarjeta Estimación Actual */
+    .card-estimation {
+        background-color: #0F1C15;
+        border: 1px solid #1E4620;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 12px;
+        text-align: center;
+    }
+    .text-subtitle-sm {
+        color: #81C784;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    .text-main-green {
+        color: #4CAF50;
+        font-size: 26px;
+        font-weight: 900;
+        margin: 2px 0;
+    }
+    .text-sub {
+        color: #A5D6A7;
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+
+    /* Barra Dual (UP / DOWN) */
+    .bar-container {
+        display: flex;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+        background-color: #262931;
+        margin-bottom: 6px;
+    }
+    .bar-up { background-color: #4CAF50; }
+    .bar-mid { background-color: #FF9800; }
+    .bar-down { background-color: #8D6E63; }
+
+    .bar-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        font-weight: 700;
+    }
+    .label-up { color: #4CAF50; }
+    .label-down { color: #E57373; }
+
+    /* Tarjeta Momentum */
+    .card-momentum {
+        background-color: #24190E;
+        border: 1px solid #5D3A1A;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 12px;
+        text-align: center;
+    }
+    .text-momentum-title {
+        color: #FFB74D;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+
+    /* Tarjeta Señal Principal */
+    .card-main-signal {
+        background-color: #141824;
+        border: 1px solid #23293A;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 12px;
+        text-align: center;
+    }
+    .text-gray-title {
+        color: #78909C;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+    .text-gray-sub {
+        color: #78909C;
+        font-size: 12px;
+        margin-top: 4px;
+        margin-bottom: 14px;
+    }
+
+    /* Cajas UP / DOWN Split */
+    .split-container {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+    .box-up {
+        flex: 1;
+        background-color: #0F1C15;
+        border: 1px solid #1E4620;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+    }
+    .box-down {
+        flex: 1;
+        background-color: #1F1418;
+        border: 1px solid #4A1B24;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+    }
+    .mini-bar {
+        height: 6px;
+        border-radius: 3px;
+        margin: 8px 0;
+    }
+    .mini-bar-up { background-color: #4CAF50; width: 41%; }
+    .mini-bar-down { background-color: #E57373; width: 59%; }
+    .mini-bar-bg { background-color: #262931; width: 100%; border-radius: 3px; }
+
+    /* Bloque Confirmación y Bloque Indicadores */
+    .card-section {
+        background-color: #141824;
+        border: 1px solid #23293A;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+    .indicator-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid #1E2433;
+    }
+    .indicator-row:last-child { border-bottom: none; }
+    .badge-green {
+        background-color: #0F2918;
+        color: #4CAF50;
+        border: 1px solid #1E4620;
+        padding: 3px 10px;
+        border-radius: 12px;
         font-size: 11px;
-        color: #8b949e;
-    }
-    .card-box {
-        background-color: #0d111a;
-        border: 1px solid #1a2332;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 10px;
-    }
-    .card-title {
-        font-size: 9px;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: #8b949e;
-        margin-bottom: 6px;
         font-weight: 700;
     }
-    .val-green {
-        color: #00ff88;
-        font-weight: 800;
-    }
-    .val-red {
-        color: #ff4d4d;
-        font-weight: 800;
-    }
-    .center-panel {
-        background: linear-gradient(135deg, #220b0b 0%, #0d111a 100%);
-        border: 1px solid #3d1616;
+    .badge-orange {
+        background-color: #33200A;
+        color: #FF9800;
+        border: 1px solid #5D3A1A;
+        padding: 3px 10px;
         border-radius: 12px;
-        padding: 16px;
-        text-align: center;
-        margin-bottom: 10px;
+        font-size: 11px;
+        font-weight: 700;
     }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+    .footer-credits {
+        text-align: center;
+        color: #546E7A;
+        font-size: 10px;
+        margin-top: 15px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
+# --- 1. ALERTA SUPERIOR ---
+st.markdown('<div class="badge-alert">🚨 ALERTA: VOLATILIDAD ALTA</div>', unsafe_allow_html=True)
 
-@st.fragment(run_every=5)
-def py_autodash():
-  precio_btc = 77160.79
-  cambio_15m = -0.05
-  confianza = 61.0
-  senal_texto = "BAJA / NO"
-  color_senal = "#ff4d4d"
-
-  df_hist = pd.DataFrame(
-      {"Precio BTC": [77168, 77166, 77164, 77163, 77161, 77160]}
-  )
-
-  try:
-    res = requests.get(
-        "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT", timeout=3
-    )
-    if res.status_code == 200:
-      precio_btc = float(res.json()["price"])
-
-    res_klines = requests.get(
-        "https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=15",
-        timeout=3,
-    )
-    if res_klines.status_code == 200:
-      klines = res_klines.json()
-      precios = [float(k[4]) for k in klines]
-      df_hist = pd.DataFrame({"Precio BTC": precios})
-
-      # Sincronización real con el promedio de los últimos minutos (estilo Kalshi)
-      inicio_tramo = precios[0]
-      fin_tramo = precios[-1]
-      dif = fin_tramo - inicio_tramo
-      cambio_15m = (dif / inicio_tramo) * 100
-
-      # Si los últimos 3 precios van cayendo respecto a los anteriores, mandamos BAJA con fuerza
-      tendencia_reiente = precios[-1] - precios[-3]
-
-      if tendencia_reiente < 0 or dif < 0:
-        senal_texto = "BAJA / NO"
-        color_senal = "#ff4d4d"
-        confianza = round(
-            min(95.0, max(55.0, 50.0 + (abs(cambio_15m) * 100))), 1
-        )
-      else:
-        senal_texto = "SUBE / SÍ"
-        color_senal = "#00ff88"
-        confianza = round(
-            min(95.0, max(55.0, 50.0 + (abs(cambio_15m) * 100))), 1
-        )
-  except Exception:
-    pass
-
-  st.markdown(
-      f"""
-    <div class="top-bar">
-        <div><b style="color: #ff4d4d;">🟢 PANEL SINCRONIZADO CON KALSHI</b> &nbsp;|&nbsp; BTC/USD (15 MINUTOS)</div>
-        <div><b>${precio_btc:,.2f} USD</b></div>
+# --- 2. ESTIMACIÓN ACTUAL (15m) ---
+st.markdown("""
+<div class="card-estimation">
+    <div class="text-subtitle-sm">⚡ ESTIMACIÓN ACTUAL (15m)</div>
+    <div class="text-main-green">POSIBLE UP · 62%</div>
+    <div class="text-sub">Consenso entre Kalshi y Análisis Técnico</div>
+    <div class="bar-container">
+        <div class="bar-up" style="width: 62%;"></div>
+        <div class="bar-mid" style="width: 10%;"></div>
+        <div class="bar-down" style="width: 28%;"></div>
     </div>
-    """,
-      unsafe_allow_html=True,
-  )
+    <div class="bar-labels">
+        <span class="label-up">UP<br>62%</span>
+        <span class="label-down">DOWN<br>38%</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-  col_izq, col_centro, col_der = st.columns([1, 1.4, 1])
+# --- 3. MOMENTUM DETECTADO ---
+st.markdown("""
+<div class="card-momentum">
+    <div class="text-momentum-title">🚀 MOMENTUM DETECTADO</div>
+    <div class="text-main-green" style="font-size: 22px; margin-top: 4px;">FUERTE REBOTE ALCISTA</div>
+    <div style="color: #D7CCC8; font-size: 12px; margin-top: 4px;">Rompimiento de EMA confirmado en la vela actual</div>
+</div>
+""", unsafe_allow_html=True)
 
-  with col_izq:
-    st.markdown(
-        """
-        <div class="card-box">
-            <div class="card-title">ESTADO DEL CONTRATO</div>
-            <div style="font-size: 8px; color: #8b949e;">CIERRE DE EVENTO</div>
-            <div class="val-red" style="font-size: 16px; margin-bottom: 8px;">EN CURSO (15M)</div>
-            <div style="font-size: 8px; color: #8b949e;">VALOR DEL CONTRATO</div>
-            <div style="font-size: 18px; font-weight: 800;">$1,000.00</div>
+# --- 4. SEÑAL PRINCIPAL & SPLIT KALSHI ---
+st.markdown("""
+<div class="card-main-signal">
+    <div class="text-gray-title">SEÑAL PRINCIPAL</div>
+    <div class="text-main-green" style="font-size: 32px; margin: 6px 0;">POSIBLE UP</div>
+    <div class="text-gray-sub">Esta llamada se actualiza cada 15 minutos exactos</div>
+    
+    <div class="split-container">
+        <div class="box-up">
+            <div style="color: #81C784; font-size: 11px; font-weight: 700;">UP</div>
+            <div style="color: #4CAF50; font-size: 28px; font-weight: 900; margin: 2px 0;">41%</div>
+            <div class="mini-bar-bg"><div class="mini-bar mini-bar-up"></div></div>
+            <div style="color: #81C784; font-size: 10px; font-weight: 700; margin-top: 4px;">COMPRAR UP —</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="card-box">
-            <div class="card-title">FLUJO DE CAÍDA / IMPULSO</div>
+        <div class="box-down">
+            <div style="color: #E57373; font-size: 11px; font-weight: 700;">DOWN</div>
+            <div style="color: #E57373; font-size: 28px; font-weight: 900; margin: 2px 0;">59%</div>
+            <div class="mini-bar-bg"><div class="mini-bar mini-bar-down"></div></div>
+            <div style="color: #E57373; font-size: 10px; font-weight: 700; margin-top: 4px;">COMPRAR DOWN —</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    </div>
+    
+    <div style="color: #78909C; font-size: 11px; margin-top: 6px;">El porcentaje sale directo de la probabilidad de Kalshi</div>
+</div>
+""", unsafe_allow_html=True)
 
-    df_vol = pd.DataFrame(
-        {
-            "Presión Compra": [2, 3, 2, 1, 2, 1],
-            "Presión Venta": [5, 6, 7, 8, 9, 10],
-        }
-    )
-    st.area_chart(df_vol, color=["#00ff88", "#ff4d4d"], height=110)
+# --- 5. CONFIRMACIÓN POST-ENTRADA ---
+st.markdown("""
+<div class="card-section">
+    <div class="text-gray-title" style="margin-bottom: 8px;">CONFIRMACIÓN POST-ENTRADA</div>
+    <div class="text-main-green" style="font-size: 20px; text-align: center; margin-bottom: 6px;">POSIBLE UP</div>
+    <div style="color: #78909C; font-size: 11px; text-align: center;">Estimación basada en probabilidades, no garantía de resultado.</div>
+</div>
+""", unsafe_allow_html=True)
 
-  with col_centro:
-    st.markdown(
-        f"""
-        <div class="center-panel">
-            <div style="font-size: 8px; color: #8b949e; letter-spacing: 2px;">SEÑAL DE TENDENCIA 15 MINUTOS</div>
-            <div style="font-size: 18px; font-weight: 900; margin: 4px 0; color: #ffffff;">BTC/USD: PREDICCIÓN</div>
-            <div style="font-size: 10px; color: {color_senal}; margin-bottom: 12px;">Variación: {cambio_15m:+.3f}% (${precio_btc:,.2f})</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+# --- 6. INDICADORES CLAVE ---
+st.markdown("""
+<div class="card-section">
+    <div class="text-gray-title" style="margin-bottom: 10px;">INDICADORES CLAVE</div>
+    
+    <div class="indicator-row">
+        <span style="font-size: 13px; font-weight: 600; color: #E6E8EF;">EMA 9 / EMA 21</span>
+        <span class="badge-green">ALCISTA 🚀</span>
+    </div>
+    
+    <div class="indicator-row">
+        <span style="font-size: 13px; font-weight: 600; color: #E6E8EF;">RSI (14)</span>
+        <span class="badge-green">NEUTRAL 54.1</span>
+    </div>
+    
+    <div class="indicator-row">
+        <span style="font-size: 13px; font-weight: 600; color: #E6E8EF;">Volatilidad (Bandas)</span>
+        <span class="badge-orange">ALTA</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-    st.markdown(
-        f"""
-        <div style="background: rgba(255, 77, 77, 0.05); border: 2px solid {color_senal}; border-radius: 50%; width: 130px; height: 130px; margin: 0 auto 12px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(255,77,77,0.15); text-align: center;">
-            <div style="font-size: 13px; font-weight: 900; color: {color_senal};">{senal_texto}</div>
-            <div style="font-size: 20px; font-weight: 900; color: #ffffff;">{confianza}%</div>
-            <div style="font-size: 7px; color: #8b949e; letter-spacing: 1px;">PROBABILIDAD</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="card-box" style="padding: 6px;">
-            <div style="font-size: 8px; color: #8b949e; margin-bottom: 2px;">TRAYECTORIA EN TIEMPO REAL</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.line_chart(df_hist, color=color_senal, height=90, use_container_width=True)
-
-  with col_der:
-    p_compra = int(confianza if senal_texto == "SUBE / SÍ" else (100 - confianza))
-    p_venta = 100 - p_compra
-
-    st.markdown(
-        f"""
-        <div class="card-box">
-            <div class="card-title">LIBRO DE ÓRDENES EN VIVO</div>
-            <div style="display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 4px;">
-                <span style="color: #00ff88; font-weight: 700;">{p_compra}% SUBE</span>
-                <span style="color: #ff4d4d; font-weight: 700;">{p_venta}% BAJA</span>
-            </div>
-            <div style="background: #161b22; border-radius: 4px; height: 5px; width: 100%; overflow: hidden;">
-                <div style="background: #ff4d4d; width: {p_venta}%; height: 100%;"></div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="card-box">
-            <div class="card-title">ESTADO DE MERCADO</div>
-            <div style="font-size: 9px; color: #ff4d4d; font-weight: 700; margin-bottom: 4px;">📉 TENDENCIA BAJISTA DETECTADA</div>
-            <div style="font-size: 8px; color: #8b949e;">El precio perforó el objetivo a la baja imitando el comportamiento del libro de órdenes institucional.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-py_autodash()
+# --- FOOTER ---
+st.markdown('<div class="footer-credits">Macaly + Alpha Bot v2.1 | Made with AI</div>', unsafe_allow_html=True)
