@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ================= ESTILOS CSS EXACTOS =================
+# ================= ESTILOS CSS =================
 st.markdown("""
 <style>
     .stApp {
@@ -32,15 +32,10 @@ st.markdown("""
         border-radius: 14px;
         padding: 10px 14px;
         margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .alert-text {
+        text-align: center;
         color: #38bdf8;
         font-weight: bold;
         font-size: 12px;
-        letter-spacing: 0.5px;
     }
     .momentum-card {
         background: #2b1f11;
@@ -59,28 +54,19 @@ st.markdown("""
         font-weight: 700;
         text-align: center;
     }
-    .side-by-side {
-        display: flex;
-        gap: 10px;
-        width: 100%;
-        margin-top: 8px;
-        margin-bottom: 8px;
-    }
     .badge-box-up {
         background-color: #0d231d;
         border: 1px solid #059669;
         border-radius: 12px;
-        padding: 12px 8px;
+        padding: 12px 6px;
         text-align: center;
-        flex: 1;
     }
     .badge-box-down {
         background-color: #261519;
         border: 1px solid #dc2626;
         border-radius: 12px;
-        padding: 12px 8px;
+        padding: 12px 6px;
         text-align: center;
-        flex: 1;
     }
     .indicator-row {
         display: flex;
@@ -154,7 +140,7 @@ data = get_bot_data()
 # ================= RENDERIZADO DE LA INTERFAZ =================
 
 # 1. Alerta Superior
-st.markdown('<div class="alert-card"><span class="alert-text">🚨 ALERTA: VOLATILIDAD ALTA</span></div>', unsafe_allow_html=True)
+st.markdown('<div class="alert-card">🚨 ALERTA: VOLATILIDAD ALTA</div>', unsafe_allow_html=True)
 
 # 2. Estimación Actual (15M)
 st.markdown(f"""
@@ -165,7 +151,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Barra de progreso
+# Barra de progreso nativa
 st.markdown(f"""
 <div style="background: #1f293d; border-radius: 8px; height: 8px; width: 100%; margin-bottom: 4px; overflow: hidden; display: flex;">
     <div style="background: #10b981; width: {data["up_est"]}%; height: 100%;"></div>
@@ -186,29 +172,35 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 4. Señal Principal (Con las cajitas 100% lado a lado)
-st.markdown(f"""
-<div class="card">
-    <div class="section-title">SEÑAL PRINCIPAL</div>
-    <div style="text-align: center; color: #34d399; font-size: 18px; font-weight: 800; margin-bottom: 2px;">POSIBLE UP</div>
-    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-bottom: 6px;">Esta llamada se actualiza cada 15 minutos exactos</div>
-    
-    <div class="side-by-side">
-        <div class="badge-box-up">
-            <div style="color: #34d399; font-size: 10px; font-weight: bold;">UP</div>
-            <div style="color: #34d399; font-size: 20px; font-weight: 800;">{data["up_main"]}%</div>
-            <div style="color: #34d399; font-size: 8px; margin-top: 2px;">COMPRAR UP —</div>
-        </div>
-        <div class="badge-box-down">
-            <div style="color: #f87171; font-size: 10px; font-weight: bold;">DOWN</div>
-            <div style="color: #f87171; font-size: 20px; font-weight: 800;">{data["down_main"]}%</div>
-            <div style="color: #f87171; font-size: 8px; margin-top: 2px;">COMPRAR DOWN —</div>
-        </div>
+# 4. Señal Principal
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">SEÑAL PRINCIPAL</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align: center; color: #34d399; font-size: 18px; font-weight: 800; margin-bottom: 2px;">POSIBLE UP</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align: center; color: #8a99ad; font-size: 10px; margin-bottom: 10px;">Esta llamada se actualiza cada 15 minutos exactos</div>', unsafe_allow_html=True)
+
+# Columnas nativas de Streamlit para que queden lado a lado sin fallar
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown(f"""
+    <div class="badge-box-up">
+        <div style="color: #34d399; font-size: 10px; font-weight: bold;">UP</div>
+        <div style="color: #34d399; font-size: 20px; font-weight: 800;">{data["up_main"]}%</div>
+        <div style="color: #34d399; font-size: 8px; margin-top: 2px;">COMPRAR UP —</div>
     </div>
-    
-    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 4px;">El porcentaje sale directo de la probabilidad de Kalshi</div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="badge-box-down">
+        <div style="color: #f87171; font-size: 10px; font-weight: bold;">DOWN</div>
+        <div style="color: #f87171; font-size: 20px; font-weight: 800;">{data["down_main"]}%</div>
+        <div style="color: #f87171; font-size: 8px; margin-top: 2px;">COMPRAR DOWN —</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('<div style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 10px;">El porcentaje sale directo de la probabilidad de Kalshi</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # 5. Confirmación Post-Entrada
 st.markdown("""
