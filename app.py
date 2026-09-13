@@ -2,27 +2,22 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
+import time
+from streamlit_autorefresh import st_autorefresh
 
-# Configuración de página
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
-    page_title="Predicción BTC",
+    page_title="Predicción BTC 15m",
     page_icon="🚨",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- AUTO-REFRESCO AUTOMÁTICO (Cada 10 segundos) ---
-st.markdown("""
-    <script>
-        setTimeout(function(){
-            window.location.reload();
-        }, 10000);
-    </script>
-""", unsafe_allow_html=True)
+# Refresco nativo cada 3 segundos (mantiene viva la app en iPhone sin congelar Safari)
+st_autorefresh(interval=3000, key="datarefresh")
 
-# --- CONEXIÓN AUTOMÁTICA CON KALSHI ---
+# --- FUNCIONES DE ALTA VELOCIDAD (SIN CACHÉ PARA KALSHI) ---
 
-@st.cache_data(ttl=300)
 def get_kalshi_token():
     """Obtiene el token de autenticación."""
     try:
@@ -31,36 +26,32 @@ def get_kalshi_token():
         if not email or not password:
             return None
         url = "https://api.elections.kalshi.com/trade-api/v2/login"
-        res = requests.post(url, json={"email": email, "password": password}, timeout=4)
+        res = requests.post(url, json={"email": email, "password": password}, timeout=2)
         if res.status_code == 200:
             return res.json().get("token")
     except Exception:
         pass
     return None
 
-@st.cache_data(ttl=5)
 def get_kalshi_data():
-    """Escanea la API de Kalshi y extrae las probabilidades reales del contrato BTC 15m activo."""
+    """Busca en tiempo real el mercado activo de BTC 15m recién abierto o en curso."""
     token = get_kalshi_token()
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     
     try:
-        # Consulta de mercados abiertos
         url = "https://api.elections.kalshi.com/trade-api/v2/markets"
-        params = {"status": "open", "limit": 100}
-        res = requests.get(url, headers=headers, params=params, timeout=4)
+        params = {"series_ticker": "KXBTC15M", "status": "open", "limit": 5}
+        res = requests.get(url, headers=headers, params=params, timeout=2)
         
         if res.status_code == 200:
             markets = res.json().get("markets", [])
-            # Filtrar los mercados activos de BTC de 15m o intradía
-            btc_markets = [
-                m for m in markets 
-                if ("BTC" in m.get("ticker", "").upper() or "BITCOIN" in m.get("title", "").upper())
-            ]
-            
-            if btc_markets:
-                # Tomamos el mercado con volumen o el primero activo en la lista
-                target = btc_markets[0]
+            if markets:
+                # Filtrar y ordenar por tiempo de cierre para agarrar el contrato actual de la ventana
+                now_ts = int(time.time())
+                valid_markets = [m for m in markets if m.get("close_time_ts", 0) > now_ts or m.get("expiration_time_ts", 0) > now_ts]
+                
+                target = valid_markets[0] if valid_markets else markets[0]
+                
                 price = target.get("last_price") or target.get("yes_bid") or target.get("yes_ask")
                 if price is not None and 0 < price < 100:
                     up_prob = int(price)
@@ -68,15 +59,15 @@ def get_kalshi_data():
     except Exception:
         pass
         
-    return 38, 62  # Valor por defecto si Kalshi está entre ventanas de tiempo
+    return 50, 50
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=5)
 def get_binance_indicators():
-    """Calcula la tendencia real con velas de Binance en tiempo real."""
+    """Calcula tendencia en vivo desde Binance."""
     try:
         url = "https://api.binance.com/api/v3/klines"
-        params = {"symbol": "BTCUSDT", "interval": "15m", "limit": 50}
-        res = requests.get(url, params=params, timeout=4)
+        params = {"symbol": "BTCUSDT", "interval": "15m", "limit": 40}
+        res = requests.get(url, params=params, timeout=2)
         raw_data = res.json()
         
         df = pd.DataFrame(raw_data, columns=[
@@ -102,11 +93,11 @@ def get_binance_indicators():
     except Exception:
         return "ALCISTA 🚀", 54.1
 
-# --- PROCESAMIENTO DE DATOS ---
+# --- CONSULTA EN VIVO ---
 up_kalshi, down_kalshi = get_kalshi_data()
 ema_trend, rsi_value = get_binance_indicators()
 
-# Ponderación: 70% Kalshi + 30% Análisis Técnico Binance
+# Ponderación dinámica (70% Kalshi / 30% Binance)
 tech_score = 65 if "ALCISTA" in ema_trend else 35
 combo_up = int(np.clip((up_kalshi * 0.7) + (tech_score * 0.3), 5, 95))
 combo_down = 100 - combo_up
@@ -114,7 +105,7 @@ combo_down = 100 - combo_up
 main_signal = "POSIBLE UP" if combo_up >= 50 else "POSIBLE DOWN"
 signal_color = "#4CAF50" if combo_up >= 50 else "#E57373"
 
-# --- ESTILOS CSS Y DIBUJO DE INTERFAZ ---
+# --- INTERFAZ CSS ---
 st.markdown("""
 <style>
     #MainMenu, footer, header {visibility: hidden;}
@@ -289,10 +280,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 1. ALERTA
+# --- PANEL PRINCIPAL ---
 st.markdown('<div class="badge-alert">🚨 ALERTA: VOLATILIDAD ALTA</div>', unsafe_allow_html=True)
 
-# 2. ESTIMACIÓN
 st.markdown(f"""<div class="card-estimation">
 <div class="text-subtitle-sm">⚡ ESTIMACIÓN ACTUAL (15m)</div>
 <div class="text-main-green" style="color: {signal_color};">{main_signal} · {combo_up}%</div>
@@ -307,18 +297,16 @@ st.markdown(f"""<div class="card-estimation">
 </div>
 </div>""", unsafe_allow_html=True)
 
-# 3. MOMENTUM
 st.markdown(f"""<div class="card-momentum">
 <div class="text-momentum-title">🚀 MOMENTUM DETECTADO</div>
 <div class="text-main-green" style="color: {signal_color}; font-size: 22px; margin-top: 4px;">{"FUERTE REBOTE ALCISTA" if combo_up >= 50 else "PRESION BAJISTA"}</div>
 <div style="color: #D7CCC8; font-size: 12px; margin-top: 4px;">Confirmación de EMA y datos directos en vivo</div>
 </div>""", unsafe_allow_html=True)
 
-# 4. KALSHI
 st.markdown(f"""<div class="card-main-signal">
 <div class="text-gray-title">SEÑAL PRINCIPAL</div>
 <div class="text-main-green" style="color: {signal_color}; font-size: 32px; margin: 6px 0;">{main_signal}</div>
-<div class="text-gray-sub">Actualización automática en vivo</div>
+<div class="text-gray-sub">Actualización en tiempo real</div>
 <div class="split-container">
 <div class="box-up">
 <div style="color: #81C784; font-size: 11px; font-weight: 700;">UP</div>
@@ -336,14 +324,12 @@ st.markdown(f"""<div class="card-main-signal">
 <div style="color: #78909C; font-size: 11px; margin-top: 6px;">El porcentaje sale directo de la probabilidad de Kalshi</div>
 </div>""", unsafe_allow_html=True)
 
-# 5. POST-ENTRADA
 st.markdown(f"""<div class="card-section">
 <div class="text-gray-title" style="margin-bottom: 8px;">CONFIRMACIÓN POST-ENTRADA</div>
 <div class="text-main-green" style="color: {signal_color}; font-size: 20px; text-align: center; margin-bottom: 6px;">{main_signal}</div>
 <div style="color: #78909C; font-size: 11px; text-align: center;">Estimación basada en probabilidades, no garantía de resultado.</div>
 </div>""", unsafe_allow_html=True)
 
-# 6. INDICADORES
 st.markdown(f"""<div class="card-section">
 <div class="text-gray-title" style="margin-bottom: 10px;">INDICADORES CLAVE</div>
 <div class="indicator-row">
@@ -360,4 +346,4 @@ st.markdown(f"""<div class="card-section">
 </div>
 </div>""", unsafe_allow_html=True)
 
-st.markdown('<div class="footer-credits">Macaly + Alpha Bot v2.1 | Made with AI</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer-credits">Macaly + Alpha Bot v3.0 | Auto-Sync Enabled</div>', unsafe_allow_html=True)
