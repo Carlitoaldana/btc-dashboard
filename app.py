@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ================= ESTILOS CSS IDÉNTICOS AL ORIGINAL =================
+# ================= ESTILOS CSS EXACTOS =================
 st.markdown("""
 <style>
     .stApp {
@@ -59,19 +59,28 @@ st.markdown("""
         font-weight: 700;
         text-align: center;
     }
+    .side-by-side {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        margin-top: 8px;
+        margin-bottom: 8px;
+    }
     .badge-box-up {
         background-color: #0d231d;
         border: 1px solid #059669;
         border-radius: 12px;
-        padding: 12px;
+        padding: 12px 8px;
         text-align: center;
+        flex: 1;
     }
     .badge-box-down {
         background-color: #261519;
         border: 1px solid #dc2626;
         border-radius: 12px;
-        padding: 12px;
+        padding: 12px 8px;
         text-align: center;
+        flex: 1;
     }
     .indicator-row {
         display: flex;
@@ -144,21 +153,21 @@ data = get_bot_data()
 
 # ================= RENDERIZADO DE LA INTERFAZ =================
 
-# 1. Alerta Superior en su tarjeta azulada
+# 1. Alerta Superior
 st.markdown('<div class="alert-card"><span class="alert-text">🚨 ALERTA: VOLATILIDAD ALTA</span></div>', unsafe_allow_html=True)
 
 # 2. Estimación Actual (15M)
 st.markdown(f"""
-<div class="card">
+<div class="card" style="margin-bottom: 6px;">
     <div class="section-title">⚡ ESTIMACIÓN ACTUAL (15M)</div>
-    <div style="font-size: 22px; font-weight: 800; color: #34d399; text-align: center;">POSIBLE UP • {data["up_est"]}%</div>
-    <div style="text-align: center; color: #8a99ad; font-size: 11px; margin-bottom: 8px;">Consenso entre Kalshi y Análisis Técnico</div>
+    <div style="font-size: 20px; font-weight: 800; color: #34d399; text-align: center;">POSIBLE UP • {data["up_est"]}%</div>
+    <div style="text-align: center; color: #8a99ad; font-size: 11px; margin-bottom: 6px;">Consenso entre Kalshi y Análisis Técnico</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Barra de progreso custom para que luzca idéntica
+# Barra de progreso
 st.markdown(f"""
-<div style="background: #1f293d; border-radius: 8px; height: 10px; width: 100%; margin-top: -6px; margin-bottom: 6px; overflow: hidden; display: flex;">
+<div style="background: #1f293d; border-radius: 8px; height: 8px; width: 100%; margin-bottom: 4px; overflow: hidden; display: flex;">
     <div style="background: #10b981; width: {data["up_est"]}%; height: 100%;"></div>
     <div style="background: #f59e0b; width: 8%; height: 100%;"></div>
     <div style="background: #78350f; width: {data["down_est"] - 8}%; height: 100%;"></div>
@@ -172,40 +181,32 @@ st.markdown(f"""
 st.markdown("""
 <div class="momentum-card">
     <div class="section-title" style="color: #fbbf24;">🚀 MOMENTUM DETECTADO</div>
-    <div style="color: #34d399; font-weight: 800; font-size: 16px; margin-top: 2px;">FUERTE REBOTE ALCISTA</div>
-    <div style="color: #9ca3af; font-size: 10px; margin-top: 3px;">Rompimiento de EMA confirmado en la vela actual</div>
+    <div style="color: #34d399; font-weight: 800; font-size: 15px; margin-top: 2px;">FUERTE REBOTE ALCISTA</div>
+    <div style="color: #9ca3af; font-size: 10px; margin-top: 2px;">Rompimiento de EMA confirmado en la vela actual</div>
 </div>
 """, unsafe_allow_html=True)
 
-# 4. Señal Principal
-st.markdown("""
+# 4. Señal Principal (Con las cajitas 100% lado a lado)
+st.markdown(f"""
 <div class="card">
     <div class="section-title">SEÑAL PRINCIPAL</div>
-    <div style="text-align: center; color: #34d399; font-size: 20px; font-weight: 800; margin-bottom: 2px;">POSIBLE UP</div>
-    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-bottom: 10px;">Esta llamada se actualiza cada 15 minutos exactos</div>
-""", unsafe_allow_html=True)
-
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown(f"""
-    <div class="badge-box-up">
-        <div style="color: #34d399; font-size: 11px; font-weight: bold;">UP</div>
-        <div style="color: #34d399; font-size: 20px; font-weight: 800;">{data["up_main"]}%</div>
-        <div style="color: #34d399; font-size: 8px; margin-top: 2px; letter-spacing: 0.5px;">COMPRAR UP —</div>
+    <div style="text-align: center; color: #34d399; font-size: 18px; font-weight: 800; margin-bottom: 2px;">POSIBLE UP</div>
+    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-bottom: 6px;">Esta llamada se actualiza cada 15 minutos exactos</div>
+    
+    <div class="side-by-side">
+        <div class="badge-box-up">
+            <div style="color: #34d399; font-size: 10px; font-weight: bold;">UP</div>
+            <div style="color: #34d399; font-size: 20px; font-weight: 800;">{data["up_main"]}%</div>
+            <div style="color: #34d399; font-size: 8px; margin-top: 2px;">COMPRAR UP —</div>
+        </div>
+        <div class="badge-box-down">
+            <div style="color: #f87171; font-size: 10px; font-weight: bold;">DOWN</div>
+            <div style="color: #f87171; font-size: 20px; font-weight: 800;">{data["down_main"]}%</div>
+            <div style="color: #f87171; font-size: 8px; margin-top: 2px;">COMPRAR DOWN —</div>
+        </div>
     </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div class="badge-box-down">
-        <div style="color: #f87171; font-size: 11px; font-weight: bold;">DOWN</div>
-        <div style="color: #f87171; font-size: 20px; font-weight: 800;">{data["down_main"]}%</div>
-        <div style="color: #f87171; font-size: 8px; margin-top: 2px; letter-spacing: 0.5px;">COMPRAR DOWN —</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("""
-    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 10px;">El porcentaje sale directo de la probabilidad de Kalshi</div>
+    
+    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 4px;">El porcentaje sale directo de la probabilidad de Kalshi</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -213,15 +214,15 @@ st.markdown("""
 st.markdown("""
 <div class="card">
     <div class="section-title">CONFIRMACIÓN POST-ENTRADA</div>
-    <div style="text-align: center; color: #34d399; font-size: 15px; font-weight: bold;">POSIBLE UP</div>
-    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 3px;">Estimación basada en probabilidades, no garantía de resultado.</div>
+    <div style="text-align: center; color: #34d399; font-size: 14px; font-weight: bold;">POSIBLE UP</div>
+    <div style="text-align: center; color: #8a99ad; font-size: 10px; margin-top: 2px;">Estimación basada en probabilidades, no garantía de resultado.</div>
 </div>
 """, unsafe_allow_html=True)
 
 # 6. Indicadores Clave
 st.markdown(f"""
 <div class="card">
-    <div class="section-title" style="margin-bottom: 8px;">INDICADORES CLAVE</div>
+    <div class="section-title" style="margin-bottom: 6px;">INDICADORES CLAVE</div>
     <div class="indicator-row">
         <span>EMA 9 / EMA 21</span>
         <span style="font-weight: bold; color: #34d399;">{data["ema"]}</span>
@@ -239,5 +240,5 @@ st.markdown(f"""
         <span style="font-weight: bold; color: #34d399;">CONECTADO 🟢</span>
     </div>
 </div>
-<div style="text-align: center; color: #4b5563; font-size: 10px; margin-top: 8px;">Macaly + Alpha Bot v2.1 | Made with AI</div>
+<div style="text-align: center; color: #4b5563; font-size: 10px; margin-top: 6px;">Macaly + Alpha Bot v2.1 | Made with AI</div>
 """, unsafe_allow_html=True)
