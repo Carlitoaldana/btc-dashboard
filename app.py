@@ -36,29 +36,30 @@ def get_kalshi_token():
 
 @st.cache_data(ttl=15)
 def get_kalshi_data():
-    """Obtiene la probabilidad actual del mercado de BTC usando la API oficial."""
+    """Obtiene la probabilidad actual buscando los mercados de Bitcoin activos."""
     token = get_kalshi_token()
-    
     headers = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
         
     try:
         url = "https://api.elections.kalshi.com/trade-api/v2/markets"
-        params = {"limit": 10, "status": "open", "series_ticker": "KXBTC"}
+        params = {"limit": 20, "status": "open"}
         response = requests.get(url, headers=headers, params=params, timeout=5)
         data = response.json()
         
         markets = data.get("markets", [])
-        if markets:
-            target_market = markets[0]
-            last_price = target_market.get("last_price", 50)
-            up_prob = int(last_price)
-            down_prob = 100 - up_prob
-            return up_prob, down_prob
+        for m in markets:
+            ticker = m.get("ticker", "").upper()
+            title = m.get("title", "").upper()
+            if "BTC" in ticker or "BITCOIN" in title:
+                last_price = m.get("last_price") or m.get("yes_bid") or 50
+                up_prob = int(last_price)
+                down_prob = 100 - up_prob
+                return up_prob, down_prob
     except Exception:
         pass
-    return 41, 59
+    return 50, 50
 
 @st.cache_data(ttl=30)
 def get_binance_indicators():
@@ -277,7 +278,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Renderizado de componentes UI
+# Renderizado de UI
 st.markdown('<div class="badge-alert">🚨 ALERTA: VOLATILIDAD ALTA</div>', unsafe_allow_html=True)
 
 st.markdown(f"""<div class="card-estimation">
