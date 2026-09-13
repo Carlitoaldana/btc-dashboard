@@ -1,4 +1,5 @@
 streamlit
 pandas
 requests
-ccxt
+numpy
+streamlit-autorefresh
