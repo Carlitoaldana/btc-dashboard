@@ -57,7 +57,6 @@ def get_kalshi_data():
         
     return 50, 50
 
-@st.cache_data(ttl=5)
 def get_binance_indicators():
     """Calcula tendencia en vivo desde Binance."""
     try:
