@@ -11,12 +11,32 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Motor en vivo con Binance y cálculo de indicadores clave
 def get_sniper_signal():
     btc_price = 76803.91
     change_pct = -0.73
     df = pd.DataFrame()
+    kalshi_connected = False
+    kalshi_up_prob = None
     
+    try:
+        if "kalshi" in st.secrets:
+            k_key = st.secrets["kalshi"].get("api_key")
+            url_kalshi = "https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=KXBTC"
+            req_k = urllib.request.Request(
+                url_kalshi, 
+                headers={
+                    'User-Agent': 'Mozilla/5.0',
+                    'Authorization': f'Bearer {k_key}'
+                }
+            )
+            with urllib.request.urlopen(req_k, timeout=2.0) as resp_k:
+                k_data = json.loads(resp_k.read().decode())
+                if "markets" in k_data and len(k_data["markets"]) > 0:
+                    kalshi_up_prob = k_data["markets"][0].get("yes_bid", 50)
+                    kalshi_connected = True
+    except Exception:
+        pass
+
     try:
         url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=30"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -47,7 +67,6 @@ def get_sniper_signal():
         df["ema9"] = df["close"].ewm(span=9, adjust=False).mean()
         df["ema21"] = df["close"].ewm(span=21, adjust=False).mean()
         
-        # RSI 14
         delta = df["close"].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -58,7 +77,6 @@ def get_sniper_signal():
         ema21 = df["ema21"].iloc[-1]
         rsi_val = round(float(df["rsi"].iloc[-1]), 1) if not np.isnan(df["rsi"].iloc[-1]) else 50.0
         
-        # Volatilidad por rango de velas recientes
         recent_ranges = (df["high"] - df["low"]).tail(5).mean()
         avg_range = (df["high"] - df["low"]).mean()
         if recent_ranges > (avg_range * 1.3):
@@ -87,7 +105,11 @@ def get_sniper_signal():
     else:
         score = 62 if change_pct >= 0 else 41
 
-    up_p = int(np.clip(score, 15, 85))
+    if kalshi_connected and kalshi_up_prob is not None:
+        up_p = int((score + kalshi_up_prob) / 2)
+    else:
+        up_p = int(np.clip(score, 15, 85))
+        
     down_p = 100 - up_p
     
     if up_p >= 50:
@@ -103,11 +125,10 @@ def get_sniper_signal():
         
     change_color = "#4CAF50" if change_pct >= 0 else "#E57373"
     
-    return btc_price, change_pct, up_p, down_p, main_signal, signal_color, change_color, trend_status, rsi_val, volatility_status, momentum_text, momentum_sub
+    return btc_price, change_pct, up_p, down_p, main_signal, signal_color, change_color, trend_status, rsi_val, volatility_status, momentum_text, momentum_sub, kalshi_connected
 
-btc_price, change_pct, up_p, down_p, main_signal, signal_color, change_color, trend_status, rsi_val, volatility_status, momentum_text, momentum_sub = get_sniper_signal()
+btc_price, change_pct, up_p, down_p, main_signal, signal_color, change_color, trend_status, rsi_val, volatility_status, momentum_text, momentum_sub, kalshi_connected = get_sniper_signal()
 
-# Estilos idénticos a la interfaz solicitada
 st.markdown("""
 <style>
     #MainMenu, footer, header {visibility: hidden;}
@@ -268,14 +289,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 1. Alerta de Volatilidad Superior
 st.markdown(f'<div class="badge-alert">🚨 ALERTA: VOLATILIDAD {volatility_status}</div>', unsafe_allow_html=True)
 
-# 2. Estimación Actual (15m)
+consenso_text = "Consenso entre Kalshi API y Análisis Técnico" if kalshi_connected else "Consenso entre Binance Data y Análisis Técnico"
 st.markdown(f"""<div class="card-estimation">
 <div class="text-subtitle-sm">⚡ ESTIMACIÓN ACTUAL (15m)</div>
 <div class="text-main-green" style="color: {signal_color};">{main_signal} · {max(up_p, down_p)}%</div>
-<div class="text-sub">Consenso entre Binance Data y Análisis Técnico</div>
+<div class="text-sub">{consenso_text}</div>
 <div class="bar-container">
 <div class="bar-up" style="width: {up_p}%;"></div>
 <div class="bar-down" style="width: {down_p}%;"></div>
@@ -286,14 +306,13 @@ st.markdown(f"""<div class="card-estimation">
 </div>
 </div>""", unsafe_allow_html=True)
 
-# 3. Momentum Detectado
 st.markdown(f"""<div class="card-momentum">
 <div style="color: #FFB74D; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">🚀 MOMENTUM DETECTADO</div>
 <div style="color: #66BB6A; font-size: 16px; font-weight: 900; margin-bottom: 4px;">{momentum_text}</div>
 <div style="color: #B0BEC5; font-size: 11px;">{momentum_sub}</div>
 </div>""", unsafe_allow_html=True)
 
-# 4. Señal Principal y Cajas de Compra Separadas
+kalshi_badge_sub = "El porcentaje sale directo de la API de Kalshi" if kalshi_connected else "El porcentaje sale de probabilidad técnica combinada"
 st.markdown(f"""<div class="card-main-signal">
 <div class="text-gray-title">SEÑAL PRINCIPAL</div>
 <div style="font-size: 22px; font-weight: 900; color: {signal_color}; margin: 6px 0;">{main_signal}</div>
@@ -313,17 +332,16 @@ st.markdown(f"""<div class="card-main-signal">
 <div style="color: #E57373; font-size: 10px; font-weight: 700; margin-top: 4px;">COMPRAR DOWN —</div>
 </div>
 </div>
-<div style="color: #78909C; font-size: 10px; margin-top: 6px;">Precio actual BTC: ${btc_price:,.2f} ({change_pct:+.2f}%)</div>
+<div style="color: #78909C; font-size: 10px; margin-top: 6px;">{kalshi_badge_sub}</div>
 </div>""", unsafe_allow_html=True)
 
-# 5. Confirmación Post-Entrada
 st.markdown(f"""<div class="card-estimation" style="background-color: #141824; border-color: #23293A; padding: 12px;">
 <div class="text-gray-title" style="margin-bottom: 6px;">CONFIRMACIÓN POST-ENTRADA</div>
 <div style="font-size: 16px; font-weight: 900; color: {signal_color}; margin-bottom: 4px;">{main_signal}</div>
 <div style="color: #78909C; font-size: 10px;">Estimación basada en probabilidades, no garantía de resultado.</div>
 </div>""", unsafe_allow_html=True)
 
-# 6. Indicadores Clave
+kalshi_status_label = "CONECTADO 🟢" if kalshi_connected else "MODO TÉCNICO ⚡"
 st.markdown(f"""<div class="card-section">
 <div class="text-gray-title" style="margin-bottom: 10px;">INDICADORES CLAVE</div>
 <div class="indicator-row">
@@ -335,8 +353,8 @@ st.markdown(f"""<div class="card-section">
 <span class="badge-green">{rsi_val}</span>
 </div>
 <div class="indicator-row">
-<span style="font-size: 12px; font-weight: 600; color: #E6E8EF;">Volatilidad (Bandas)</span>
-<span class="badge-orange">{volatility_status}</span>
+<span style="font-size: 12px; font-weight: 600; color: #E6E8EF;">API Kalshi</span>
+<span class="badge-green">{kalshi_status_label}</span>
 </div>
 </div>""", unsafe_allow_html=True)
 
