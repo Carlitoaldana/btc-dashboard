@@ -4,16 +4,20 @@ import pandas as pd
 import numpy as np
 
 # =========================================================
-# MACALY + ALPHA BOT v4.2
-# COINBASE + KALSHI BTC 15 MIN
+# MACALY + ALPHA BOT v4.3
+# AUTO REFRESH + COINBASE + KALSHI BTC 15 MIN
 # =========================================================
 
 st.set_page_config(
-    page_title="Macaly + Alpha Bot v4.2",
+    page_title="Macaly + Alpha Bot v4.3",
     page_icon="⚡",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# =========================================================
+# DISEÑO
+# =========================================================
 
 st.markdown("""
 <style>
@@ -81,18 +85,6 @@ header {visibility:hidden;}
     font-weight:800;
     text-align:right;
 }
-
-.signal-up {
-    color:#34d399;
-}
-
-.signal-down {
-    color:#fb7185;
-}
-
-.signal-neutral {
-    color:#fbbf24;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -101,7 +93,7 @@ header {visibility:hidden;}
 # COINBASE
 # =========================================================
 
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=8)
 def get_btc_data():
 
     url = (
@@ -115,7 +107,7 @@ def get_btc_data():
             "granularity": 60
         },
         headers={
-            "User-Agent": "MacalyAlphaBot/4.2"
+            "User-Agent": "MacalyAlphaBot/4.3"
         },
         timeout=12
     )
@@ -149,7 +141,6 @@ def get_btc_data():
         "close",
         "volume"
     ]:
-
         df[column] = pd.to_numeric(
             df[column],
             errors="coerce"
@@ -175,7 +166,7 @@ def get_btc_data():
 # KALSHI BTC 15 MIN
 # =========================================================
 
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=8)
 def get_kalshi_btc_market():
 
     url = (
@@ -191,7 +182,7 @@ def get_kalshi_btc_market():
             "series_ticker": "KXBTC15M"
         },
         headers={
-            "User-Agent": "MacalyAlphaBot/4.2"
+            "User-Agent": "MacalyAlphaBot/4.3"
         },
         timeout=12
     )
@@ -242,13 +233,9 @@ def add_indicators(df):
     # RSI 14
     delta = close.diff()
 
-    gain = delta.clip(
-        lower=0
-    )
+    gain = delta.clip(lower=0)
 
-    loss = -delta.clip(
-        upper=0
-    )
+    loss = -delta.clip(upper=0)
 
     avg_gain = gain.ewm(
         alpha=1 / 14,
@@ -264,10 +251,7 @@ def add_indicators(df):
 
     rs = (
         avg_gain /
-        avg_loss.replace(
-            0,
-            np.nan
-        )
+        avg_loss.replace(0, np.nan)
     )
 
     df["rsi"] = (
@@ -275,14 +259,10 @@ def add_indicators(df):
         (100 / (1 + rs))
     ).fillna(50)
 
-    # Bollinger Bands
-    middle = close.rolling(
-        20
-    ).mean()
+    # BOLLINGER
+    middle = close.rolling(20).mean()
 
-    std = close.rolling(
-        20
-    ).std()
+    std = close.rolling(20).std()
 
     df["bb_upper"] = (
         middle +
@@ -294,23 +274,20 @@ def add_indicators(df):
         (2 * std)
     )
 
-    # Momentum
+    # MOMENTUM
     df["mom3"] = (
-        close.pct_change(3) *
-        100
+        close.pct_change(3) * 100
     )
 
     df["mom5"] = (
-        close.pct_change(5) *
-        100
+        close.pct_change(5) * 100
     )
 
     df["mom15"] = (
-        close.pct_change(15) *
-        100
+        close.pct_change(15) * 100
     )
 
-    # Volumen
+    # VOLUMEN
     avg_volume = (
         df["volume"]
         .rolling(20)
@@ -319,10 +296,7 @@ def add_indicators(df):
 
     df["vol_ratio"] = (
         df["volume"] /
-        avg_volume.replace(
-            0,
-            np.nan
-        )
+        avg_volume.replace(0, np.nan)
     )
 
     return df
@@ -342,147 +316,91 @@ def build_signal(df):
     if last["ema9"] > last["ema21"]:
 
         score += 2.0
-
         ema_text = "ALCISTA 🚀"
 
     else:
 
         score -= 2.0
-
         ema_text = "BAJISTA 🔻"
 
     # RSI
-    rsi = float(
-        last["rsi"]
-    )
+    rsi = float(last["rsi"])
 
     if 52 <= rsi <= 68:
-
         score += 1.25
 
     elif 32 <= rsi <= 48:
-
         score -= 1.25
 
     elif rsi > 75:
-
         score -= 0.50
 
     elif rsi < 25:
-
         score += 0.50
 
-    # Momentum 3
-    if pd.notna(
-        last["mom3"]
-    ):
-
-        mom3 = float(
-            last["mom3"]
-        )
-
+    # MOMENTUM
+    if pd.notna(last["mom3"]):
+        mom3 = float(last["mom3"])
     else:
-
         mom3 = 0.0
 
-    # Momentum 5
-    if pd.notna(
-        last["mom5"]
-    ):
-
-        mom5 = float(
-            last["mom5"]
-        )
-
+    if pd.notna(last["mom5"]):
+        mom5 = float(last["mom5"])
     else:
-
         mom5 = 0.0
 
-    # Momentum 15
-    if pd.notna(
-        last["mom15"]
-    ):
-
-        mom15 = float(
-            last["mom15"]
-        )
-
+    if pd.notna(last["mom15"]):
+        mom15 = float(last["mom15"])
     else:
-
         mom15 = 0.0
 
     if mom3 > 0.02:
-
         score += 1.25
 
     elif mom3 < -0.02:
-
         score -= 1.25
 
     if mom5 > 0.03:
-
         score += 1.00
 
     elif mom5 < -0.03:
-
         score -= 1.00
 
     if mom15 > 0.05:
-
         score += 0.75
 
     elif mom15 < -0.05:
-
         score -= 0.75
 
-    # Volumen
-    if pd.notna(
-        last["vol_ratio"]
-    ):
-
-        vol_ratio = float(
-            last["vol_ratio"]
-        )
-
+    # VOLUMEN
+    if pd.notna(last["vol_ratio"]):
+        vol_ratio = float(last["vol_ratio"])
     else:
-
         vol_ratio = 0.0
 
     if vol_ratio > 1.15:
 
         if mom5 > 0:
-
             score += 0.50
 
         elif mom5 < 0:
-
             score -= 0.50
 
-    # Precio
-    price = float(
-        last["close"]
-    )
+    # PRECIO
+    price = float(last["close"])
 
-    # Volatilidad
+    # VOLATILIDAD
     if (
-        pd.notna(
-            last["bb_upper"]
-        )
+        pd.notna(last["bb_upper"])
         and
-        pd.notna(
-            last["bb_lower"]
-        )
+        pd.notna(last["bb_lower"])
     ):
 
         width = (
             (
-                float(
-                    last["bb_upper"]
-                )
+                float(last["bb_upper"])
                 -
-                float(
-                    last["bb_lower"]
-                )
+                float(last["bb_lower"])
             )
             /
             price
@@ -491,104 +409,73 @@ def build_signal(df):
         )
 
     else:
-
         width = 0.0
 
     if width > 0.8:
-
         volatility = "ALTA"
 
     elif width > 0.4:
-
         volatility = "MEDIA"
 
     else:
-
         volatility = "BAJA"
 
-    # Señal
+    # DECISIÓN
     if score >= 2.5:
 
         signal = "POSIBLE UP"
-
         decision = "SEÑAL UP"
-
         signal_class = "up"
-
         icon = "🚀"
 
         up = int(
             round(
                 min(
                     78,
-                    50 +
-                    abs(score) * 5
+                    50 + abs(score) * 5
                 )
             )
         )
 
-        down = (
-            100 -
-            up
-        )
+        down = 100 - up
 
     elif score <= -2.5:
 
         signal = "POSIBLE DOWN"
-
         decision = "SEÑAL DOWN"
-
         signal_class = "down"
-
         icon = "🔻"
 
         down = int(
             round(
                 min(
                     78,
-                    50 +
-                    abs(score) * 5
+                    50 + abs(score) * 5
                 )
             )
         )
 
-        up = (
-            100 -
-            down
-        )
+        up = 100 - down
 
     else:
 
         signal = "NO TRADE"
-
         decision = "ESPERAR"
-
         signal_class = "neutral"
-
         icon = "⚪"
 
         up = 50
-
         down = 50
 
-    # Momentum visual
+    # MOMENTUM VISUAL
     if mom3 > 0.02:
-
-        momentum = (
-            "MOMENTUM ALCISTA"
-        )
+        momentum = "MOMENTUM ALCISTA"
 
     elif mom3 < -0.02:
-
-        momentum = (
-            "MOMENTUM BAJISTA"
-        )
+        momentum = "MOMENTUM BAJISTA"
 
     else:
-
-        momentum = (
-            "MOMENTUM NEUTRAL"
-        )
+        momentum = "MOMENTUM NEUTRAL"
 
     return {
         "price": price,
@@ -611,284 +498,30 @@ def build_signal(df):
 
 
 # =========================================================
-# CARGAR COINBASE
+# PRECIO KALSHI
 # =========================================================
 
-btc_ok = False
+def kalshi_price(dollar_value, cent_value):
 
-btc_error = ""
-
-try:
-
-    btc_df = (
-        get_btc_data()
-    )
-
-    btc_df = (
-        add_indicators(
-            btc_df
-        )
-    )
-
-    sig = (
-        build_signal(
-            btc_df
-        )
-    )
-
-    btc_ok = True
-
-except Exception as error:
-
-    btc_error = str(
-        error
-    )
-
-    sig = {
-        "price": 0.0,
-        "score": 0.0,
-        "signal": "SIN DATOS",
-        "decision": "SIN CONEXIÓN",
-        "signal_class": "neutral",
-        "icon": "⚪",
-        "up": 50,
-        "down": 50,
-        "ema": "SIN DATOS",
-        "rsi": 50.0,
-        "mom3": 0.0,
-        "mom5": 0.0,
-        "mom15": 0.0,
-        "vol_ratio": 0.0,
-        "volatility": "SIN DATOS",
-        "momentum": "MOMENTUM NEUTRAL"
-    }
-
-
-# =========================================================
-# CARGAR KALSHI
-# =========================================================
-
-kalshi_ok = False
-
-kalshi_error = ""
-
-market = None
-
-try:
-
-    market = (
-        get_kalshi_btc_market()
-    )
-
-    if market is not None:
-
-        kalshi_ok = True
-
-except Exception as error:
-
-    kalshi_error = str(
-        error
-    )
-
-
-# =========================================================
-# DATOS KALSHI
-# =========================================================
-
-if market:
-
-    ticker = market.get(
-        "ticker",
-        "--"
-    )
-
-    yes_bid_dollars = market.get(
-        "yes_bid_dollars"
-    )
-
-    yes_ask_dollars = market.get(
-        "yes_ask_dollars"
-    )
-
-    last_price_dollars = market.get(
-        "last_price_dollars"
-    )
-
-    yes_bid = market.get(
-        "yes_bid"
-    )
-
-    yes_ask = market.get(
-        "yes_ask"
-    )
-
-    last_price = market.get(
-        "last_price"
-    )
-
-else:
-
-    ticker = "--"
-
-    yes_bid_dollars = None
-
-    yes_ask_dollars = None
-
-    last_price_dollars = None
-
-    yes_bid = None
-
-    yes_ask = None
-
-    last_price = None
-
-
-# =========================================================
-# FORMATO PRECIO KALSHI
-# =========================================================
-
-def kalshi_price(
-    dollar_value,
-    cent_value
-):
-
-    if dollar_value not in [
-        None,
-        ""
-    ]:
+    if dollar_value not in [None, ""]:
 
         try:
-
-            value = float(
-                dollar_value
-            )
-
-            return (
-                f"${value:.2f}"
-            )
+            value = float(dollar_value)
+            return f"${value:.2f}"
 
         except Exception:
-
-            return str(
-                dollar_value
-            )
+            return str(dollar_value)
 
     if cent_value is not None:
 
         try:
-
-            value = float(
-                cent_value
-            )
-
-            return (
-                f"{value:g}¢"
-            )
+            value = float(cent_value)
+            return f"{value:g}¢"
 
         except Exception:
-
-            return str(
-                cent_value
-            )
+            return str(cent_value)
 
     return "--"
-
-
-kalshi_bid_display = (
-    kalshi_price(
-        yes_bid_dollars,
-        yes_bid
-    )
-)
-
-kalshi_ask_display = (
-    kalshi_price(
-        yes_ask_dollars,
-        yes_ask
-    )
-)
-
-kalshi_last_display = (
-    kalshi_price(
-        last_price_dollars,
-        last_price
-    )
-)
-
-
-if kalshi_ok:
-
-    kalshi_status = (
-        "CONECTADO 🟢"
-    )
-
-    market_status = (
-        "MERCADO ENCONTRADO ✅"
-    )
-
-else:
-
-    kalshi_status = (
-        "SIN MERCADO ⚠️"
-    )
-
-    market_status = (
-        "NO SE ENCONTRÓ MERCADO"
-    )
-
-
-# =========================================================
-# COLORES
-# =========================================================
-
-if sig["signal_class"] == "up":
-
-    signal_color = (
-        "#34d399"
-    )
-
-    signal_css = (
-        "signal-up"
-    )
-
-elif sig["signal_class"] == "down":
-
-    signal_color = (
-        "#fb7185"
-    )
-
-    signal_css = (
-        "signal-down"
-    )
-
-else:
-
-    signal_color = (
-        "#fbbf24"
-    )
-
-    signal_css = (
-        "signal-neutral"
-    )
-
-
-if "ALCISTA" in sig["momentum"]:
-
-    momentum_color = (
-        "#34d399"
-    )
-
-elif "BAJISTA" in sig["momentum"]:
-
-    momentum_color = (
-        "#fb7185"
-    )
-
-else:
-
-    momentum_color = (
-        "#fbbf24"
-    )
 
 
 # =========================================================
@@ -896,283 +529,453 @@ else:
 # =========================================================
 
 st.markdown(
-    '<div class="bot-title">⚡ MACALY + ALPHA BOT • v4.2</div>',
+    '<div class="bot-title">⚡ MACALY + ALPHA BOT • v4.3</div>',
     unsafe_allow_html=True
 )
 
 
 # =========================================================
-# SEÑAL PRINCIPAL
+# TODO LO DE AQUÍ SE ACTUALIZA CADA 10 SEGUNDOS
 # =========================================================
 
-signal_html = (
-    '<div class="bot-card" style="text-align:center;">'
-    '<div class="bot-label">SEÑAL TÉCNICA BTC</div>'
-    f'<div style="font-size:30px;font-weight:900;color:{signal_color};">'
-    f'{sig["icon"]} {sig["signal"]}'
-    '</div>'
-    '<div style="color:#cbd5e1;font-size:19px;margin-top:8px;">'
-    f'BTC ${sig["price"]:,.2f}'
-    '</div>'
-    '</div>'
-)
+@st.fragment(run_every="10s")
+def live_dashboard():
 
-st.markdown(
-    signal_html,
-    unsafe_allow_html=True
-)
+    # -----------------------------------------
+    # COINBASE
+    # -----------------------------------------
 
+    btc_ok = False
+    btc_error = ""
 
-# =========================================================
-# UP / DOWN
-# =========================================================
+    try:
 
-col_up, col_down = (
-    st.columns(2)
-)
+        btc_df = get_btc_data()
 
+        btc_df = add_indicators(
+            btc_df
+        )
 
-with col_up:
+        sig = build_signal(
+            btc_df
+        )
 
-    up_html = (
-        '<div style="'
-        'background:#073326;'
-        'border:1px solid #10b981;'
-        'border-radius:18px;'
-        'padding:20px 8px;'
-        'text-align:center;'
-        'color:#34d399;'
-        'font-weight:900;'
-        '">'
-        'UP'
-        '<div style="font-size:34px;margin-top:5px;">'
-        f'{sig["up"]}%'
+        btc_ok = True
+
+    except Exception as error:
+
+        btc_error = str(error)
+
+        sig = {
+            "price": 0.0,
+            "score": 0.0,
+            "signal": "SIN DATOS",
+            "decision": "SIN CONEXIÓN",
+            "signal_class": "neutral",
+            "icon": "⚪",
+            "up": 50,
+            "down": 50,
+            "ema": "SIN DATOS",
+            "rsi": 50.0,
+            "mom3": 0.0,
+            "mom5": 0.0,
+            "mom15": 0.0,
+            "vol_ratio": 0.0,
+            "volatility": "SIN DATOS",
+            "momentum": "MOMENTUM NEUTRAL"
+        }
+
+    # -----------------------------------------
+    # KALSHI
+    # -----------------------------------------
+
+    kalshi_ok = False
+    kalshi_error = ""
+    market = None
+
+    try:
+
+        market = get_kalshi_btc_market()
+
+        if market is not None:
+            kalshi_ok = True
+
+    except Exception as error:
+
+        kalshi_error = str(error)
+
+    # -----------------------------------------
+    # DATOS DEL MERCADO
+    # -----------------------------------------
+
+    if market:
+
+        ticker = market.get(
+            "ticker",
+            "--"
+        )
+
+        yes_bid_dollars = market.get(
+            "yes_bid_dollars"
+        )
+
+        yes_ask_dollars = market.get(
+            "yes_ask_dollars"
+        )
+
+        last_price_dollars = market.get(
+            "last_price_dollars"
+        )
+
+        yes_bid = market.get(
+            "yes_bid"
+        )
+
+        yes_ask = market.get(
+            "yes_ask"
+        )
+
+        last_price = market.get(
+            "last_price"
+        )
+
+    else:
+
+        ticker = "--"
+
+        yes_bid_dollars = None
+        yes_ask_dollars = None
+        last_price_dollars = None
+
+        yes_bid = None
+        yes_ask = None
+        last_price = None
+
+    kalshi_bid_display = kalshi_price(
+        yes_bid_dollars,
+        yes_bid
+    )
+
+    kalshi_ask_display = kalshi_price(
+        yes_ask_dollars,
+        yes_ask
+    )
+
+    kalshi_last_display = kalshi_price(
+        last_price_dollars,
+        last_price
+    )
+
+    # -----------------------------------------
+    # ESTADOS
+    # -----------------------------------------
+
+    if kalshi_ok:
+
+        kalshi_status = "CONECTADO 🟢"
+        market_status = "MERCADO ENCONTRADO ✅"
+
+    else:
+
+        kalshi_status = "SIN MERCADO ⚠️"
+        market_status = "NO SE ENCONTRÓ MERCADO"
+
+    if btc_ok:
+        coinbase_status = "CONECTADO 🟢"
+
+    else:
+        coinbase_status = "SIN CONEXIÓN 🔴"
+
+    # -----------------------------------------
+    # COLORES
+    # -----------------------------------------
+
+    if sig["signal_class"] == "up":
+
+        signal_color = "#34d399"
+
+    elif sig["signal_class"] == "down":
+
+        signal_color = "#fb7185"
+
+    else:
+
+        signal_color = "#fbbf24"
+
+    if "ALCISTA" in sig["momentum"]:
+
+        momentum_color = "#34d399"
+
+    elif "BAJISTA" in sig["momentum"]:
+
+        momentum_color = "#fb7185"
+
+    else:
+
+        momentum_color = "#fbbf24"
+
+    # =====================================================
+    # SEÑAL PRINCIPAL
+    # =====================================================
+
+    signal_html = (
+        '<div class="bot-card" style="text-align:center;">'
+        '<div class="bot-label">SEÑAL TÉCNICA BTC</div>'
+        f'<div style="font-size:30px;font-weight:900;color:{signal_color};">'
+        f'{sig["icon"]} {sig["signal"]}'
+        '</div>'
+        '<div style="color:#cbd5e1;font-size:19px;margin-top:8px;">'
+        f'BTC ${sig["price"]:,.2f}'
         '</div>'
         '</div>'
     )
 
     st.markdown(
-        up_html,
+        signal_html,
         unsafe_allow_html=True
     )
 
+    # =====================================================
+    # UP / DOWN
+    # =====================================================
 
-with col_down:
+    col_up, col_down = st.columns(2)
 
-    down_html = (
-        '<div style="'
-        'background:#35171d;'
-        'border:1px solid #ef4444;'
-        'border-radius:18px;'
-        'padding:20px 8px;'
-        'text-align:center;'
-        'color:#fb7185;'
-        'font-weight:900;'
-        '">'
-        'DOWN'
-        '<div style="font-size:34px;margin-top:5px;">'
-        f'{sig["down"]}%'
+    with col_up:
+
+        up_html = (
+            '<div style="'
+            'background:#073326;'
+            'border:1px solid #10b981;'
+            'border-radius:18px;'
+            'padding:20px 8px;'
+            'text-align:center;'
+            'color:#34d399;'
+            'font-weight:900;'
+            '">'
+            'UP'
+            '<div style="font-size:34px;margin-top:5px;">'
+            f'{sig["up"]}%'
+            '</div>'
+            '</div>'
+        )
+
+        st.markdown(
+            up_html,
+            unsafe_allow_html=True
+        )
+
+    with col_down:
+
+        down_html = (
+            '<div style="'
+            'background:#35171d;'
+            'border:1px solid #ef4444;'
+            'border-radius:18px;'
+            'padding:20px 8px;'
+            'text-align:center;'
+            'color:#fb7185;'
+            'font-weight:900;'
+            '">'
+            'DOWN'
+            '<div style="font-size:34px;margin-top:5px;">'
+            f'{sig["down"]}%'
+            '</div>'
+            '</div>'
+        )
+
+        st.markdown(
+            down_html,
+            unsafe_allow_html=True
+        )
+
+    st.write("")
+
+    # =====================================================
+    # MOMENTUM
+    # =====================================================
+
+    momentum_html = (
+        '<div class="bot-card" style="text-align:center;">'
+        '<div class="bot-label">MOMENTUM</div>'
+        f'<div style="font-size:21px;font-weight:900;color:{momentum_color};">'
+        f'{sig["momentum"]}'
+        '</div>'
+        '<div style="color:#64748b;margin-top:7px;">'
+        f'3 min: {sig["mom3"]:+.3f}%'
+        '&nbsp;&nbsp; • &nbsp;&nbsp;'
+        f'15 min: {sig["mom15"]:+.3f}%'
         '</div>'
         '</div>'
     )
 
     st.markdown(
-        down_html,
+        momentum_html,
         unsafe_allow_html=True
     )
 
+    # =====================================================
+    # INDICADORES
+    # =====================================================
 
-st.write("")
+    indicators_html = (
+        '<div class="bot-card">'
+        '<div class="bot-label">INDICADORES</div>'
 
+        '<div class="bot-row">'
+        '<span class="bot-left">EMA 9 / 21</span>'
+        f'<span class="bot-right">{sig["ema"]}</span>'
+        '</div>'
 
-# =========================================================
-# MOMENTUM
-# =========================================================
+        '<div class="bot-row">'
+        '<span class="bot-left">RSI 14</span>'
+        f'<span class="bot-right">{sig["rsi"]:.1f}</span>'
+        '</div>'
 
-momentum_html = (
-    '<div class="bot-card" style="text-align:center;">'
-    '<div class="bot-label">MOMENTUM</div>'
-    f'<div style="font-size:21px;font-weight:900;color:{momentum_color};">'
-    f'{sig["momentum"]}'
-    '</div>'
-    '<div style="color:#64748b;margin-top:7px;">'
-    f'3 min: {sig["mom3"]:+.3f}%'
-    '&nbsp;&nbsp; • &nbsp;&nbsp;'
-    f'15 min: {sig["mom15"]:+.3f}%'
-    '</div>'
-    '</div>'
-)
+        '<div class="bot-row">'
+        '<span class="bot-left">Momentum 3m</span>'
+        f'<span class="bot-right">{sig["mom3"]:+.3f}%</span>'
+        '</div>'
 
-st.markdown(
-    momentum_html,
-    unsafe_allow_html=True
-)
+        '<div class="bot-row">'
+        '<span class="bot-left">Momentum 5m</span>'
+        f'<span class="bot-right">{sig["mom5"]:+.3f}%</span>'
+        '</div>'
 
+        '<div class="bot-row">'
+        '<span class="bot-left">Momentum 15m</span>'
+        f'<span class="bot-right">{sig["mom15"]:+.3f}%</span>'
+        '</div>'
 
-# =========================================================
-# INDICADORES
-# =========================================================
+        '<div class="bot-row">'
+        '<span class="bot-left">Volumen</span>'
+        f'<span class="bot-right">{sig["vol_ratio"]:.2f}x</span>'
+        '</div>'
 
-coinbase_status = (
-    "CONECTADO 🟢"
-    if btc_ok
-    else
-    "SIN CONEXIÓN 🔴"
-)
+        '<div class="bot-row">'
+        '<span class="bot-left">Volatilidad</span>'
+        f'<span class="bot-right">{sig["volatility"]}</span>'
+        '</div>'
 
-indicators_html = (
-    '<div class="bot-card">'
-    '<div class="bot-label">INDICADORES</div>'
+        '<div class="bot-row">'
+        '<span class="bot-left">Coinbase</span>'
+        f'<span class="bot-right">{coinbase_status}</span>'
+        '</div>'
 
-    '<div class="bot-row">'
-    '<span class="bot-left">EMA 9 / 21</span>'
-    f'<span class="bot-right">{sig["ema"]}</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">RSI 14</span>'
-    f'<span class="bot-right">{sig["rsi"]:.1f}</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">Momentum 3m</span>'
-    f'<span class="bot-right">{sig["mom3"]:+.3f}%</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">Momentum 5m</span>'
-    f'<span class="bot-right">{sig["mom5"]:+.3f}%</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">Momentum 15m</span>'
-    f'<span class="bot-right">{sig["mom15"]:+.3f}%</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">Volumen</span>'
-    f'<span class="bot-right">{sig["vol_ratio"]:.2f}x</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">Volatilidad</span>'
-    f'<span class="bot-right">{sig["volatility"]}</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">Coinbase</span>'
-    f'<span class="bot-right">{coinbase_status}</span>'
-    '</div>'
-
-    '</div>'
-)
-
-st.markdown(
-    indicators_html,
-    unsafe_allow_html=True
-)
-
-
-# =========================================================
-# KALSHI
-# =========================================================
-
-kalshi_html = (
-    '<div class="bot-card">'
-    '<div class="bot-label">KALSHI • BTC 15 MIN</div>'
-
-    '<div style="text-align:center;font-weight:900;margin-bottom:15px;">'
-    f'{market_status}'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">Ticker</span>'
-    f'<span class="bot-right">{ticker}</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">YES bid</span>'
-    f'<span class="bot-right">{kalshi_bid_display}</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">YES ask</span>'
-    f'<span class="bot-right">{kalshi_ask_display}</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">Último</span>'
-    f'<span class="bot-right">{kalshi_last_display}</span>'
-    '</div>'
-
-    '<div class="bot-row">'
-    '<span class="bot-left">API Kalshi</span>'
-    f'<span class="bot-right">{kalshi_status}</span>'
-    '</div>'
-
-    '</div>'
-)
-
-st.markdown(
-    kalshi_html,
-    unsafe_allow_html=True
-)
-
-
-# =========================================================
-# DECISION
-# =========================================================
-
-decision_html = (
-    '<div class="bot-card" style="text-align:center;">'
-    '<div class="bot-label">DECISIÓN DEL MOTOR</div>'
-
-    f'<div style="font-size:28px;font-weight:900;color:{signal_color};">'
-    f'{sig["decision"]}'
-    '</div>'
-
-    '<div style="color:#64748b;margin-top:10px;">'
-    f'Score técnico: {sig["score"]:.2f}'
-    '</div>'
-
-    '<div style="color:#64748b;font-size:12px;line-height:1.6;margin-top:15px;">'
-    'Coinbase + Kalshi BTC 15 min'
-    '<br>'
-    'Modo análisis / paper'
-    '<br>'
-    'No envía órdenes reales'
-    '<br><br>'
-    'UP/DOWN es un score técnico experimental.'
-    '<br>'
-    'No representa la probabilidad oficial de Kalshi.'
-    '</div>'
-
-    '</div>'
-)
-
-st.markdown(
-    decision_html,
-    unsafe_allow_html=True
-)
-
-
-# =========================================================
-# ERRORES
-# =========================================================
-
-if btc_error:
-
-    st.error(
-        "Error Coinbase: "
-        +
-        btc_error
+        '</div>'
     )
 
-
-if kalshi_error:
-
-    st.error(
-        "Error Kalshi: "
-        +
-        kalshi_error
+    st.markdown(
+        indicators_html,
+        unsafe_allow_html=True
     )
+
+    # =====================================================
+    # KALSHI
+    # =====================================================
+
+    kalshi_html = (
+        '<div class="bot-card">'
+        '<div class="bot-label">KALSHI • BTC 15 MIN</div>'
+
+        '<div style="text-align:center;font-weight:900;margin-bottom:15px;">'
+        f'{market_status}'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">Ticker</span>'
+        f'<span class="bot-right">{ticker}</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">YES bid</span>'
+        f'<span class="bot-right">{kalshi_bid_display}</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">YES ask</span>'
+        f'<span class="bot-right">{kalshi_ask_display}</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">Último</span>'
+        f'<span class="bot-right">{kalshi_last_display}</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">API Kalshi</span>'
+        f'<span class="bot-right">{kalshi_status}</span>'
+        '</div>'
+
+        '</div>'
+    )
+
+    st.markdown(
+        kalshi_html,
+        unsafe_allow_html=True
+    )
+
+    # =====================================================
+    # DECISIÓN
+    # =====================================================
+
+    decision_html = (
+        '<div class="bot-card" style="text-align:center;">'
+        '<div class="bot-label">DECISIÓN DEL MOTOR</div>'
+
+        f'<div style="font-size:28px;font-weight:900;color:{signal_color};">'
+        f'{sig["decision"]}'
+        '</div>'
+
+        '<div style="color:#64748b;margin-top:10px;">'
+        f'Score técnico: {sig["score"]:.2f}'
+        '</div>'
+
+        '<div style="color:#64748b;font-size:12px;line-height:1.6;margin-top:15px;">'
+        'Coinbase + Kalshi BTC 15 min'
+        '<br>'
+        'Actualización automática cada 10 segundos 🔄'
+        '<br>'
+        'Modo análisis / paper'
+        '<br>'
+        'No envía órdenes reales'
+        '<br><br>'
+        'UP/DOWN es un score técnico experimental.'
+        '<br>'
+        'No representa la probabilidad oficial de Kalshi.'
+        '</div>'
+
+        '</div>'
+    )
+
+    st.markdown(
+        decision_html,
+        unsafe_allow_html=True
+    )
+
+    # =====================================================
+    # ERRORES
+    # =====================================================
+
+    if btc_error:
+
+        st.error(
+            "Error Coinbase: "
+            +
+            btc_error
+        )
+
+    if kalshi_error:
+
+        st.error(
+            "Error Kalshi: "
+            +
+            kalshi_error
+        )
+
+
+# =========================================================
+# ARRANCAR DASHBOARD
+# =========================================================
+
+live_dashboard()
