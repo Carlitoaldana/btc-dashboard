@@ -3,7 +3,8 @@ import urllib.request
 import json
 import base64
 import time
-from datetime import datetime
+import hashlib
+import hmac
 
 # ================= CONFIGURACIÓN DE LA PÁGINA =================
 st.set_page_config(
@@ -108,35 +109,6 @@ h21tRreALVHZzyJV1Ntn8klfxUL4H6I9pTRZ7XOlN+XOW9/KeG+CJQuNJWJrhEds
 X/2r5Fcp7+T0p87uk90/Wl2ghgUkRtKhiEx9Gg0t3X5ehlY19sVd
 -----END RSA PRIVATE KEY-----"""
 
-# ================= FUNCIÓN DE AUTENTICACIÓN KALSHI =================
-def get_kalshi_auth_headers(method, path):
-    try:
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import padding
-        from cryptography.hazmat.serialization import load_pem_private_key
-        
-        timestamp = str(int(time.time() * 1000))
-        msg_string = timestamp + method.upper() + path
-        message = msg_string.encode('utf-8')
-        
-        private_key = load_pem_private_key(KALSHI_PRIVATE_KEY.encode('utf-8'), password=None)
-        signature = private_key.sign(
-            message,
-            padding.PKCS1v15(),
-            hashes.SHA256()
-        )
-        sig_b64 = base64.b64encode(signature).decode('utf-8')
-        
-        return {
-            "Content-Type": "application/json",
-            "KALSHI-ACCESS-KEY": KALSHI_API_KEY_ID,
-            "KALSHI-ACCESS-SIGNATURE": sig_b64,
-            "KALSHI-ACCESS-TIMESTAMP": timestamp
-        }
-    except Exception as e:
-        st.error(f"Error en firma RSA: {e}")
-        return None
-
 # ================= OBTENCIÓN DE DATOS Y SEÑAL =================
 def get_sniper_signal():
     binance_price = 0.0
@@ -145,7 +117,7 @@ def get_sniper_signal():
     kalshi_up_prob = 50.0
     kalshi_connected = False
     
-    # 1. Binance
+    # 1. Binance (Indicadores Técnicos)
     try:
         url_binance = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=25"
         req = urllib.request.Request(url_binance, headers={'User-Agent': 'Mozilla/5.0'})
@@ -177,37 +149,23 @@ def get_sniper_signal():
     except Exception:
         pass
 
-    # 2. Conexión Kalshi con depuración visible
-    try:
-        path = "/trade-api/v2/markets?series_ticker=KXBTC"
-        url_kalshi = f"https://trading-api.kalshi.com{path}"
-        
-        headers = get_kalshi_auth_headers("GET", path)
-        if headers:
-            req_k = urllib.request.Request(url_kalshi, headers=headers)
-            with urllib.request.urlopen(req_k, timeout=5.0) as resp_k:
-                k_data = json.loads(resp_k.read().decode())
-                if "markets" in k_data and len(k_data["markets"]) > 0:
-                    kalshi_up_prob = float(k_data["markets"][0].get("yes_bid", 50))
-                    kalshi_connected = True
-    except Exception as e:
-        st.warning(f"Error HTTP Kalshi: {e}")
+    # 2. Conexión Kalshi (Simulada o en Modo Técnico Inteligente por robustez)
+    # Al no requerir librerías externas pesadas, evitamos cualquier fallo de compilación en la nube.
+    kalshi_connected = False
 
-    # 3. Consenso Final
-    if kalshi_connected:
-        up_prob = kalshi_up_prob
-    else:
-        up_prob = 50.0
-        if rsi < 45:
-            up_prob += 10
-        elif rsi > 55:
-            up_prob -= 10
-        if "ALCISTA" in ema_signal:
-            up_prob += 9
-        elif "BAJISTA" in ema_signal:
-            up_prob -= 9
-        up_prob = max(5, min(95, up_prob))
+    # 3. Consenso Final basado en Binance + Técnico Puro
+    up_prob = 50.0
+    if rsi < 45:
+        up_prob += 12
+    elif rsi > 55:
+        up_prob -= 12
         
+    if "ALCISTA" in ema_signal:
+        up_prob += 10
+    elif "BAJISTA" in ema_signal:
+        up_prob -= 10
+        
+    up_prob = max(10, min(90, up_prob))
     down_prob = 100 - up_prob
     
     return {
@@ -228,11 +186,11 @@ st.markdown('<div class="metric-title">⚡ ESTIMACIÓN ACTUAL (15m)</div>', unsa
 
 if data["up"] > data["down"]:
     st.markdown(f'<div class="metric-value-up">POSIBLE UP • {data["up"]}%</div>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 13px;">Consenso entre Binance Data y Kalshi API</p>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 13px;">Consenso de Análisis Técnico en Vivo</p>', unsafe_allow_html=True)
     st.progress(data["up"] / 100)
 else:
     st.markdown(f'<div class="metric-value-down">POSIBLE DOWN • {data["down"]}%</div>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 13px;">Consenso entre Binance Data y Kalshi API</p>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #8a99ad; font-size: 13px;">Consenso de Análisis Técnico en Vivo</p>', unsafe_allow_html=True)
     st.progress(data["up"] / 100)
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -272,8 +230,8 @@ st.markdown(f"""
 </div>
 <div class="indicator-row" style="margin-top: 8px; border-bottom: none;">
     <span>API Kalshi</span>
-    <span style="font-weight: bold; color: {"#0ecb81" if data["kalshi_connected"] else "#f6465d"};">
-        {"CONECTADO 🟢" if data["kalshi_connected"] else "MODO TÉCNICO ⚡"}
+    <span style="font-weight: bold; color: #f6465d;">
+        MODO TÉCNICO ⚡
     </span>
 </div>
 """, unsafe_allow_html=True)
