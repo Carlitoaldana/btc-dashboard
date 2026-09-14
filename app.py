@@ -5,16 +5,33 @@ import numpy as np
 from datetime import datetime, timezone
 
 # =========================================================
-# MACALY + ALPHA BOT v4.5
-# BTC 15 MIN + TARGET AUTO + LIVE BTC PRICE
+# MACALY + ALPHA BOT v4.6
+# BTC 15 MIN
+# ROUND MEMORY + PROBABILITY + REVERSAL WATCH
 # =========================================================
 
 st.set_page_config(
-    page_title="Macaly + Alpha Bot v4.5",
+    page_title="Macaly + Alpha Bot v4.6",
     page_icon="⚡",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# =========================================================
+# CONFIGURACIÓN
+# =========================================================
+
+NEW_ROUND_WAIT = 30
+NEW_ENTRY_LOCK = 75
+
+UP_THRESHOLD = 4.0
+DOWN_THRESHOLD = -4.0
+
+# Para cambiar una señal ya activa a la contraria,
+# exigimos más confirmación que para crear la primera.
+FLIP_UP_THRESHOLD = 4.75
+FLIP_DOWN_THRESHOLD = -4.75
+FLIP_CONFIRMATIONS = 2
 
 # =========================================================
 # DISEÑO
@@ -87,23 +104,84 @@ header {visibility:hidden;}
     text-align:right;
 }
 
-.target-box {
-    background:#101827;
-    border:1px solid #475569;
-    border-radius:16px;
-    padding:15px;
-    margin-bottom:12px;
-    text-align:center;
-}
-
 .small-note {
     color:#64748b;
     font-size:12px;
     line-height:1.5;
     text-align:center;
 }
+
+.prob-box {
+    background:#0d1420;
+    border:1px solid #334155;
+    border-radius:14px;
+    padding:14px;
+    margin-top:12px;
+}
+
+.warning-box {
+    background:#2a2110;
+    border:1px solid #f59e0b;
+    border-radius:14px;
+    padding:14px;
+    margin-top:12px;
+    color:#fbbf24;
+    text-align:center;
+    font-weight:800;
+}
+
+.round-box {
+    background:#0f172a;
+    border:1px solid #38bdf8;
+    border-radius:14px;
+    padding:12px;
+    margin-bottom:12px;
+    text-align:center;
+    color:#7dd3fc;
+    font-weight:800;
+}
 </style>
 """, unsafe_allow_html=True)
+
+# =========================================================
+# SESSION STATE
+# =========================================================
+
+if "rounds" not in st.session_state:
+    st.session_state.rounds = {}
+
+if "active_ticker" not in st.session_state:
+    st.session_state.active_ticker = None
+
+
+def new_round_state(ticker, seconds_left):
+
+    now = datetime.now(timezone.utc)
+
+    return {
+        "ticker": ticker,
+        "detected_at": now,
+        "detected_seconds_left": seconds_left,
+
+        "first_direction": None,
+        "first_signal_time": None,
+        "first_signal_seconds": None,
+        "first_signal_price": None,
+
+        "active_direction": None,
+        "active_since": None,
+
+        "last_score": 0.0,
+        "previous_score": 0.0,
+
+        "opposite_count": 0,
+
+        "last_live_price": None,
+        "previous_live_price": None,
+
+        "reversal_warning": False,
+        "reversal_text": "",
+    }
 
 
 # =========================================================
@@ -121,7 +199,7 @@ def get_btc_data():
     response = requests.get(
         url,
         params={"granularity": 60},
-        headers={"User-Agent": "MacalyAlphaBot/4.5"},
+        headers={"User-Agent": "MacalyAlphaBot/4.6"},
         timeout=10
     )
 
@@ -185,7 +263,7 @@ def get_btc_live_price():
     response = requests.get(
         url,
         headers={
-            "User-Agent": "MacalyAlphaBot/4.5",
+            "User-Agent": "MacalyAlphaBot/4.6",
             "Cache-Control": "no-cache"
         },
         params={
@@ -229,7 +307,7 @@ def get_kalshi_btc_market():
             "status": "open",
             "series_ticker": "KXBTC15M"
         },
-        headers={"User-Agent": "MacalyAlphaBot/4.5"},
+        headers={"User-Agent": "MacalyAlphaBot/4.6"},
         timeout=10
     )
 
@@ -318,7 +396,7 @@ def add_indicators(df):
 
 
 # =========================================================
-# TARGET AUTOMÁTICO
+# TARGET
 # =========================================================
 
 def get_target_from_market(market):
@@ -422,42 +500,165 @@ def format_countdown(seconds):
 
 
 # =========================================================
-# KALSHI PRICE
+# PRECIOS KALSHI
 # =========================================================
+
+def numeric_kalshi_price(
+    dollar_value,
+    cent_value
+):
+
+    if dollar_value not in [None, ""]:
+
+        try:
+            return float(dollar_value)
+        except Exception:
+            pass
+
+    if cent_value not in [None, ""]:
+
+        try:
+            return float(cent_value) / 100
+        except Exception:
+            pass
+
+    return None
+
 
 def kalshi_price(
     dollar_value,
     cent_value
 ):
 
-    if dollar_value not in [
-        None,
-        ""
-    ]:
+    value = numeric_kalshi_price(
+        dollar_value,
+        cent_value
+    )
 
-        try:
-            return (
-                f"${float(dollar_value):.2f}"
+    if value is None:
+        return "--"
+
+    return f"${value:.2f}"
+
+
+def get_yes_ask(market):
+
+    if not market:
+        return None
+
+    return numeric_kalshi_price(
+        market.get("yes_ask_dollars"),
+        market.get("yes_ask")
+    )
+
+
+def get_no_ask(market):
+
+    if not market:
+        return None
+
+    direct = numeric_kalshi_price(
+        market.get("no_ask_dollars"),
+        market.get("no_ask")
+    )
+
+    if direct is not None:
+        return direct
+
+    yes_bid = numeric_kalshi_price(
+        market.get("yes_bid_dollars"),
+        market.get("yes_bid")
+    )
+
+    if yes_bid is not None:
+        return max(
+            0.0,
+            min(
+                1.0,
+                1.0 - yes_bid
             )
+        )
 
-        except Exception:
-            return str(dollar_value)
-
-    if cent_value is not None:
-
-        try:
-            return (
-                f"${float(cent_value) / 100:.2f}"
-            )
-
-        except Exception:
-            return str(cent_value)
-
-    return "--"
+    return None
 
 
 # =========================================================
-# MOTOR v4.5
+# PROBABILIDAD ESTIMADA DEL MOTOR
+# =========================================================
+
+def estimated_probabilities(
+    final_score,
+    distance,
+    seconds_left,
+    mom3,
+    mom5
+):
+
+    # Esta NO es una probabilidad garantizada.
+    # Es una estimación interna basada en la fuerza
+    # de los factores del motor.
+
+    score = float(
+        np.clip(
+            final_score,
+            -10,
+            10
+        )
+    )
+
+    up_prob = (
+        50 +
+        score * 4.2
+    )
+
+    # Pequeño ajuste por aceleración reciente.
+    if mom3 > 0.04:
+        up_prob += 3
+
+    elif mom3 < -0.04:
+        up_prob -= 3
+
+    if mom5 > 0.06:
+        up_prob += 2
+
+    elif mom5 < -0.06:
+        up_prob -= 2
+
+    # Cerca del cierre, la posición respecto
+    # al target pesa más.
+    if (
+        distance is not None
+        and
+        seconds_left is not None
+        and
+        seconds_left <= 180
+    ):
+
+        if distance > 0:
+            up_prob += 3
+
+        elif distance < 0:
+            up_prob -= 3
+
+    # Nunca mostramos 100/0.
+    up_prob = float(
+        np.clip(
+            up_prob,
+            5,
+            95
+        )
+    )
+
+    down_prob = 100 - up_prob
+
+    return (
+        round(up_prob),
+        round(down_prob)
+    )
+
+
+# =========================================================
+# MOTOR BASE v4.6
 # =========================================================
 
 def build_signal(
@@ -468,10 +669,6 @@ def build_signal(
 ):
 
     last = df.iloc[-1]
-
-    # IMPORTANTE:
-    # Indicadores = velas Coinbase
-    # Precio/target = ticker Coinbase LIVE
 
     candle_price = float(
         last["close"]
@@ -530,7 +727,7 @@ def build_signal(
     elif rsi <= 45:
         technical_score -= 1.0
 
-    # Momentum corto
+    # MOMENTUM
     if mom3 > 0.02:
         technical_score += 1.25
 
@@ -549,7 +746,7 @@ def build_signal(
     elif mom15 < -0.05:
         technical_score -= 0.75
 
-    # Volumen confirma dirección
+    # VOLUMEN
     if vol_ratio > 1.20:
 
         if mom3 > 0:
@@ -559,7 +756,7 @@ def build_signal(
             technical_score -= 0.50
 
     # =====================================================
-    # TARGET
+    # TARGET / TIEMPO
     # =====================================================
 
     distance = None
@@ -569,7 +766,6 @@ def build_signal(
 
     if target is not None:
 
-        # AHORA USA EL PRECIO LIVE
         distance = (
             price -
             target
@@ -636,51 +832,6 @@ def build_signal(
         target_score
     )
 
-    # =====================================================
-    # DECISIÓN
-    # =====================================================
-
-    if target is None:
-
-        decision = "NO TRADE"
-        signal = "TARGET NO DISPONIBLE"
-        icon = "⚠️"
-        color = "#fbbf24"
-
-    elif (
-        seconds_left is not None
-        and
-        seconds_left <= 15
-        and
-        abs(distance) < 20
-    ):
-
-        decision = "NO TRADE"
-        signal = "DEMASIADO CERRADO"
-        icon = "⚠️"
-        color = "#fbbf24"
-
-    elif final_score >= 4:
-
-        decision = "POSIBLE UP"
-        signal = "SEÑAL UP"
-        icon = "🚀"
-        color = "#34d399"
-
-    elif final_score <= -4:
-
-        decision = "POSIBLE DOWN"
-        signal = "SEÑAL DOWN"
-        icon = "🔻"
-        color = "#fb7185"
-
-    else:
-
-        decision = "NO TRADE"
-        signal = "ESPERAR"
-        icon = "⚪"
-        color = "#fbbf24"
-
     if mom3 > 0.02:
         momentum = "ALCISTA"
 
@@ -689,6 +840,16 @@ def build_signal(
 
     else:
         momentum = "NEUTRAL"
+
+    up_probability, down_probability = (
+        estimated_probabilities(
+            final_score,
+            distance,
+            seconds_left,
+            mom3,
+            mom5
+        )
+    )
 
     return {
         "price": price,
@@ -704,11 +865,490 @@ def build_signal(
         "final_score": final_score,
         "distance": distance,
         "distance_pct": distance_pct,
+        "momentum": momentum,
+        "up_probability": up_probability,
+        "down_probability": down_probability
+    }
+
+
+# =========================================================
+# CALIDAD DE ENTRADA
+# =========================================================
+
+def entry_quality(price, seconds_left):
+
+    if price is None:
+        return (
+            "PRECIO NO DISPONIBLE",
+            "#94a3b8"
+        )
+
+    if (
+        seconds_left is not None
+        and
+        seconds_left <= NEW_ENTRY_LOCK
+    ):
+        return (
+            "TARDE ⏰",
+            "#fb7185"
+        )
+
+    if price <= 0.60:
+        return (
+            "BUENA 🟢",
+            "#34d399"
+        )
+
+    if price <= 0.70:
+        return (
+            "PRECAUCIÓN 🟡",
+            "#fbbf24"
+        )
+
+    return (
+        "CARA / TARDE 🔴",
+        "#fb7185"
+    )
+
+
+# =========================================================
+# CONTROL DE RONDA + SEÑAL
+# =========================================================
+
+def process_round_signal(
+    ticker,
+    sig,
+    market,
+    seconds_left
+):
+
+    now = datetime.now(
+        timezone.utc
+    )
+
+    # -----------------------------------------------------
+    # NUEVO TICKER = NUEVA RONDA
+    # -----------------------------------------------------
+
+    if (
+        ticker
+        and
+        ticker != "--"
+        and
+        st.session_state.active_ticker != ticker
+    ):
+
+        st.session_state.active_ticker = ticker
+
+        st.session_state.rounds[ticker] = (
+            new_round_state(
+                ticker,
+                seconds_left
+            )
+        )
+
+    if (
+        not ticker
+        or
+        ticker == "--"
+    ):
+
+        return {
+            "decision": "NO TRADE",
+            "signal": "SIN RONDA",
+            "icon": "⚠️",
+            "color": "#fbbf24",
+            "round_state": None,
+            "reversal": False,
+            "reversal_text": "",
+            "entry_price": None,
+            "entry_quality": "SIN DATOS",
+            "entry_quality_color": "#94a3b8"
+        }
+
+    if ticker not in st.session_state.rounds:
+
+        st.session_state.rounds[ticker] = (
+            new_round_state(
+                ticker,
+                seconds_left
+            )
+        )
+
+    state = st.session_state.rounds[
+        ticker
+    ]
+
+    # -----------------------------------------------------
+    # TIEMPO TRANSCURRIDO DESDE QUE DETECTAMOS RONDA
+    # -----------------------------------------------------
+
+    age = (
+        now -
+        state["detected_at"]
+    ).total_seconds()
+
+    score = sig["final_score"]
+
+    # -----------------------------------------------------
+    # PRECIO ACTUAL PARA DETECTAR ACELERACIÓN
+    # -----------------------------------------------------
+
+    previous_live_price = (
+        state["last_live_price"]
+    )
+
+    state["previous_live_price"] = (
+        previous_live_price
+    )
+
+    state["last_live_price"] = (
+        sig["price"]
+    )
+
+    price_change = 0.0
+
+    if previous_live_price is not None:
+
+        price_change = (
+            sig["price"] -
+            previous_live_price
+        )
+
+    previous_score = (
+        state["last_score"]
+    )
+
+    state["previous_score"] = (
+        previous_score
+    )
+
+    score_change = (
+        score -
+        previous_score
+    )
+
+    state["last_score"] = score
+
+    # -----------------------------------------------------
+    # NUEVA RONDA
+    # -----------------------------------------------------
+
+    if age < NEW_ROUND_WAIT:
+
+        state["reversal_warning"] = False
+        state["reversal_text"] = ""
+
+        return {
+            "decision": "ANALIZANDO NUEVA RONDA",
+            "signal": "ESPERANDO CONFIRMACIÓN",
+            "icon": "⏳",
+            "color": "#38bdf8",
+            "round_state": state,
+            "reversal": False,
+            "reversal_text": "",
+            "entry_price": None,
+            "entry_quality": "ESPERANDO",
+            "entry_quality_color": "#38bdf8"
+        }
+
+    # -----------------------------------------------------
+    # BLOQUEO DE NUEVA ENTRADA CERCA DEL FINAL
+    # -----------------------------------------------------
+
+    lock_new_entries = (
+        seconds_left is not None
+        and
+        seconds_left <= NEW_ENTRY_LOCK
+    )
+
+    # -----------------------------------------------------
+    # DIRECCIÓN CANDIDATA
+    # -----------------------------------------------------
+
+    candidate = None
+
+    if score >= UP_THRESHOLD:
+        candidate = "UP"
+
+    elif score <= DOWN_THRESHOLD:
+        candidate = "DOWN"
+
+    # -----------------------------------------------------
+    # PRIMERA SEÑAL DE LA RONDA
+    # -----------------------------------------------------
+
+    if (
+        state["active_direction"] is None
+        and
+        candidate is not None
+        and
+        not lock_new_entries
+    ):
+
+        direction_price = (
+            get_yes_ask(market)
+            if candidate == "UP"
+            else get_no_ask(market)
+        )
+
+        state["active_direction"] = (
+            candidate
+        )
+
+        state["active_since"] = now
+
+        state["first_direction"] = (
+            candidate
+        )
+
+        state["first_signal_time"] = (
+            now
+        )
+
+        state["first_signal_seconds"] = (
+            seconds_left
+        )
+
+        state["first_signal_price"] = (
+            direction_price
+        )
+
+        state["opposite_count"] = 0
+
+    # -----------------------------------------------------
+    # DETECTOR DE PÉRDIDA DE FUERZA / REVERSIÓN
+    # -----------------------------------------------------
+
+    active = state[
+        "active_direction"
+    ]
+
+    reversal = False
+    reversal_text = ""
+
+    if active == "UP":
+
+        weakness_points = 0
+
+        # Score se deteriora.
+        if score < 3:
+            weakness_points += 1
+
+        if score_change <= -1.25:
+            weakness_points += 1
+
+        # Momentum corto cambia contra UP.
+        if sig["mom3"] < -0.02:
+            weakness_points += 1
+
+        if sig["mom5"] < 0:
+            weakness_points += 1
+
+        # Precio live cae entre evaluaciones.
+        if price_change < -8:
+            weakness_points += 1
+
+        # Cerca del target y cayendo al final.
+        if (
+            sig["distance"] is not None
+            and
+            seconds_left is not None
+            and
+            seconds_left <= 180
+            and
+            sig["distance"] < 25
+            and
+            price_change < 0
+        ):
+            weakness_points += 1
+
+        if weakness_points >= 2:
+
+            reversal = True
+            reversal_text = (
+                "UP PERDIENDO FUERZA • "
+                "POSIBLE REVERSIÓN A DOWN"
+            )
+
+    elif active == "DOWN":
+
+        weakness_points = 0
+
+        if score > -3:
+            weakness_points += 1
+
+        if score_change >= 1.25:
+            weakness_points += 1
+
+        if sig["mom3"] > 0.02:
+            weakness_points += 1
+
+        if sig["mom5"] > 0:
+            weakness_points += 1
+
+        if price_change > 8:
+            weakness_points += 1
+
+        if (
+            sig["distance"] is not None
+            and
+            seconds_left is not None
+            and
+            seconds_left <= 180
+            and
+            sig["distance"] > -25
+            and
+            price_change > 0
+        ):
+            weakness_points += 1
+
+        if weakness_points >= 2:
+
+            reversal = True
+            reversal_text = (
+                "DOWN PERDIENDO FUERZA • "
+                "POSIBLE REBOTE A UP"
+            )
+
+    state["reversal_warning"] = (
+        reversal
+    )
+
+    state["reversal_text"] = (
+        reversal_text
+    )
+
+    # -----------------------------------------------------
+    # CONFIRMACIÓN PARA CAMBIAR DIRECCIÓN
+    # -----------------------------------------------------
+
+    if active == "UP":
+
+        if (
+            score <= FLIP_DOWN_THRESHOLD
+            and
+            sig["mom3"] < 0
+        ):
+
+            state["opposite_count"] += 1
+
+        else:
+
+            state["opposite_count"] = 0
+
+        if (
+            state["opposite_count"]
+            >= FLIP_CONFIRMATIONS
+        ):
+
+            # En últimos segundos NO lo mostramos como
+            # una nueva entrada. Solo como reversión.
+            if not lock_new_entries:
+
+                state["active_direction"] = (
+                    "DOWN"
+                )
+
+                state["active_since"] = now
+
+            state["opposite_count"] = 0
+
+    elif active == "DOWN":
+
+        if (
+            score >= FLIP_UP_THRESHOLD
+            and
+            sig["mom3"] > 0
+        ):
+
+            state["opposite_count"] += 1
+
+        else:
+
+            state["opposite_count"] = 0
+
+        if (
+            state["opposite_count"]
+            >= FLIP_CONFIRMATIONS
+        ):
+
+            if not lock_new_entries:
+
+                state["active_direction"] = (
+                    "UP"
+                )
+
+                state["active_since"] = now
+
+            state["opposite_count"] = 0
+
+    active = state[
+        "active_direction"
+    ]
+
+    # -----------------------------------------------------
+    # SALIDA VISUAL
+    # -----------------------------------------------------
+
+    if active == "UP":
+
+        decision = "POSIBLE UP"
+        signal = "SEÑAL UP"
+        icon = "🚀"
+        color = "#34d399"
+
+        current_entry_price = (
+            get_yes_ask(market)
+        )
+
+    elif active == "DOWN":
+
+        decision = "POSIBLE DOWN"
+        signal = "SEÑAL DOWN"
+        icon = "🔻"
+        color = "#fb7185"
+
+        current_entry_price = (
+            get_no_ask(market)
+        )
+
+    else:
+
+        current_entry_price = None
+
+        if lock_new_entries:
+
+            decision = "NO NUEVA ENTRADA"
+            signal = "FINAL DE RONDA"
+            icon = "⏰"
+            color = "#fbbf24"
+
+        else:
+
+            decision = "NO TRADE"
+            signal = "ESPERAR"
+            icon = "⚪"
+            color = "#fbbf24"
+
+    quality, quality_color = (
+        entry_quality(
+            current_entry_price,
+            seconds_left
+        )
+    )
+
+    return {
         "decision": decision,
         "signal": signal,
         "icon": icon,
         "color": color,
-        "momentum": momentum
+        "round_state": state,
+        "reversal": reversal,
+        "reversal_text": reversal_text,
+        "entry_price": current_entry_price,
+        "entry_quality": quality,
+        "entry_quality_color": quality_color
     }
 
 
@@ -717,7 +1357,9 @@ def build_signal(
 # =========================================================
 
 st.markdown(
-    '<div class="bot-title">⚡ MACALY + ALPHA BOT • v4.5</div>',
+    '<div class="bot-title">'
+    '⚡ MACALY + ALPHA BOT • v4.6'
+    '</div>',
     unsafe_allow_html=True
 )
 
@@ -734,7 +1376,7 @@ def live_dashboard():
     kalshi_error = ""
 
     # =====================================================
-    # BTC - VELAS
+    # BTC VELAS
     # =====================================================
 
     try:
@@ -754,7 +1396,7 @@ def live_dashboard():
         btc_df = None
 
     # =====================================================
-    # BTC - PRECIO LIVE
+    # BTC LIVE
     # =====================================================
 
     try:
@@ -770,12 +1412,14 @@ def live_dashboard():
         live_price_ok = False
         live_price_error = str(error)
 
-        # Fallback a la última vela si falla ticker.
         if btc_ok:
+
             live_btc_price = float(
                 btc_df.iloc[-1]["close"]
             )
+
         else:
+
             live_btc_price = None
 
     # =====================================================
@@ -833,6 +1477,11 @@ def live_dashboard():
             market.get("yes_ask")
         )
 
+        no_ask_display = kalshi_price(
+            market.get("no_ask_dollars"),
+            market.get("no_ask")
+        )
+
         last_display = kalshi_price(
             market.get("last_price_dollars"),
             market.get("last_price")
@@ -847,10 +1496,11 @@ def live_dashboard():
 
         yes_bid_display = "--"
         yes_ask_display = "--"
+        no_ask_display = "--"
         last_display = "--"
 
     # =====================================================
-    # SIGNAL
+    # MOTOR
     # =====================================================
 
     if btc_ok:
@@ -882,12 +1532,17 @@ def live_dashboard():
             "final_score": 0,
             "distance": None,
             "distance_pct": None,
-            "decision": "NO TRADE",
-            "signal": "SIN DATOS",
-            "icon": "⚠️",
-            "color": "#fbbf24",
-            "momentum": "NEUTRAL"
+            "momentum": "NEUTRAL",
+            "up_probability": 50,
+            "down_probability": 50
         }
+
+    round_signal = process_round_signal(
+        ticker,
+        sig,
+        market,
+        seconds_left
+    )
 
     # =====================================================
     # PRINCIPAL
@@ -895,13 +1550,22 @@ def live_dashboard():
 
     main_html = (
         '<div class="bot-card" style="text-align:center;">'
-        '<div class="bot-label">BITCOIN • KALSHI 15 MIN</div>'
-        f'<div style="font-size:30px;font-weight:900;color:{sig["color"]};">'
-        f'{sig["icon"]} {sig["decision"]}'
+
+        '<div class="bot-label">'
+        'BITCOIN • KALSHI 15 MIN'
         '</div>'
-        f'<div style="font-size:19px;margin-top:8px;color:#e2e8f0;">'
+
+        f'<div style="font-size:30px;font-weight:900;'
+        f'color:{round_signal["color"]};">'
+        f'{round_signal["icon"]} '
+        f'{round_signal["decision"]}'
+        '</div>'
+
+        f'<div style="font-size:19px;margin-top:8px;'
+        f'color:#e2e8f0;">'
         f'BTC ${sig["price"]:,.2f}'
         '</div>'
+
         '</div>'
     )
 
@@ -909,6 +1573,62 @@ def live_dashboard():
         main_html,
         unsafe_allow_html=True
     )
+
+    # =====================================================
+    # PROBABILIDAD
+    # =====================================================
+
+    probability_html = (
+        '<div class="bot-card">'
+
+        '<div class="bot-label">'
+        'PROBABILIDAD ESTIMADA'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">🚀 UP</span>'
+        '<span class="bot-right" '
+        'style="color:#34d399;">'
+        f'{sig["up_probability"]}%'
+        '</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">🔻 DOWN</span>'
+        '<span class="bot-right" '
+        'style="color:#fb7185;">'
+        f'{sig["down_probability"]}%'
+        '</span>'
+        '</div>'
+
+        '<div class="small-note" '
+        'style="margin-top:12px;">'
+        'Estimación interna del motor • '
+        'no representa certeza de resultado'
+        '</div>'
+
+        '</div>'
+    )
+
+    st.markdown(
+        probability_html,
+        unsafe_allow_html=True
+    )
+
+    # =====================================================
+    # REVERSIÓN
+    # =====================================================
+
+    if round_signal["reversal"]:
+
+        st.markdown(
+            '<div class="warning-box">'
+            '⚠️ POSIBLE REVERSIÓN / REBOTE'
+            '<br><br>'
+            f'{round_signal["reversal_text"]}'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
     # =====================================================
     # TARGET
@@ -952,13 +1672,8 @@ def live_dashboard():
 
         else:
 
-            distance_text = (
-                "$0.00"
-            )
-
-            distance_color = (
-                "#fbbf24"
-            )
+            distance_text = "$0.00"
+            distance_color = "#fbbf24"
 
     else:
 
@@ -967,7 +1682,14 @@ def live_dashboard():
 
     target_html = (
         '<div class="bot-card">'
-        '<div class="bot-label">RONDA ACTUAL</div>'
+
+        '<div class="bot-label">'
+        'RONDA ACTUAL'
+        '</div>'
+
+        '<div class="round-box">'
+        f'{ticker}'
+        '</div>'
 
         '<div class="bot-row">'
         '<span class="bot-left">Target</span>'
@@ -976,19 +1698,26 @@ def live_dashboard():
 
         '<div class="bot-row">'
         '<span class="bot-left">BTC actual</span>'
-        f'<span class="bot-right">${sig["price"]:,.2f}</span>'
+        f'<span class="bot-right">'
+        f'${sig["price"]:,.2f}'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
         '<span class="bot-left">Distancia</span>'
-        f'<span class="bot-right" style="color:{distance_color};">'
+        f'<span class="bot-right" '
+        f'style="color:{distance_color};">'
         f'{distance_text}'
         '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">Tiempo restante</span>'
-        f'<span class="bot-right">{countdown}</span>'
+        '<span class="bot-left">'
+        'Tiempo restante'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{countdown}'
+        '</span>'
         '</div>'
 
         '</div>'
@@ -996,6 +1725,186 @@ def live_dashboard():
 
     st.markdown(
         target_html,
+        unsafe_allow_html=True
+    )
+
+    # =====================================================
+    # HISTORIAL DE ESTA RONDA
+    # =====================================================
+
+    state = round_signal[
+        "round_state"
+    ]
+
+    if state:
+
+        if (
+            state["first_signal_time"]
+            is not None
+        ):
+
+            signal_time_text = (
+                state[
+                    "first_signal_time"
+                ]
+                .astimezone()
+                .strftime("%H:%M:%S")
+            )
+
+        else:
+
+            signal_time_text = "--"
+
+        if (
+            state["first_signal_seconds"]
+            is not None
+        ):
+
+            signal_seconds_text = (
+                format_countdown(
+                    state[
+                        "first_signal_seconds"
+                    ]
+                )
+            )
+
+        else:
+
+            signal_seconds_text = "--:--"
+
+        if (
+            state["first_signal_price"]
+            is not None
+        ):
+
+            first_price_text = (
+                f'${state["first_signal_price"]:.2f}'
+            )
+
+        else:
+
+            first_price_text = "--"
+
+        first_direction = (
+            state["first_direction"]
+            if state["first_direction"]
+            else "NINGUNA"
+        )
+
+        active_direction = (
+            state["active_direction"]
+            if state["active_direction"]
+            else "ESPERANDO"
+        )
+
+        history_html = (
+            '<div class="bot-card">'
+
+            '<div class="bot-label">'
+            'SEÑAL DE ESTA RONDA'
+            '</div>'
+
+            '<div class="bot-row">'
+            '<span class="bot-left">'
+            'Primera señal'
+            '</span>'
+            f'<span class="bot-right">'
+            f'{first_direction}'
+            '</span>'
+            '</div>'
+
+            '<div class="bot-row">'
+            '<span class="bot-left">'
+            'Generada'
+            '</span>'
+            f'<span class="bot-right">'
+            f'{signal_time_text}'
+            '</span>'
+            '</div>'
+
+            '<div class="bot-row">'
+            '<span class="bot-left">'
+            'Tiempo restante al aparecer'
+            '</span>'
+            f'<span class="bot-right">'
+            f'{signal_seconds_text}'
+            '</span>'
+            '</div>'
+
+            '<div class="bot-row">'
+            '<span class="bot-left">'
+            'Kalshi al aparecer'
+            '</span>'
+            f'<span class="bot-right">'
+            f'{first_price_text}'
+            '</span>'
+            '</div>'
+
+            '<div class="bot-row">'
+            '<span class="bot-left">'
+            'Estado actual'
+            '</span>'
+            f'<span class="bot-right">'
+            f'{active_direction}'
+            '</span>'
+            '</div>'
+
+            '</div>'
+        )
+
+        st.markdown(
+            history_html,
+            unsafe_allow_html=True
+        )
+
+    # =====================================================
+    # CALIDAD DE ENTRADA ACTUAL
+    # =====================================================
+
+    if round_signal[
+        "entry_price"
+    ] is not None:
+
+        entry_price_text = (
+            f'${round_signal["entry_price"]:.2f}'
+        )
+
+    else:
+
+        entry_price_text = "--"
+
+    entry_html = (
+        '<div class="bot-card">'
+
+        '<div class="bot-label">'
+        'ENTRADA ACTUAL'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">'
+        'Precio contrato'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{entry_price_text}'
+        '</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">'
+        'Calidad'
+        '</span>'
+        f'<span class="bot-right" '
+        f'style="color:'
+        f'{round_signal["entry_quality_color"]};">'
+        f'{round_signal["entry_quality"]}'
+        '</span>'
+        '</div>'
+
+        '</div>'
+    )
+
+    st.markdown(
+        entry_html,
         unsafe_allow_html=True
     )
 
@@ -1012,31 +1921,61 @@ def live_dashboard():
 
     kalshi_html = (
         '<div class="bot-card">'
-        '<div class="bot-label">KALSHI • BTC 15 MIN</div>'
+
+        '<div class="bot-label">'
+        'KALSHI • BTC 15 MIN'
+        '</div>'
 
         '<div class="bot-row">'
         '<span class="bot-left">Ticker</span>'
-        f'<span class="bot-right">{ticker}</span>'
+        f'<span class="bot-right">'
+        f'{ticker}'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">YES bid</span>'
-        f'<span class="bot-right">{yes_bid_display}</span>'
+        '<span class="bot-left">'
+        'YES bid'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{yes_bid_display}'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">YES ask</span>'
-        f'<span class="bot-right">{yes_ask_display}</span>'
+        '<span class="bot-left">'
+        'YES ask'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{yes_ask_display}'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">Último</span>'
-        f'<span class="bot-right">{last_display}</span>'
+        '<span class="bot-left">'
+        'NO ask'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{no_ask_display}'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">API Kalshi</span>'
-        f'<span class="bot-right">{kalshi_status}</span>'
+        '<span class="bot-left">'
+        'Último'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{last_display}'
+        '</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">'
+        'API Kalshi'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{kalshi_status}'
+        '</span>'
         '</div>'
 
         '</div>'
@@ -1060,41 +1999,72 @@ def live_dashboard():
 
     indicators_html = (
         '<div class="bot-card">'
-        '<div class="bot-label">ANÁLISIS TÉCNICO</div>'
 
-        '<div class="bot-row">'
-        '<span class="bot-left">EMA 9 / 21</span>'
-        f'<span class="bot-right">{sig["ema"]}</span>'
+        '<div class="bot-label">'
+        'ANÁLISIS TÉCNICO'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">RSI 14</span>'
-        f'<span class="bot-right">{sig["rsi"]:.1f}</span>'
+        '<span class="bot-left">'
+        'EMA 9 / 21'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{sig["ema"]}'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">Momentum 3m</span>'
-        f'<span class="bot-right">{sig["mom3"]:+.3f}%</span>'
+        '<span class="bot-left">'
+        'RSI 14'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{sig["rsi"]:.1f}'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">Momentum 5m</span>'
-        f'<span class="bot-right">{sig["mom5"]:+.3f}%</span>'
+        '<span class="bot-left">'
+        'Momentum 3m'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{sig["mom3"]:+.3f}%'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">Momentum 15m</span>'
-        f'<span class="bot-right">{sig["mom15"]:+.3f}%</span>'
+        '<span class="bot-left">'
+        'Momentum 5m'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{sig["mom5"]:+.3f}%'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">Volumen</span>'
-        f'<span class="bot-right">{sig["vol_ratio"]:.2f}x</span>'
+        '<span class="bot-left">'
+        'Momentum 15m'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{sig["mom15"]:+.3f}%'
+        '</span>'
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">BTC ticker</span>'
-        f'<span class="bot-right">{coinbase_status}</span>'
+        '<span class="bot-left">'
+        'Volumen'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{sig["vol_ratio"]:.2f}x'
+        '</span>'
+        '</div>'
+
+        '<div class="bot-row">'
+        '<span class="bot-left">'
+        'BTC ticker'
+        '</span>'
+        f'<span class="bot-right">'
+        f'{coinbase_status}'
+        '</span>'
         '</div>'
 
         '</div>'
@@ -1106,35 +2076,68 @@ def live_dashboard():
     )
 
     # =====================================================
-    # DECISIÓN
+    # DECISIÓN DEL MOTOR
     # =====================================================
 
     decision_html = (
-        '<div class="bot-card" style="text-align:center;">'
-        '<div class="bot-label">DECISIÓN DEL MOTOR</div>'
+        '<div class="bot-card" '
+        'style="text-align:center;">'
 
-        f'<div style="font-size:27px;font-weight:900;color:{sig["color"]};">'
-        f'{sig["signal"]}'
+        '<div class="bot-label">'
+        'DECISIÓN DEL MOTOR'
         '</div>'
 
-        '<div style="margin-top:12px;color:#94a3b8;">'
-        f'Score técnico: {sig["technical_score"]:.2f}'
-        '<br>'
-        f'Score target/tiempo: {sig["target_score"]:.2f}'
-        '<br>'
-        f'Score combinado: {sig["final_score"]:.2f}'
+        f'<div style="font-size:27px;'
+        f'font-weight:900;'
+        f'color:{round_signal["color"]};">'
+        f'{round_signal["signal"]}'
         '</div>'
 
-        '<div class="small-note" style="margin-top:16px;">'
+        '<div style="margin-top:12px;'
+        'color:#94a3b8;">'
+
+        f'Score técnico: '
+        f'{sig["technical_score"]:.2f}'
+
+        '<br>'
+
+        f'Score target/tiempo: '
+        f'{sig["target_score"]:.2f}'
+
+        '<br>'
+
+        f'Score combinado: '
+        f'{sig["final_score"]:.2f}'
+
+        '</div>'
+
+        '<div class="small-note" '
+        'style="margin-top:16px;">'
+
+        'Cada ticker = una ronda independiente'
+        '<br>'
+
+        'Nueva ronda requiere confirmación'
+        '<br>'
+
+        'No crea nuevas entradas en los '
+        'últimos 75 segundos'
+        '<br>'
+
         'BTC live / distancia cada ~2 segundos 🔄'
         '<br>'
-        'Indicadores calculados con velas Coinbase'
+
+        'Indicadores con velas Coinbase'
         '<br>'
-        'Siempre BTC 15 min'
+
+        'Probabilidades = estimación del motor'
         '<br>'
+
         'Modo análisis / paper'
         '<br>'
+
         'No envía órdenes reales'
+
         '</div>'
 
         '</div>'
