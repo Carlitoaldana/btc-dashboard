@@ -5,13 +5,14 @@ import numpy as np
 from datetime import datetime, timezone
 
 # =========================================================
-# MACALY + ALPHA BOT v4.6
+# MACALY + ALPHA BOT v4.6.1
 # BTC 15 MIN
 # ROUND MEMORY + PROBABILITY + REVERSAL WATCH
+# KALSHI LIVE BTC REFERENCE
 # =========================================================
 
 st.set_page_config(
-    page_title="Macaly + Alpha Bot v4.6",
+    page_title="Macaly + Alpha Bot v4.6.1",
     page_icon="⚡",
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -27,8 +28,6 @@ NEW_ENTRY_LOCK = 75
 UP_THRESHOLD = 4.0
 DOWN_THRESHOLD = -4.0
 
-# Para cambiar una señal ya activa a la contraria,
-# exigimos más confirmación que para crear la primera.
 FLIP_UP_THRESHOLD = 4.75
 FLIP_DOWN_THRESHOLD = -4.75
 FLIP_CONFIRMATIONS = 2
@@ -199,7 +198,7 @@ def get_btc_data():
     response = requests.get(
         url,
         params={"granularity": 60},
-        headers={"User-Agent": "MacalyAlphaBot/4.6"},
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
         timeout=10
     )
 
@@ -251,6 +250,7 @@ def get_btc_data():
 
 # =========================================================
 # COINBASE - PRECIO BTC LIVE
+# FALLBACK SI KALSHI LIVE NO RESPONDE
 # =========================================================
 
 def get_btc_live_price():
@@ -263,7 +263,7 @@ def get_btc_live_price():
     response = requests.get(
         url,
         headers={
-            "User-Agent": "MacalyAlphaBot/4.6",
+            "User-Agent": "MacalyAlphaBot/4.6.1",
             "Cache-Control": "no-cache"
         },
         params={
@@ -307,7 +307,7 @@ def get_kalshi_btc_market():
             "status": "open",
             "series_ticker": "KXBTC15M"
         },
-        headers={"User-Agent": "MacalyAlphaBot/4.6"},
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
         timeout=10
     )
 
@@ -328,6 +328,223 @@ def get_kalshi_btc_market():
     )
 
     return markets[0]
+
+
+# =========================================================
+# KALSHI LIVE BTC
+# MISMA REFERENCIA QUE MUESTRA EL EVENTO DE KALSHI
+# =========================================================
+
+def get_event_ticker_from_market(market):
+
+    if not market:
+        return None
+
+    event_ticker = market.get(
+        "event_ticker"
+    )
+
+    if event_ticker:
+        return str(event_ticker)
+
+    # Respaldo por si event_ticker no viniera
+    # explícitamente en la respuesta.
+    ticker = market.get("ticker")
+
+    if not ticker:
+        return None
+
+    parts = str(ticker).split("-")
+
+    if len(parts) >= 2:
+        return "-".join(parts[:-1])
+
+    return None
+
+
+def extract_kalshi_btc_price(data):
+
+    """
+    Extrae el último precio BTC válido del live-data
+    público del evento de Kalshi.
+
+    Kalshi puede cambiar la estructura interna de
+    'details', así que recorremos el JSON sin asumir
+    un único nombre de campo.
+    """
+
+    if not isinstance(data, dict):
+        return None
+
+    live_data = data.get(
+        "live_data",
+        data
+    )
+
+    details = (
+        live_data.get("details", {})
+        if isinstance(live_data, dict)
+        else {}
+    )
+
+    candidates = []
+
+    # -----------------------------------------------------
+    # Primero buscamos campos explícitos de precio.
+    # -----------------------------------------------------
+
+    preferred_keys = {
+        "price",
+        "value",
+        "index_value",
+        "indexvalue",
+        "current_price",
+        "currentprice",
+        "current_value",
+        "currentvalue",
+        "last_price",
+        "lastprice",
+        "close"
+    }
+
+    def walk_preferred(obj):
+
+        if isinstance(obj, dict):
+
+            for key, value in obj.items():
+
+                normalized_key = (
+                    str(key)
+                    .lower()
+                    .replace("-", "_")
+                )
+
+                if normalized_key in preferred_keys:
+
+                    try:
+
+                        number = float(value)
+
+                        # BTC razonable; además evita
+                        # probabilidades y timestamps.
+                        if 10000 < number < 1000000:
+                            candidates.append(number)
+
+                    except (TypeError, ValueError):
+                        pass
+
+                walk_preferred(value)
+
+        elif isinstance(obj, list):
+
+            for item in obj:
+                walk_preferred(item)
+
+    walk_preferred(details)
+
+    if candidates:
+        return float(candidates[-1])
+
+    # -----------------------------------------------------
+    # Segundo intento:
+    # algunos charts llegan como pares [timestamp, value].
+    # -----------------------------------------------------
+
+    pair_candidates = []
+
+    def walk_pairs(obj):
+
+        if isinstance(obj, list):
+
+            if len(obj) >= 2:
+
+                try:
+
+                    possible_price = float(
+                        obj[-1]
+                    )
+
+                    if (
+                        10000 <
+                        possible_price <
+                        1000000
+                    ):
+                        pair_candidates.append(
+                            possible_price
+                        )
+
+                except (TypeError, ValueError):
+                    pass
+
+            for item in obj:
+                walk_pairs(item)
+
+        elif isinstance(obj, dict):
+
+            for value in obj.values():
+                walk_pairs(value)
+
+    walk_pairs(details)
+
+    if pair_candidates:
+        return float(
+            pair_candidates[-1]
+        )
+
+    return None
+
+
+def get_kalshi_live_btc(market):
+
+    event_ticker = (
+        get_event_ticker_from_market(
+            market
+        )
+    )
+
+    if not event_ticker:
+        raise ValueError(
+            "La ronda no entregó event_ticker."
+        )
+
+    url = (
+        "https://external-api.kalshi.com/"
+        "trade-api/v2/live_data/events/"
+        f"{event_ticker}"
+    )
+
+    response = requests.get(
+        url,
+        params={
+            "range": "15min",
+            "_": int(
+                datetime.now(
+                    timezone.utc
+                ).timestamp()
+            )
+        },
+        headers={
+            "User-Agent": "MacalyAlphaBot/4.6.1",
+            "Cache-Control": "no-cache"
+        },
+        timeout=6
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    price = extract_kalshi_btc_price(
+        data
+    )
+
+    if price is None:
+        raise ValueError(
+            "Kalshi live respondió, pero no "
+            "encontré un precio BTC válido."
+        )
+
+    return float(price)
 
 
 # =========================================================
@@ -594,10 +811,6 @@ def estimated_probabilities(
     mom5
 ):
 
-    # Esta NO es una probabilidad garantizada.
-    # Es una estimación interna basada en la fuerza
-    # de los factores del motor.
-
     score = float(
         np.clip(
             final_score,
@@ -611,7 +824,6 @@ def estimated_probabilities(
         score * 4.2
     )
 
-    # Pequeño ajuste por aceleración reciente.
     if mom3 > 0.04:
         up_prob += 3
 
@@ -624,8 +836,6 @@ def estimated_probabilities(
     elif mom5 < -0.06:
         up_prob -= 2
 
-    # Cerca del cierre, la posición respecto
-    # al target pesa más.
     if (
         distance is not None
         and
@@ -640,7 +850,6 @@ def estimated_probabilities(
         elif distance < 0:
             up_prob -= 3
 
-    # Nunca mostramos 100/0.
     up_prob = float(
         np.clip(
             up_prob,
@@ -709,7 +918,6 @@ def build_signal(
 
     technical_score = 0.0
 
-    # EMA
     if last["ema9"] > last["ema21"]:
 
         technical_score += 2.0
@@ -720,14 +928,12 @@ def build_signal(
         technical_score -= 2.0
         ema_text = "BAJISTA 🔻"
 
-    # RSI
     if rsi >= 55:
         technical_score += 1.0
 
     elif rsi <= 45:
         technical_score -= 1.0
 
-    # MOMENTUM
     if mom3 > 0.02:
         technical_score += 1.25
 
@@ -746,7 +952,6 @@ def build_signal(
     elif mom15 < -0.05:
         technical_score -= 0.75
 
-    # VOLUMEN
     if vol_ratio > 1.20:
 
         if mom3 > 0:
@@ -926,10 +1131,6 @@ def process_round_signal(
         timezone.utc
     )
 
-    # -----------------------------------------------------
-    # NUEVO TICKER = NUEVA RONDA
-    # -----------------------------------------------------
-
     if (
         ticker
         and
@@ -979,20 +1180,12 @@ def process_round_signal(
         ticker
     ]
 
-    # -----------------------------------------------------
-    # TIEMPO TRANSCURRIDO DESDE QUE DETECTAMOS RONDA
-    # -----------------------------------------------------
-
     age = (
         now -
         state["detected_at"]
     ).total_seconds()
 
     score = sig["final_score"]
-
-    # -----------------------------------------------------
-    # PRECIO ACTUAL PARA DETECTAR ACELERACIÓN
-    # -----------------------------------------------------
 
     previous_live_price = (
         state["last_live_price"]
@@ -1030,10 +1223,6 @@ def process_round_signal(
 
     state["last_score"] = score
 
-    # -----------------------------------------------------
-    # NUEVA RONDA
-    # -----------------------------------------------------
-
     if age < NEW_ROUND_WAIT:
 
         state["reversal_warning"] = False
@@ -1052,19 +1241,11 @@ def process_round_signal(
             "entry_quality_color": "#38bdf8"
         }
 
-    # -----------------------------------------------------
-    # BLOQUEO DE NUEVA ENTRADA CERCA DEL FINAL
-    # -----------------------------------------------------
-
     lock_new_entries = (
         seconds_left is not None
         and
         seconds_left <= NEW_ENTRY_LOCK
     )
-
-    # -----------------------------------------------------
-    # DIRECCIÓN CANDIDATA
-    # -----------------------------------------------------
 
     candidate = None
 
@@ -1073,10 +1254,6 @@ def process_round_signal(
 
     elif score <= DOWN_THRESHOLD:
         candidate = "DOWN"
-
-    # -----------------------------------------------------
-    # PRIMERA SEÑAL DE LA RONDA
-    # -----------------------------------------------------
 
     if (
         state["active_direction"] is None
@@ -1116,10 +1293,6 @@ def process_round_signal(
 
         state["opposite_count"] = 0
 
-    # -----------------------------------------------------
-    # DETECTOR DE PÉRDIDA DE FUERZA / REVERSIÓN
-    # -----------------------------------------------------
-
     active = state[
         "active_direction"
     ]
@@ -1131,25 +1304,21 @@ def process_round_signal(
 
         weakness_points = 0
 
-        # Score se deteriora.
         if score < 3:
             weakness_points += 1
 
         if score_change <= -1.25:
             weakness_points += 1
 
-        # Momentum corto cambia contra UP.
         if sig["mom3"] < -0.02:
             weakness_points += 1
 
         if sig["mom5"] < 0:
             weakness_points += 1
 
-        # Precio live cae entre evaluaciones.
         if price_change < -8:
             weakness_points += 1
 
-        # Cerca del target y cayendo al final.
         if (
             sig["distance"] is not None
             and
@@ -1219,10 +1388,6 @@ def process_round_signal(
         reversal_text
     )
 
-    # -----------------------------------------------------
-    # CONFIRMACIÓN PARA CAMBIAR DIRECCIÓN
-    # -----------------------------------------------------
-
     if active == "UP":
 
         if (
@@ -1242,8 +1407,6 @@ def process_round_signal(
             >= FLIP_CONFIRMATIONS
         ):
 
-            # En últimos segundos NO lo mostramos como
-            # una nueva entrada. Solo como reversión.
             if not lock_new_entries:
 
                 state["active_direction"] = (
@@ -1286,10 +1449,6 @@ def process_round_signal(
     active = state[
         "active_direction"
     ]
-
-    # -----------------------------------------------------
-    # SALIDA VISUAL
-    # -----------------------------------------------------
 
     if active == "UP":
 
@@ -1358,7 +1517,7 @@ def process_round_signal(
 
 st.markdown(
     '<div class="bot-title">'
-    '⚡ MACALY + ALPHA BOT • v4.6'
+    '⚡ MACALY + ALPHA BOT • v4.6.1'
     '</div>',
     unsafe_allow_html=True
 )
@@ -1374,9 +1533,10 @@ def live_dashboard():
     btc_error = ""
     live_price_error = ""
     kalshi_error = ""
+    kalshi_live_error = ""
 
     # =====================================================
-    # BTC VELAS
+    # BTC VELAS COINBASE
     # =====================================================
 
     try:
@@ -1396,34 +1556,8 @@ def live_dashboard():
         btc_df = None
 
     # =====================================================
-    # BTC LIVE
-    # =====================================================
-
-    try:
-
-        live_btc_price = (
-            get_btc_live_price()
-        )
-
-        live_price_ok = True
-
-    except Exception as error:
-
-        live_price_ok = False
-        live_price_error = str(error)
-
-        if btc_ok:
-
-            live_btc_price = float(
-                btc_df.iloc[-1]["close"]
-            )
-
-        else:
-
-            live_btc_price = None
-
-    # =====================================================
-    # KALSHI
+    # KALSHI MARKET
+    # IMPORTANTE: LO CARGAMOS ANTES DEL BTC LIVE
     # =====================================================
 
     try:
@@ -1439,6 +1573,95 @@ def live_dashboard():
         kalshi_ok = False
         kalshi_error = str(error)
         market = None
+
+    # =====================================================
+    # COINBASE LIVE = RESPALDO
+    # =====================================================
+
+    try:
+
+        coinbase_live_price = (
+            get_btc_live_price()
+        )
+
+        coinbase_live_ok = True
+
+    except Exception as error:
+
+        coinbase_live_ok = False
+        live_price_error = str(error)
+
+        if btc_ok:
+
+            coinbase_live_price = float(
+                btc_df.iloc[-1]["close"]
+            )
+
+        else:
+
+            coinbase_live_price = None
+
+    # =====================================================
+    # KALSHI LIVE BTC = FUENTE PRINCIPAL
+    # =====================================================
+
+    kalshi_live_price = None
+    kalshi_live_ok = False
+
+    if market:
+
+        try:
+
+            kalshi_live_price = (
+                get_kalshi_live_btc(
+                    market
+                )
+            )
+
+            kalshi_live_ok = True
+
+        except Exception as error:
+
+            kalshi_live_error = str(
+                error
+            )
+
+    # Si Kalshi live funciona, usamos ese.
+    # Si falla, el bot sigue vivo con Coinbase.
+
+    if kalshi_live_price is not None:
+
+        live_btc_price = (
+            kalshi_live_price
+        )
+
+        btc_reference_text = (
+            "KALSHI LIVE 🟢"
+        )
+
+    else:
+
+        live_btc_price = (
+            coinbase_live_price
+        )
+
+        if coinbase_live_ok:
+
+            btc_reference_text = (
+                "COINBASE FALLBACK 🟡"
+            )
+
+        elif live_btc_price is not None:
+
+            btc_reference_text = (
+                "ÚLTIMA VELA 🟡"
+            )
+
+        else:
+
+            btc_reference_text = (
+                "SIN DATOS 🔴"
+            )
 
     # =====================================================
     # MARKET INFO
@@ -1631,7 +1854,7 @@ def live_dashboard():
         )
 
     # =====================================================
-    # TARGET
+    # TARGET / DISTANCIA
     # =====================================================
 
     if target is not None:
@@ -1704,6 +1927,13 @@ def live_dashboard():
         '</div>'
 
         '<div class="bot-row">'
+        '<span class="bot-left">Fuente BTC</span>'
+        f'<span class="bot-right">'
+        f'{btc_reference_text}'
+        '</span>'
+        '</div>'
+
+        '<div class="bot-row">'
         '<span class="bot-left">Distancia</span>'
         f'<span class="bot-right" '
         f'style="color:{distance_color};">'
@@ -1729,7 +1959,7 @@ def live_dashboard():
     )
 
     # =====================================================
-    # HISTORIAL DE ESTA RONDA
+    # SEÑAL DE ESTA RONDA
     # =====================================================
 
     state = round_signal[
@@ -1990,12 +2220,23 @@ def live_dashboard():
     # INDICADORES
     # =====================================================
 
-    coinbase_status = (
-        "LIVE 🟢"
-        if live_price_ok
-        else
-        "FALLBACK VELA 🟡"
-    )
+    if kalshi_live_ok:
+
+        live_status = (
+            "KALSHI LIVE 🟢"
+        )
+
+    elif coinbase_live_ok:
+
+        live_status = (
+            "COINBASE FALLBACK 🟡"
+        )
+
+    else:
+
+        live_status = (
+            "FALLBACK VELA 🟡"
+        )
 
     indicators_html = (
         '<div class="bot-card">'
@@ -2060,10 +2301,10 @@ def live_dashboard():
 
         '<div class="bot-row">'
         '<span class="bot-left">'
-        'BTC ticker'
+        'BTC referencia'
         '</span>'
         f'<span class="bot-right">'
-        f'{coinbase_status}'
+        f'{live_status}'
         '</span>'
         '</div>'
 
@@ -2127,7 +2368,10 @@ def live_dashboard():
         'BTC live / distancia cada ~2 segundos 🔄'
         '<br>'
 
-        'Indicadores con velas Coinbase'
+        'BTC referencia: Kalshi live'
+        '<br>'
+
+        'Coinbase: velas e indicadores'
         '<br>'
 
         'Probabilidades = estimación del motor'
@@ -2170,9 +2414,20 @@ def live_dashboard():
     if live_price_error:
 
         st.warning(
-            "Ticker Coinbase live falló temporalmente. "
-            "Usando última vela como respaldo: " +
+            "Ticker Coinbase live falló temporalmente: " +
             live_price_error
+        )
+
+    if (
+        kalshi_live_error
+        and
+        coinbase_live_price is not None
+    ):
+
+        st.warning(
+            "Kalshi BTC live no estuvo disponible. "
+            "Usando Coinbase como respaldo. Detalle: " +
+            kalshi_live_error
         )
 
     if kalshi_error:
