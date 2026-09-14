@@ -5,12 +5,12 @@ import numpy as np
 from datetime import datetime, timezone
 
 # =========================================================
-# MACALY + ALPHA BOT v4.4
-# BTC 15 MIN + TARGET AUTO + COUNTDOWN
+# MACALY + ALPHA BOT v4.5
+# BTC 15 MIN + TARGET AUTO + LIVE BTC PRICE
 # =========================================================
 
 st.set_page_config(
-    page_title="Macaly + Alpha Bot v4.4",
+    page_title="Macaly + Alpha Bot v4.5",
     page_icon="⚡",
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -107,10 +107,10 @@ header {visibility:hidden;}
 
 
 # =========================================================
-# COINBASE
+# COINBASE - VELAS PARA INDICADORES
 # =========================================================
 
-@st.cache_data(ttl=2)
+@st.cache_data(ttl=5)
 def get_btc_data():
 
     url = (
@@ -121,7 +121,7 @@ def get_btc_data():
     response = requests.get(
         url,
         params={"granularity": 60},
-        headers={"User-Agent": "MacalyAlphaBot/4.4"},
+        headers={"User-Agent": "MacalyAlphaBot/4.5"},
         timeout=10
     )
 
@@ -130,7 +130,9 @@ def get_btc_data():
     data = response.json()
 
     if not isinstance(data, list) or len(data) < 30:
-        raise ValueError("Coinbase no devolvió suficientes datos.")
+        raise ValueError(
+            "Coinbase no devolvió suficientes datos."
+        )
 
     df = pd.DataFrame(
         data,
@@ -170,6 +172,45 @@ def get_btc_data():
 
 
 # =========================================================
+# COINBASE - PRECIO BTC LIVE
+# =========================================================
+
+def get_btc_live_price():
+
+    url = (
+        "https://api.exchange.coinbase.com/"
+        "products/BTC-USD/ticker"
+    )
+
+    response = requests.get(
+        url,
+        headers={
+            "User-Agent": "MacalyAlphaBot/4.5",
+            "Cache-Control": "no-cache"
+        },
+        params={
+            "_": int(
+                datetime.now(timezone.utc).timestamp()
+            )
+        },
+        timeout=6
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    price = data.get("price")
+
+    if price in [None, ""]:
+        raise ValueError(
+            "Coinbase ticker no devolvió precio."
+        )
+
+    return float(price)
+
+
+# =========================================================
 # KALSHI BTC 15 MIN
 # =========================================================
 
@@ -188,7 +229,7 @@ def get_kalshi_btc_market():
             "status": "open",
             "series_ticker": "KXBTC15M"
         },
-        headers={"User-Agent": "MacalyAlphaBot/4.4"},
+        headers={"User-Agent": "MacalyAlphaBot/4.5"},
         timeout=10
     )
 
@@ -202,7 +243,6 @@ def get_kalshi_btc_market():
     if not markets:
         return None
 
-    # Elegir la ronda BTC 15m que cierra primero.
     markets.sort(
         key=lambda m: str(
             m.get("close_time") or "9999"
@@ -286,10 +326,6 @@ def get_target_from_market(market):
     if not market:
         return None
 
-    strike_type = str(
-        market.get("strike_type") or ""
-    ).lower()
-
     floor_strike = market.get(
         "floor_strike"
     )
@@ -298,11 +334,13 @@ def get_target_from_market(market):
         "cap_strike"
     )
 
-    # Contratos de tipo "greater" / arriba de un precio.
     if floor_strike not in [None, ""]:
 
         try:
-            floor_value = float(floor_strike)
+
+            floor_value = float(
+                floor_strike
+            )
 
             if floor_value > 1000:
                 return floor_value
@@ -310,11 +348,13 @@ def get_target_from_market(market):
         except Exception:
             pass
 
-    # Fallback solamente si el contrato usa cap strike.
     if cap_strike not in [None, ""]:
 
         try:
-            cap_value = float(cap_strike)
+
+            cap_value = float(
+                cap_strike
+            )
 
             if cap_value > 1000:
                 return cap_value
@@ -322,7 +362,6 @@ def get_target_from_market(market):
         except Exception:
             pass
 
-    # No inventamos un target.
     return None
 
 
@@ -418,20 +457,30 @@ def kalshi_price(
 
 
 # =========================================================
-# MOTOR v4.4
+# MOTOR v4.5
 # =========================================================
 
 def build_signal(
     df,
     target,
-    seconds_left
+    seconds_left,
+    live_price=None
 ):
 
     last = df.iloc[-1]
 
-    price = float(
+    # IMPORTANTE:
+    # Indicadores = velas Coinbase
+    # Precio/target = ticker Coinbase LIVE
+
+    candle_price = float(
         last["close"]
     )
+
+    if live_price is not None:
+        price = float(live_price)
+    else:
+        price = candle_price
 
     rsi = float(
         last["rsi"]
@@ -520,6 +569,7 @@ def build_signal(
 
     if target is not None:
 
+        # AHORA USA EL PRECIO LIVE
         distance = (
             price -
             target
@@ -531,15 +581,12 @@ def build_signal(
             100
         )
 
-        # Peso base por estar arriba/abajo.
         if distance > 0:
             target_score += 2.0
 
         elif distance < 0:
             target_score -= 2.0
 
-        # Cuanto más cerca del cierre,
-        # más importante es la posición frente al target.
         if seconds_left is not None:
 
             abs_distance = abs(
@@ -578,7 +625,6 @@ def build_signal(
                 elif distance < 0:
                     target_score -= 1.0
 
-            # Muy cerca del target = más incertidumbre.
             if abs_distance < 10:
                 target_score *= 0.60
 
@@ -635,7 +681,6 @@ def build_signal(
         icon = "⚪"
         color = "#fbbf24"
 
-    # Momentum visual
     if mom3 > 0.02:
         momentum = "ALCISTA"
 
@@ -647,6 +692,7 @@ def build_signal(
 
     return {
         "price": price,
+        "candle_price": candle_price,
         "rsi": rsi,
         "mom3": mom3,
         "mom5": mom5,
@@ -671,7 +717,7 @@ def build_signal(
 # =========================================================
 
 st.markdown(
-    '<div class="bot-title">⚡ MACALY + ALPHA BOT • v4.4</div>',
+    '<div class="bot-title">⚡ MACALY + ALPHA BOT • v4.5</div>',
     unsafe_allow_html=True
 )
 
@@ -680,14 +726,15 @@ st.markdown(
 # DASHBOARD LIVE
 # =========================================================
 
-@st.fragment(run_every="3s")
+@st.fragment(run_every="2s")
 def live_dashboard():
 
     btc_error = ""
+    live_price_error = ""
     kalshi_error = ""
 
     # =====================================================
-    # BTC
+    # BTC - VELAS
     # =====================================================
 
     try:
@@ -705,6 +752,31 @@ def live_dashboard():
         btc_ok = False
         btc_error = str(error)
         btc_df = None
+
+    # =====================================================
+    # BTC - PRECIO LIVE
+    # =====================================================
+
+    try:
+
+        live_btc_price = (
+            get_btc_live_price()
+        )
+
+        live_price_ok = True
+
+    except Exception as error:
+
+        live_price_ok = False
+        live_price_error = str(error)
+
+        # Fallback a la última vela si falla ticker.
+        if btc_ok:
+            live_btc_price = float(
+                btc_df.iloc[-1]["close"]
+            )
+        else:
+            live_btc_price = None
 
     # =====================================================
     # KALSHI
@@ -786,13 +858,19 @@ def live_dashboard():
         sig = build_signal(
             btc_df,
             target,
-            seconds_left
+            seconds_left,
+            live_btc_price
         )
 
     else:
 
         sig = {
-            "price": 0,
+            "price": (
+                live_btc_price
+                if live_btc_price is not None
+                else 0
+            ),
+            "candle_price": 0,
             "rsi": 50,
             "mom3": 0,
             "mom5": 0,
@@ -974,10 +1052,10 @@ def live_dashboard():
     # =====================================================
 
     coinbase_status = (
-        "CONECTADO 🟢"
-        if btc_ok
+        "LIVE 🟢"
+        if live_price_ok
         else
-        "SIN CONEXIÓN 🔴"
+        "FALLBACK VELA 🟡"
     )
 
     indicators_html = (
@@ -1015,7 +1093,7 @@ def live_dashboard():
         '</div>'
 
         '<div class="bot-row">'
-        '<span class="bot-left">Coinbase</span>'
+        '<span class="bot-left">BTC ticker</span>'
         f'<span class="bot-right">{coinbase_status}</span>'
         '</div>'
 
@@ -1048,7 +1126,9 @@ def live_dashboard():
         '</div>'
 
         '<div class="small-note" style="margin-top:16px;">'
-        'Actualización automática cada 3 segundos 🔄'
+        'BTC live / distancia cada ~2 segundos 🔄'
+        '<br>'
+        'Indicadores calculados con velas Coinbase'
         '<br>'
         'Siempre BTC 15 min'
         '<br>'
@@ -1080,8 +1160,16 @@ def live_dashboard():
     if btc_error:
 
         st.error(
-            "Error Coinbase: " +
+            "Error Coinbase velas: " +
             btc_error
+        )
+
+    if live_price_error:
+
+        st.warning(
+            "Ticker Coinbase live falló temporalmente. "
+            "Usando última vela como respaldo: " +
+            live_price_error
         )
 
     if kalshi_error:
