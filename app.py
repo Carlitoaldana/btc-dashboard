@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
+import textwrap
 from datetime import datetime, timezone
 
 # =========================================================
@@ -111,9 +112,17 @@ st.markdown("""
     text-align: right;
 }
 
-.green { color: #35e3a6; }
-.red { color: #ff5277; }
-.yellow { color: #f2c66d; }
+.green {
+    color: #35e3a6;
+}
+
+.red {
+    color: #ff5277;
+}
+
+.yellow {
+    color: #f2c66d;
+}
 
 .prob {
     font-size: 26px;
@@ -153,7 +162,6 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-
 
 # =========================================================
 # DATA
@@ -814,10 +822,8 @@ def make_chart(df, target):
 # =========================================================
 
 def render_card(html):
-    st.markdown(
-        html,
-        unsafe_allow_html=True
-    )
+    clean_html = textwrap.dedent(html).strip()
+    st.html(clean_html)
 
 
 def momentum_text(value):
