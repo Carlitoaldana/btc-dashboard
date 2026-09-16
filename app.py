@@ -5,211 +5,175 @@ import numpy as np
 from datetime import datetime, timezone
 
 # =========================================================
-# MACALY + ALPHA BOT v4.6.1
-# BTC 15 MIN
-# ROUND MEMORY + PROBABILITY + REVERSAL WATCH
-# KALSHI LIVE BTC REFERENCE
+# MACALY + ALPHA V5
+# BTC / KALSHI 15 MIN
+# MULTI-TIMEFRAME MOMENTUM + LIVE TARGET
 # =========================================================
 
 st.set_page_config(
-    page_title="Macaly + Alpha Bot v4.6.1",
+    page_title="Macaly + Alpha V5",
     page_icon="⚡",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
-# =========================================================
-# CONFIGURACIÓN
-# =========================================================
+COINBASE_API = "https://api.exchange.coinbase.com"
+KALSHI_API = "https://api.elections.kalshi.com/trade-api/v2"
 
-NEW_ROUND_WAIT = 30
-NEW_ENTRY_LOCK = 75
-
-UP_THRESHOLD = 4.0
-DOWN_THRESHOLD = -4.0
-
-FLIP_UP_THRESHOLD = 4.75
-FLIP_DOWN_THRESHOLD = -4.75
-FLIP_CONFIRMATIONS = 2
+UP_THRESHOLD = 3.5
+DOWN_THRESHOLD = -3.5
 
 # =========================================================
-# DISEÑO
+# CSS
 # =========================================================
 
 st.markdown("""
 <style>
-#MainMenu {visibility:hidden;}
-footer {visibility:hidden;}
-header {visibility:hidden;}
-
 .stApp {
-    background-color:#0b0e14;
+    background: #070b14;
+    color: #f4f7fb;
 }
 
 .block-container {
-    padding:10px !important;
-    max-width:460px;
+    max-width: 520px;
+    padding-top: 1rem;
+    padding-bottom: 3rem;
 }
 
-.bot-card {
-    background:#11161f;
-    border:1px solid #334155;
-    border-radius:18px;
-    padding:20px;
-    margin-bottom:12px;
-    color:#e8edf5;
+.header-box {
+    border: 1px solid #2e7df6;
+    border-radius: 22px;
+    padding: 22px 14px;
+    text-align: center;
+    margin-bottom: 18px;
+    background: #101827;
 }
 
-.bot-title {
-    background:#111a2e;
-    border:1px solid #2563eb;
-    border-radius:18px;
-    padding:18px;
-    margin-bottom:12px;
-    text-align:center;
-    color:#38bdf8;
-    font-weight:900;
-    letter-spacing:2px;
+.header-title {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #46c7ff;
 }
 
-.bot-label {
-    text-align:center;
-    color:#94a3b8;
-    font-size:13px;
-    font-weight:800;
-    letter-spacing:2px;
-    margin-bottom:12px;
+.card {
+    background: #0d1420;
+    border: 1px solid #26384d;
+    border-radius: 22px;
+    padding: 22px;
+    margin-bottom: 18px;
 }
 
-.bot-row {
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    padding:11px 0;
-    border-bottom:1px solid #334155;
+.card-title {
+    color: #9baac0;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 18px;
 }
 
-.bot-row:last-child {
-    border-bottom:none;
+.signal-up {
+    color: #35e3a6;
+    font-size: 38px;
+    font-weight: 900;
+    text-align: center;
 }
 
-.bot-left {
-    color:#94a3b8;
+.signal-down {
+    color: #ff5277;
+    font-size: 38px;
+    font-weight: 900;
+    text-align: center;
 }
 
-.bot-right {
-    color:#e8edf5;
-    font-weight:800;
-    text-align:right;
+.signal-wait {
+    color: #f2c66d;
+    font-size: 32px;
+    font-weight: 900;
+    text-align: center;
 }
 
-.small-note {
-    color:#64748b;
-    font-size:12px;
-    line-height:1.5;
-    text-align:center;
+.row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #26384d;
+    padding: 12px 0;
+    gap: 10px;
 }
 
-.prob-box {
-    background:#0d1420;
-    border:1px solid #334155;
-    border-radius:14px;
-    padding:14px;
-    margin-top:12px;
+.label {
+    color: #95a4ba;
 }
 
-.warning-box {
-    background:#2a2110;
-    border:1px solid #f59e0b;
-    border-radius:14px;
-    padding:14px;
-    margin-top:12px;
-    color:#fbbf24;
-    text-align:center;
-    font-weight:800;
+.value {
+    color: #f4f7fb;
+    font-weight: 800;
+    text-align: right;
 }
 
-.round-box {
-    background:#0f172a;
-    border:1px solid #38bdf8;
-    border-radius:14px;
-    padding:12px;
-    margin-bottom:12px;
-    text-align:center;
-    color:#7dd3fc;
-    font-weight:800;
+.green { color: #35e3a6; }
+.red { color: #ff5277; }
+.yellow { color: #f2c66d; }
+
+.prob {
+    font-size: 26px;
+    font-weight: 900;
+}
+
+.momentum-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.momentum-box {
+    border: 1px solid #26384d;
+    border-radius: 16px;
+    padding: 14px;
+    background: #090f19;
+}
+
+.small-label {
+    color: #8494aa;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.big-number {
+    font-size: 19px;
+    font-weight: 900;
+    margin-top: 5px;
+}
+
+.disclaimer {
+    color: #718096;
+    font-size: 11px;
+    text-align: center;
+    margin-top: 12px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# =========================================================
-# SESSION STATE
-# =========================================================
-
-if "rounds" not in st.session_state:
-    st.session_state.rounds = {}
-
-if "active_ticker" not in st.session_state:
-    st.session_state.active_ticker = None
-
-
-def new_round_state(ticker, seconds_left):
-
-    now = datetime.now(timezone.utc)
-
-    return {
-        "ticker": ticker,
-        "detected_at": now,
-        "detected_seconds_left": seconds_left,
-
-        "first_direction": None,
-        "first_signal_time": None,
-        "first_signal_seconds": None,
-        "first_signal_price": None,
-
-        "active_direction": None,
-        "active_since": None,
-
-        "last_score": 0.0,
-        "previous_score": 0.0,
-
-        "opposite_count": 0,
-
-        "last_live_price": None,
-        "previous_live_price": None,
-
-        "reversal_warning": False,
-        "reversal_text": "",
-    }
-
 
 # =========================================================
-# COINBASE - VELAS PARA INDICADORES
+# DATA
 # =========================================================
 
 @st.cache_data(ttl=5)
-def get_btc_data():
+def get_candles():
 
-    url = (
-        "https://api.exchange.coinbase.com/"
-        "products/BTC-USD/candles"
-    )
+    url = f"{COINBASE_API}/products/BTC-USD/candles"
 
-    response = requests.get(
+    r = requests.get(
         url,
         params={"granularity": 60},
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
-        timeout=10
+        timeout=8,
+        headers={"User-Agent": "MacalyAlphaV5"}
     )
 
-    response.raise_for_status()
+    r.raise_for_status()
 
-    data = response.json()
-
-    if not isinstance(data, list) or len(data) < 30:
-        raise ValueError(
-            "Coinbase no devolvió suficientes datos."
-        )
+    data = r.json()
 
     df = pd.DataFrame(
         data,
@@ -223,119 +187,117 @@ def get_btc_data():
         ]
     )
 
-    for column in [
+    df = df.sort_values("time").reset_index(drop=True)
+
+    for col in [
         "low",
         "high",
         "open",
         "close",
         "volume"
     ]:
-        df[column] = pd.to_numeric(
-            df[column],
+        df[col] = pd.to_numeric(
+            df[col],
             errors="coerce"
         )
 
-    df["time"] = pd.to_datetime(
+    df["datetime"] = pd.to_datetime(
         df["time"],
         unit="s",
         utc=True
     )
 
-    return (
-        df.dropna()
-        .sort_values("time")
-        .reset_index(drop=True)
-    )
+    return df
 
-
-# =========================================================
-# COINBASE - PRECIO BTC LIVE
-# FALLBACK SI KALSHI LIVE NO RESPONDE
-# =========================================================
-
-def get_btc_live_price():
-
-    url = (
-        "https://api.exchange.coinbase.com/"
-        "products/BTC-USD/ticker"
-    )
-
-    response = requests.get(
-        url,
-        headers={
-            "User-Agent": "MacalyAlphaBot/4.6.1",
-            "Cache-Control": "no-cache"
-        },
-        params={
-            "_": int(
-                datetime.now(timezone.utc).timestamp()
-            )
-        },
-        timeout=6
-    )
-
-    response.raise_for_status()
-
-    data = response.json()
-
-    price = data.get("price")
-
-    if price in [None, ""]:
-        raise ValueError(
-            "Coinbase ticker no devolvió precio."
-        )
-
-    return float(price)
-
-
-# =========================================================
-# KALSHI BTC 15 MIN
-# =========================================================
 
 @st.cache_data(ttl=2)
-def get_kalshi_btc_market():
+def get_coinbase_live():
 
-    url = (
-        "https://external-api.kalshi.com/"
-        "trade-api/v2/markets"
+    r = requests.get(
+        f"{COINBASE_API}/products/BTC-USD/ticker",
+        timeout=6,
+        headers={"User-Agent": "MacalyAlphaV5"}
     )
 
-    response = requests.get(
-        url,
+    r.raise_for_status()
+
+    return float(r.json()["price"])
+
+
+@st.cache_data(ttl=3)
+def get_kalshi_market():
+
+    r = requests.get(
+        f"{KALSHI_API}/markets",
         params={
-            "limit": 100,
+            "series_ticker": "KXBTC15M",
             "status": "open",
-            "series_ticker": "KXBTC15M"
+            "limit": 100
         },
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
-        timeout=10
+        timeout=8,
+        headers={"User-Agent": "MacalyAlphaV5"}
     )
 
-    response.raise_for_status()
+    r.raise_for_status()
 
-    markets = response.json().get(
-        "markets",
-        []
-    )
+    markets = r.json().get("markets", [])
 
     if not markets:
         return None
 
-    markets.sort(
-        key=lambda m: str(
-            m.get("close_time") or "9999"
-        )
-    )
+    now = datetime.now(timezone.utc)
+    future = []
 
-    return markets[0]
+    for market in markets:
+        try:
+
+            close_time = datetime.fromisoformat(
+                str(
+                    market["close_time"]
+                ).replace("Z", "+00:00")
+            )
+
+            if close_time > now:
+                future.append(
+                    (close_time, market)
+                )
+
+        except Exception:
+            pass
+
+    if not future:
+        return markets[0]
+
+    future.sort(key=lambda x: x[0])
+
+    return future[0][1]
 
 
-# =========================================================
-# KALSHI LIVE BTC
-# MISMA REFERENCIA QUE MUESTRA EL EVENTO DE KALSHI
-# =========================================================
+def get_target(market):
 
-def get_event_ticker_from_market(market):
+    if not market:
+        return None
+
+    for key in [
+        "floor_strike",
+        "cap_strike",
+        "strike"
+    ]:
+
+        value = market.get(key)
+
+        if value is not None:
+
+            try:
+                return float(value)
+
+            except Exception:
+                pass
+
+    return None
+
+
+def get_event_ticker(market):
 
     if not market:
         return None
@@ -347,8 +309,6 @@ def get_event_ticker_from_market(market):
     if event_ticker:
         return str(event_ticker)
 
-    # Respaldo por si event_ticker no viniera
-    # explícitamente en la respuesta.
     ticker = market.get("ticker")
 
     if not ticker:
@@ -362,226 +322,145 @@ def get_event_ticker_from_market(market):
     return None
 
 
-def extract_kalshi_btc_price(data):
+def extract_live_number(obj):
 
-    """
-    Extrae el último precio BTC válido del live-data
-    público del evento de Kalshi.
-
-    Kalshi puede cambiar la estructura interna de
-    'details', así que recorremos el JSON sin asumir
-    un único nombre de campo.
-    """
-
-    if not isinstance(data, dict):
-        return None
-
-    live_data = data.get(
-        "live_data",
-        data
-    )
-
-    details = (
-        live_data.get("details", {})
-        if isinstance(live_data, dict)
-        else {}
-    )
-
-    candidates = []
-
-    # -----------------------------------------------------
-    # Primero buscamos campos explícitos de precio.
-    # -----------------------------------------------------
-
-    preferred_keys = {
+    preferred = [
         "price",
         "value",
         "index_value",
-        "indexvalue",
         "current_price",
-        "currentprice",
         "current_value",
-        "currentvalue",
         "last_price",
-        "lastprice",
         "close"
-    }
+    ]
 
-    def walk_preferred(obj):
+    candidates = []
 
-        if isinstance(obj, dict):
+    def walk(x):
 
-            for key, value in obj.items():
+        if isinstance(x, dict):
 
-                normalized_key = (
-                    str(key)
+            normalized = {}
+
+            for k, v in x.items():
+
+                key = (
+                    str(k)
                     .lower()
                     .replace("-", "_")
                 )
 
-                if normalized_key in preferred_keys:
+                normalized[key] = v
+
+            for key in preferred:
+
+                if key in normalized:
 
                     try:
 
-                        number = float(value)
+                        number = float(
+                            normalized[key]
+                        )
 
-                        # BTC razonable; además evita
-                        # probabilidades y timestamps.
                         if 10000 < number < 1000000:
                             candidates.append(number)
 
-                    except (TypeError, ValueError):
+                    except Exception:
                         pass
 
-                walk_preferred(value)
+            for value in x.values():
+                walk(value)
 
-        elif isinstance(obj, list):
+        elif isinstance(x, list):
 
-            for item in obj:
-                walk_preferred(item)
+            for value in x:
+                walk(value)
 
-    walk_preferred(details)
+    walk(obj)
 
     if candidates:
-        return float(candidates[-1])
-
-    # -----------------------------------------------------
-    # Segundo intento:
-    # algunos charts llegan como pares [timestamp, value].
-    # -----------------------------------------------------
-
-    pair_candidates = []
-
-    def walk_pairs(obj):
-
-        if isinstance(obj, list):
-
-            if len(obj) >= 2:
-
-                try:
-
-                    possible_price = float(
-                        obj[-1]
-                    )
-
-                    if (
-                        10000 <
-                        possible_price <
-                        1000000
-                    ):
-                        pair_candidates.append(
-                            possible_price
-                        )
-
-                except (TypeError, ValueError):
-                    pass
-
-            for item in obj:
-                walk_pairs(item)
-
-        elif isinstance(obj, dict):
-
-            for value in obj.values():
-                walk_pairs(value)
-
-    walk_pairs(details)
-
-    if pair_candidates:
-        return float(
-            pair_candidates[-1]
-        )
+        return candidates[-1]
 
     return None
 
 
-def get_kalshi_live_btc(market):
-
-    event_ticker = (
-        get_event_ticker_from_market(
-            market
-        )
-    )
+@st.cache_data(ttl=2)
+def get_kalshi_live_btc_cached(event_ticker):
 
     if not event_ticker:
-        raise ValueError(
-            "La ronda no entregó event_ticker."
-        )
+        return None
 
     url = (
         "https://external-api.kalshi.com/"
-        "trade-api/v2/live_data/events/"
-        f"{event_ticker}"
+        f"trade-api/v2/live_data/events/{event_ticker}"
     )
 
-    response = requests.get(
-        url,
-        params={
-            "range": "15min",
-            "_": int(
-                datetime.now(
-                    timezone.utc
-                ).timestamp()
-            )
-        },
-        headers={
-            "User-Agent": "MacalyAlphaBot/4.6.1",
-            "Cache-Control": "no-cache"
-        },
-        timeout=6
-    )
+    try:
 
-    response.raise_for_status()
-
-    data = response.json()
-
-    price = extract_kalshi_btc_price(
-        data
-    )
-
-    if price is None:
-        raise ValueError(
-            "Kalshi live respondió, pero no "
-            "encontré un precio BTC válido."
+        r = requests.get(
+            url,
+            params={"range": "15min"},
+            timeout=6,
+            headers={
+                "User-Agent": "MacalyAlphaV5",
+                "Cache-Control": "no-cache"
+            }
         )
 
-    return float(price)
+        r.raise_for_status()
+
+        return extract_live_number(
+            r.json()
+        )
+
+    except Exception:
+        return None
+
+
+def get_kalshi_live_btc(market):
+
+    event_ticker = get_event_ticker(
+        market
+    )
+
+    return get_kalshi_live_btc_cached(
+        event_ticker
+    )
 
 
 # =========================================================
-# INDICADORES
+# INDICATORS
 # =========================================================
 
-def add_indicators(df):
+def calculate_indicators(df):
 
     df = df.copy()
 
-    close = df["close"]
+    df["ema9"] = (
+        df["close"]
+        .ewm(span=9, adjust=False)
+        .mean()
+    )
 
-    df["ema9"] = close.ewm(
-        span=9,
-        adjust=False
-    ).mean()
+    df["ema21"] = (
+        df["close"]
+        .ewm(span=21, adjust=False)
+        .mean()
+    )
 
-    df["ema21"] = close.ewm(
-        span=21,
-        adjust=False
-    ).mean()
-
-    delta = close.diff()
+    delta = df["close"].diff()
 
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
 
     avg_gain = gain.ewm(
         alpha=1 / 14,
-        adjust=False,
-        min_periods=14
+        adjust=False
     ).mean()
 
     avg_loss = loss.ewm(
         alpha=1 / 14,
-        adjust=False,
-        min_periods=14
+        adjust=False
     ).mean()
 
     rs = (
@@ -594,121 +473,81 @@ def add_indicators(df):
         (100 / (1 + rs))
     ).fillna(50)
 
-    df["mom3"] = close.pct_change(3) * 100
-    df["mom5"] = close.pct_change(5) * 100
-    df["mom15"] = close.pct_change(15) * 100
+    typical = (
+        df["high"] +
+        df["low"] +
+        df["close"]
+    ) / 3
 
-    avg_volume = (
+    cumulative_volume = (
+        df["volume"].cumsum()
+    )
+
+    df["vwap"] = (
+        (typical * df["volume"]).cumsum()
+        /
+        cumulative_volume.replace(
+            0,
+            np.nan
+        )
+    )
+
+    df["vol_ma20"] = (
         df["volume"]
         .rolling(20)
         .mean()
     )
 
-    df["vol_ratio"] = (
-        df["volume"] /
-        avg_volume.replace(0, np.nan)
-    )
-
     return df
 
 
-# =========================================================
-# TARGET
-# =========================================================
+def dollar_momentum(df, bars):
 
-def get_target_from_market(market):
+    if len(df) <= bars:
+        return 0.0
 
-    if not market:
-        return None
-
-    floor_strike = market.get(
-        "floor_strike"
+    return float(
+        df["close"].iloc[-1]
+        -
+        df["close"].iloc[-1 - bars]
     )
-
-    cap_strike = market.get(
-        "cap_strike"
-    )
-
-    if floor_strike not in [None, ""]:
-
-        try:
-
-            floor_value = float(
-                floor_strike
-            )
-
-            if floor_value > 1000:
-                return floor_value
-
-        except Exception:
-            pass
-
-    if cap_strike not in [None, ""]:
-
-        try:
-
-            cap_value = float(
-                cap_strike
-            )
-
-            if cap_value > 1000:
-                return cap_value
-
-        except Exception:
-            pass
-
-    return None
 
 
 # =========================================================
 # COUNTDOWN
 # =========================================================
 
-def get_seconds_remaining(market):
+def seconds_remaining(market):
 
     if not market:
-        return None
-
-    close_time = market.get(
-        "close_time"
-    )
-
-    if not close_time:
-        return None
+        return 0
 
     try:
 
-        close_dt = datetime.fromisoformat(
-            str(close_time).replace(
-                "Z",
-                "+00:00"
-            )
+        close_time = datetime.fromisoformat(
+            str(
+                market["close_time"]
+            ).replace("Z", "+00:00")
         )
 
         now = datetime.now(
             timezone.utc
         )
 
-        seconds = int(
-            (
-                close_dt -
-                now
-            ).total_seconds()
-        )
-
         return max(
             0,
-            seconds
+            int(
+                (
+                    close_time - now
+                ).total_seconds()
+            )
         )
 
     except Exception:
-        return None
+        return 0
 
 
 def format_countdown(seconds):
-
-    if seconds is None:
-        return "--:--"
 
     minutes = seconds // 60
     secs = seconds % 60
@@ -717,216 +556,59 @@ def format_countdown(seconds):
 
 
 # =========================================================
-# PRECIOS KALSHI
+# MODEL
 # =========================================================
 
-def numeric_kalshi_price(
-    dollar_value,
-    cent_value
-):
-
-    if dollar_value not in [None, ""]:
-
-        try:
-            return float(dollar_value)
-        except Exception:
-            pass
-
-    if cent_value not in [None, ""]:
-
-        try:
-            return float(cent_value) / 100
-        except Exception:
-            pass
-
-    return None
-
-
-def kalshi_price(
-    dollar_value,
-    cent_value
-):
-
-    value = numeric_kalshi_price(
-        dollar_value,
-        cent_value
-    )
-
-    if value is None:
-        return "--"
-
-    return f"${value:.2f}"
-
-
-def get_yes_ask(market):
-
-    if not market:
-        return None
-
-    return numeric_kalshi_price(
-        market.get("yes_ask_dollars"),
-        market.get("yes_ask")
-    )
-
-
-def get_no_ask(market):
-
-    if not market:
-        return None
-
-    direct = numeric_kalshi_price(
-        market.get("no_ask_dollars"),
-        market.get("no_ask")
-    )
-
-    if direct is not None:
-        return direct
-
-    yes_bid = numeric_kalshi_price(
-        market.get("yes_bid_dollars"),
-        market.get("yes_bid")
-    )
-
-    if yes_bid is not None:
-        return max(
-            0.0,
-            min(
-                1.0,
-                1.0 - yes_bid
-            )
-        )
-
-    return None
-
-
-# =========================================================
-# PROBABILIDAD ESTIMADA DEL MOTOR
-# =========================================================
-
-def estimated_probabilities(
-    final_score,
-    distance,
-    seconds_left,
-    mom3,
-    mom5
-):
-
-    score = float(
-        np.clip(
-            final_score,
-            -10,
-            10
-        )
-    )
-
-    up_prob = (
-        50 +
-        score * 4.2
-    )
-
-    if mom3 > 0.04:
-        up_prob += 3
-
-    elif mom3 < -0.04:
-        up_prob -= 3
-
-    if mom5 > 0.06:
-        up_prob += 2
-
-    elif mom5 < -0.06:
-        up_prob -= 2
-
-    if (
-        distance is not None
-        and
-        seconds_left is not None
-        and
-        seconds_left <= 180
-    ):
-
-        if distance > 0:
-            up_prob += 3
-
-        elif distance < 0:
-            up_prob -= 3
-
-    up_prob = float(
-        np.clip(
-            up_prob,
-            5,
-            95
-        )
-    )
-
-    down_prob = 100 - up_prob
-
-    return (
-        round(up_prob),
-        round(down_prob)
-    )
-
-
-# =========================================================
-# MOTOR BASE v4.6
-# =========================================================
-
-def build_signal(
+def build_model(
     df,
+    btc_price,
     target,
-    seconds_left,
-    live_price=None
+    time_left
 ):
 
     last = df.iloc[-1]
 
-    candle_price = float(
-        last["close"]
+    ema9 = float(last["ema9"])
+    ema21 = float(last["ema21"])
+    rsi = float(last["rsi"])
+    vwap = float(last["vwap"])
+
+    mom1 = dollar_momentum(df, 1)
+    mom5 = dollar_momentum(df, 5)
+    mom10 = dollar_momentum(df, 10)
+    mom30 = dollar_momentum(df, 30)
+
+    volume = float(
+        last["volume"]
     )
 
-    if live_price is not None:
-        price = float(live_price)
+    vol_ma = last["vol_ma20"]
+
+    if (
+        pd.isna(vol_ma)
+        or vol_ma <= 0
+    ):
+        volume_ratio = 1.0
+
     else:
-        price = candle_price
-
-    rsi = float(
-        last["rsi"]
-    )
-
-    mom3 = (
-        float(last["mom3"])
-        if pd.notna(last["mom3"])
-        else 0.0
-    )
-
-    mom5 = (
-        float(last["mom5"])
-        if pd.notna(last["mom5"])
-        else 0.0
-    )
-
-    mom15 = (
-        float(last["mom15"])
-        if pd.notna(last["mom15"])
-        else 0.0
-    )
-
-    vol_ratio = (
-        float(last["vol_ratio"])
-        if pd.notna(last["vol_ratio"])
-        else 0.0
-    )
+        volume_ratio = (
+            volume /
+            float(vol_ma)
+        )
 
     technical_score = 0.0
 
-    if last["ema9"] > last["ema21"]:
+    if ema9 > ema21:
+        technical_score += 1.5
 
-        technical_score += 2.0
-        ema_text = "ALCISTA 🚀"
+    elif ema9 < ema21:
+        technical_score -= 1.5
 
-    else:
+    if btc_price > vwap:
+        technical_score += 1.0
 
-        technical_score -= 2.0
-        ema_text = "BAJISTA 🔻"
+    elif btc_price < vwap:
+        technical_score -= 1.0
 
     if rsi >= 55:
         technical_score += 1.0
@@ -934,52 +616,45 @@ def build_signal(
     elif rsi <= 45:
         technical_score -= 1.0
 
-    if mom3 > 0.02:
-        technical_score += 1.25
-
-    elif mom3 < -0.02:
-        technical_score -= 1.25
-
-    if mom5 > 0.03:
-        technical_score += 1.0
-
-    elif mom5 < -0.03:
-        technical_score -= 1.0
-
-    if mom15 > 0.05:
+    if mom1 > 15:
         technical_score += 0.75
 
-    elif mom15 < -0.05:
+    elif mom1 < -15:
         technical_score -= 0.75
 
-    if vol_ratio > 1.20:
+    if mom5 > 30:
+        technical_score += 1.0
 
-        if mom3 > 0:
-            technical_score += 0.50
+    elif mom5 < -30:
+        technical_score -= 1.0
 
-        elif mom3 < 0:
-            technical_score -= 0.50
+    if mom10 > 50:
+        technical_score += 1.0
 
-    # =====================================================
-    # TARGET / TIEMPO
-    # =====================================================
+    elif mom10 < -50:
+        technical_score -= 1.0
 
-    distance = None
-    distance_pct = None
+    if mom30 > 80:
+        technical_score += 0.75
 
+    elif mom30 < -80:
+        technical_score -= 0.75
+
+    if volume_ratio >= 1.25:
+
+        if mom1 > 0:
+            technical_score += 0.5
+
+        elif mom1 < 0:
+            technical_score -= 0.5
+
+    distance = 0.0
     target_score = 0.0
 
     if target is not None:
 
         distance = (
-            price -
-            target
-        )
-
-        distance_pct = (
-            distance /
-            target *
-            100
+            btc_price - target
         )
 
         if distance > 0:
@@ -988,1458 +663,450 @@ def build_signal(
         elif distance < 0:
             target_score -= 2.0
 
-        if seconds_left is not None:
+        abs_distance = abs(
+            distance
+        )
 
-            abs_distance = abs(
-                distance
-            )
+        if time_left <= 60:
+            weight = 3.0
 
-            if seconds_left <= 30:
+        elif time_left <= 180:
+            weight = 2.5
 
-                if distance > 0:
-                    target_score += 4.0
+        elif time_left <= 300:
+            weight = 2.0
 
-                elif distance < 0:
-                    target_score -= 4.0
+        else:
+            weight = 1.25
 
-            elif seconds_left <= 60:
+        if distance > 0:
+            target_score += weight
 
-                if distance > 0:
-                    target_score += 3.0
+        elif distance < 0:
+            target_score -= weight
 
-                elif distance < 0:
-                    target_score -= 3.0
+        if abs_distance < 15:
+            target_score *= 0.55
 
-            elif seconds_left <= 180:
+        elif abs_distance < 30:
+            target_score *= 0.75
 
-                if distance > 0:
-                    target_score += 2.0
-
-                elif distance < 0:
-                    target_score -= 2.0
-
-            elif seconds_left <= 300:
-
-                if distance > 0:
-                    target_score += 1.0
-
-                elif distance < 0:
-                    target_score -= 1.0
-
-            if abs_distance < 10:
-                target_score *= 0.60
-
-            elif abs_distance < 20:
-                target_score *= 0.80
-
-    final_score = (
+    score = (
         technical_score +
         target_score
     )
 
-    if mom3 > 0.02:
-        momentum = "ALCISTA"
+    up_probability = (
+        50 +
+        (score * 6.5)
+    )
 
-    elif mom3 < -0.02:
-        momentum = "BAJISTA"
+    if target is not None:
 
-    else:
-        momentum = "NEUTRAL"
+        distance_boost = np.clip(
+            distance / 15,
+            -15,
+            15
+        )
 
-    up_probability, down_probability = (
-        estimated_probabilities(
-            final_score,
-            distance,
-            seconds_left,
-            mom3,
-            mom5
+        up_probability += (
+            distance_boost
+        )
+
+    up_probability = float(
+        np.clip(
+            up_probability,
+            5,
+            95
         )
     )
 
+    down_probability = (
+        100 -
+        up_probability
+    )
+
+    if score >= UP_THRESHOLD:
+        signal = "UP"
+
+    elif score <= DOWN_THRESHOLD:
+        signal = "DOWN"
+
+    else:
+        signal = "WAIT"
+
+    if mom5 > 0 and mom10 > 0:
+        momentum_bias = "UP"
+
+    elif mom5 < 0 and mom10 < 0:
+        momentum_bias = "DOWN"
+
+    else:
+        momentum_bias = "MIXED"
+
+    projected_move = (
+        mom1 * 0.30 +
+        mom5 * 0.20 +
+        mom10 * 0.10
+    )
+
+    projected_close = (
+        btc_price +
+        projected_move
+    )
+
+    projected_gap = (
+        projected_close - target
+        if target is not None
+        else 0.0
+    )
+
     return {
-        "price": price,
-        "candle_price": candle_price,
-        "rsi": rsi,
-        "mom3": mom3,
-        "mom5": mom5,
-        "mom15": mom15,
-        "vol_ratio": vol_ratio,
-        "ema": ema_text,
+        "signal": signal,
+        "score": score,
         "technical_score": technical_score,
         "target_score": target_score,
-        "final_score": final_score,
-        "distance": distance,
-        "distance_pct": distance_pct,
-        "momentum": momentum,
         "up_probability": up_probability,
-        "down_probability": down_probability
+        "down_probability": down_probability,
+        "distance": distance,
+        "ema9": ema9,
+        "ema21": ema21,
+        "rsi": rsi,
+        "vwap": vwap,
+        "volume_ratio": volume_ratio,
+        "mom1": mom1,
+        "mom5": mom5,
+        "mom10": mom10,
+        "mom30": mom30,
+        "momentum_bias": momentum_bias,
+        "projected_close": projected_close,
+        "projected_gap": projected_gap
     }
 
 
 # =========================================================
-# CALIDAD DE ENTRADA
+# CHART
 # =========================================================
 
-def entry_quality(price, seconds_left):
+def make_chart(df, target):
 
-    if price is None:
+    chart = (
+        df.tail(60)
+        .copy()
+        .set_index("datetime")
+    )
+
+    data = pd.DataFrame({
+        "BTC": chart["close"],
+        "EMA9": chart["ema9"],
+        "EMA21": chart["ema21"],
+        "VWAP": chart["vwap"]
+    })
+
+    if target is not None:
+        data["TARGET"] = target
+
+    return data
+
+
+# =========================================================
+# SMALL HTML HELPERS
+# =========================================================
+
+def render_card(html):
+    st.markdown(
+        html,
+        unsafe_allow_html=True
+    )
+
+
+def momentum_text(value):
+
+    if value > 0:
         return (
-            "PRECIO NO DISPONIBLE",
-            "#94a3b8"
+            f'<span class="green">'
+            f'▲ +${value:,.2f}'
+            f'</span>'
         )
 
-    if (
-        seconds_left is not None
-        and
-        seconds_left <= NEW_ENTRY_LOCK
-    ):
+    elif value < 0:
         return (
-            "TARDE ⏰",
-            "#fb7185"
-        )
-
-    if price <= 0.60:
-        return (
-            "BUENA 🟢",
-            "#34d399"
-        )
-
-    if price <= 0.70:
-        return (
-            "PRECAUCIÓN 🟡",
-            "#fbbf24"
+            f'<span class="red">'
+            f'▼ -${abs(value):,.2f}'
+            f'</span>'
         )
 
     return (
-        "CARA / TARDE 🔴",
-        "#fb7185"
+        '<span class="yellow">'
+        '$0.00'
+        '</span>'
     )
 
 
 # =========================================================
-# CONTROL DE RONDA + SEÑAL
+# DASHBOARD
 # =========================================================
 
-def process_round_signal(
-    ticker,
-    sig,
-    market,
-    seconds_left
-):
+def dashboard():
 
-    now = datetime.now(
-        timezone.utc
+    render_card(
+        """
+<div class="header-box">
+<div class="header-title">⚡ MACALY + ALPHA V5</div>
+</div>
+"""
     )
-
-    if (
-        ticker
-        and
-        ticker != "--"
-        and
-        st.session_state.active_ticker != ticker
-    ):
-
-        st.session_state.active_ticker = ticker
-
-        st.session_state.rounds[ticker] = (
-            new_round_state(
-                ticker,
-                seconds_left
-            )
-        )
-
-    if (
-        not ticker
-        or
-        ticker == "--"
-    ):
-
-        return {
-            "decision": "NO TRADE",
-            "signal": "SIN RONDA",
-            "icon": "⚠️",
-            "color": "#fbbf24",
-            "round_state": None,
-            "reversal": False,
-            "reversal_text": "",
-            "entry_price": None,
-            "entry_quality": "SIN DATOS",
-            "entry_quality_color": "#94a3b8"
-        }
-
-    if ticker not in st.session_state.rounds:
-
-        st.session_state.rounds[ticker] = (
-            new_round_state(
-                ticker,
-                seconds_left
-            )
-        )
-
-    state = st.session_state.rounds[
-        ticker
-    ]
-
-    age = (
-        now -
-        state["detected_at"]
-    ).total_seconds()
-
-    score = sig["final_score"]
-
-    previous_live_price = (
-        state["last_live_price"]
-    )
-
-    state["previous_live_price"] = (
-        previous_live_price
-    )
-
-    state["last_live_price"] = (
-        sig["price"]
-    )
-
-    price_change = 0.0
-
-    if previous_live_price is not None:
-
-        price_change = (
-            sig["price"] -
-            previous_live_price
-        )
-
-    previous_score = (
-        state["last_score"]
-    )
-
-    state["previous_score"] = (
-        previous_score
-    )
-
-    score_change = (
-        score -
-        previous_score
-    )
-
-    state["last_score"] = score
-
-    if age < NEW_ROUND_WAIT:
-
-        state["reversal_warning"] = False
-        state["reversal_text"] = ""
-
-        return {
-            "decision": "ANALIZANDO NUEVA RONDA",
-            "signal": "ESPERANDO CONFIRMACIÓN",
-            "icon": "⏳",
-            "color": "#38bdf8",
-            "round_state": state,
-            "reversal": False,
-            "reversal_text": "",
-            "entry_price": None,
-            "entry_quality": "ESPERANDO",
-            "entry_quality_color": "#38bdf8"
-        }
-
-    lock_new_entries = (
-        seconds_left is not None
-        and
-        seconds_left <= NEW_ENTRY_LOCK
-    )
-
-    candidate = None
-
-    if score >= UP_THRESHOLD:
-        candidate = "UP"
-
-    elif score <= DOWN_THRESHOLD:
-        candidate = "DOWN"
-
-    if (
-        state["active_direction"] is None
-        and
-        candidate is not None
-        and
-        not lock_new_entries
-    ):
-
-        direction_price = (
-            get_yes_ask(market)
-            if candidate == "UP"
-            else get_no_ask(market)
-        )
-
-        state["active_direction"] = (
-            candidate
-        )
-
-        state["active_since"] = now
-
-        state["first_direction"] = (
-            candidate
-        )
-
-        state["first_signal_time"] = (
-            now
-        )
-
-        state["first_signal_seconds"] = (
-            seconds_left
-        )
-
-        state["first_signal_price"] = (
-            direction_price
-        )
-
-        state["opposite_count"] = 0
-
-    active = state[
-        "active_direction"
-    ]
-
-    reversal = False
-    reversal_text = ""
-
-    if active == "UP":
-
-        weakness_points = 0
-
-        if score < 3:
-            weakness_points += 1
-
-        if score_change <= -1.25:
-            weakness_points += 1
-
-        if sig["mom3"] < -0.02:
-            weakness_points += 1
-
-        if sig["mom5"] < 0:
-            weakness_points += 1
-
-        if price_change < -8:
-            weakness_points += 1
-
-        if (
-            sig["distance"] is not None
-            and
-            seconds_left is not None
-            and
-            seconds_left <= 180
-            and
-            sig["distance"] < 25
-            and
-            price_change < 0
-        ):
-            weakness_points += 1
-
-        if weakness_points >= 2:
-
-            reversal = True
-            reversal_text = (
-                "UP PERDIENDO FUERZA • "
-                "POSIBLE REVERSIÓN A DOWN"
-            )
-
-    elif active == "DOWN":
-
-        weakness_points = 0
-
-        if score > -3:
-            weakness_points += 1
-
-        if score_change >= 1.25:
-            weakness_points += 1
-
-        if sig["mom3"] > 0.02:
-            weakness_points += 1
-
-        if sig["mom5"] > 0:
-            weakness_points += 1
-
-        if price_change > 8:
-            weakness_points += 1
-
-        if (
-            sig["distance"] is not None
-            and
-            seconds_left is not None
-            and
-            seconds_left <= 180
-            and
-            sig["distance"] > -25
-            and
-            price_change > 0
-        ):
-            weakness_points += 1
-
-        if weakness_points >= 2:
-
-            reversal = True
-            reversal_text = (
-                "DOWN PERDIENDO FUERZA • "
-                "POSIBLE REBOTE A UP"
-            )
-
-    state["reversal_warning"] = (
-        reversal
-    )
-
-    state["reversal_text"] = (
-        reversal_text
-    )
-
-    if active == "UP":
-
-        if (
-            score <= FLIP_DOWN_THRESHOLD
-            and
-            sig["mom3"] < 0
-        ):
-
-            state["opposite_count"] += 1
-
-        else:
-
-            state["opposite_count"] = 0
-
-        if (
-            state["opposite_count"]
-            >= FLIP_CONFIRMATIONS
-        ):
-
-            if not lock_new_entries:
-
-                state["active_direction"] = (
-                    "DOWN"
-                )
-
-                state["active_since"] = now
-
-            state["opposite_count"] = 0
-
-    elif active == "DOWN":
-
-        if (
-            score >= FLIP_UP_THRESHOLD
-            and
-            sig["mom3"] > 0
-        ):
-
-            state["opposite_count"] += 1
-
-        else:
-
-            state["opposite_count"] = 0
-
-        if (
-            state["opposite_count"]
-            >= FLIP_CONFIRMATIONS
-        ):
-
-            if not lock_new_entries:
-
-                state["active_direction"] = (
-                    "UP"
-                )
-
-                state["active_since"] = now
-
-            state["opposite_count"] = 0
-
-    active = state[
-        "active_direction"
-    ]
-
-    if active == "UP":
-
-        decision = "POSIBLE UP"
-        signal = "SEÑAL UP"
-        icon = "🚀"
-        color = "#34d399"
-
-        current_entry_price = (
-            get_yes_ask(market)
-        )
-
-    elif active == "DOWN":
-
-        decision = "POSIBLE DOWN"
-        signal = "SEÑAL DOWN"
-        icon = "🔻"
-        color = "#fb7185"
-
-        current_entry_price = (
-            get_no_ask(market)
-        )
-
-    else:
-
-        current_entry_price = None
-
-        if lock_new_entries:
-
-            decision = "NO NUEVA ENTRADA"
-            signal = "FINAL DE RONDA"
-            icon = "⏰"
-            color = "#fbbf24"
-
-        else:
-
-            decision = "NO TRADE"
-            signal = "ESPERAR"
-            icon = "⚪"
-            color = "#fbbf24"
-
-    quality, quality_color = (
-        entry_quality(
-            current_entry_price,
-            seconds_left
-        )
-    )
-
-    return {
-        "decision": decision,
-        "signal": signal,
-        "icon": icon,
-        "color": color,
-        "round_state": state,
-        "reversal": reversal,
-        "reversal_text": reversal_text,
-        "entry_price": current_entry_price,
-        "entry_quality": quality,
-        "entry_quality_color": quality_color
-    }
-
-
-# =========================================================
-# TÍTULO
-# =========================================================
-
-st.markdown(
-    '<div class="bot-title">'
-    '⚡ MACALY + ALPHA BOT • v4.6.1'
-    '</div>',
-    unsafe_allow_html=True
-)
-
-
-# =========================================================
-# DASHBOARD LIVE
-# =========================================================
-
-@st.fragment(run_every="2s")
-def live_dashboard():
-
-    btc_error = ""
-    live_price_error = ""
-    kalshi_error = ""
-    kalshi_live_error = ""
-
-    # =====================================================
-    # BTC VELAS COINBASE
-    # =====================================================
 
     try:
 
-        btc_df = get_btc_data()
-
-        btc_df = add_indicators(
-            btc_df
+        df = calculate_indicators(
+            get_candles()
         )
 
-        btc_ok = True
+        market = get_kalshi_market()
 
-    except Exception as error:
-
-        btc_ok = False
-        btc_error = str(error)
-        btc_df = None
-
-    # =====================================================
-    # KALSHI MARKET
-    # IMPORTANTE: LO CARGAMOS ANTES DEL BTC LIVE
-    # =====================================================
-
-    try:
-
-        market = get_kalshi_btc_market()
-
-        kalshi_ok = (
-            market is not None
-        )
-
-    except Exception as error:
-
-        kalshi_ok = False
-        kalshi_error = str(error)
-        market = None
-
-    # =====================================================
-    # COINBASE LIVE = RESPALDO
-    # =====================================================
-
-    try:
-
-        coinbase_live_price = (
-            get_btc_live_price()
-        )
-
-        coinbase_live_ok = True
-
-    except Exception as error:
-
-        coinbase_live_ok = False
-        live_price_error = str(error)
-
-        if btc_ok:
-
-            coinbase_live_price = float(
-                btc_df.iloc[-1]["close"]
-            )
-
-        else:
-
-            coinbase_live_price = None
-
-    # =====================================================
-    # KALSHI LIVE BTC = FUENTE PRINCIPAL
-    # =====================================================
-
-    kalshi_live_price = None
-    kalshi_live_ok = False
-
-    if market:
-
-        try:
-
-            kalshi_live_price = (
-                get_kalshi_live_btc(
-                    market
-                )
-            )
-
-            kalshi_live_ok = True
-
-        except Exception as error:
-
-            kalshi_live_error = str(
-                error
-            )
-
-    # Si Kalshi live funciona, usamos ese.
-    # Si falla, el bot sigue vivo con Coinbase.
-
-    if kalshi_live_price is not None:
-
-        live_btc_price = (
-            kalshi_live_price
-        )
-
-        btc_reference_text = (
-            "KALSHI LIVE 🟢"
-        )
-
-    else:
-
-        live_btc_price = (
-            coinbase_live_price
-        )
-
-        if coinbase_live_ok:
-
-            btc_reference_text = (
-                "COINBASE FALLBACK 🟡"
-            )
-
-        elif live_btc_price is not None:
-
-            btc_reference_text = (
-                "ÚLTIMA VELA 🟡"
-            )
-
-        else:
-
-            btc_reference_text = (
-                "SIN DATOS 🔴"
-            )
-
-    # =====================================================
-    # MARKET INFO
-    # =====================================================
-
-    if market:
-
-        ticker = market.get(
-            "ticker",
-            "--"
-        )
-
-        target = get_target_from_market(
+        target = get_target(
             market
         )
 
-        seconds_left = (
-            get_seconds_remaining(
+        coinbase_price = (
+            get_coinbase_live()
+        )
+
+        kalshi_price = (
+            get_kalshi_live_btc(
                 market
             )
         )
 
-        countdown = (
-            format_countdown(
-                seconds_left
+        if kalshi_price is not None:
+
+            btc_price = kalshi_price
+            source = "KALSHI LIVE 🟢"
+
+        else:
+
+            btc_price = coinbase_price
+            source = "COINBASE LIVE 🟡"
+
+        time_left = (
+            seconds_remaining(
+                market
             )
         )
 
-        yes_bid_display = kalshi_price(
-            market.get("yes_bid_dollars"),
-            market.get("yes_bid")
-        )
-
-        yes_ask_display = kalshi_price(
-            market.get("yes_ask_dollars"),
-            market.get("yes_ask")
-        )
-
-        no_ask_display = kalshi_price(
-            market.get("no_ask_dollars"),
-            market.get("no_ask")
-        )
-
-        last_display = kalshi_price(
-            market.get("last_price_dollars"),
-            market.get("last_price")
-        )
-
-    else:
-
-        ticker = "--"
-        target = None
-        seconds_left = None
-        countdown = "--:--"
-
-        yes_bid_display = "--"
-        yes_ask_display = "--"
-        no_ask_display = "--"
-        last_display = "--"
-
-    # =====================================================
-    # MOTOR
-    # =====================================================
-
-    if btc_ok:
-
-        sig = build_signal(
-            btc_df,
+        model = build_model(
+            df,
+            btc_price,
             target,
-            seconds_left,
-            live_btc_price
+            time_left
         )
 
-    else:
+        signal = model["signal"]
 
-        sig = {
-            "price": (
-                live_btc_price
-                if live_btc_price is not None
-                else 0
-            ),
-            "candle_price": 0,
-            "rsi": 50,
-            "mom3": 0,
-            "mom5": 0,
-            "mom15": 0,
-            "vol_ratio": 0,
-            "ema": "SIN DATOS",
-            "technical_score": 0,
-            "target_score": 0,
-            "final_score": 0,
-            "distance": None,
-            "distance_pct": None,
-            "momentum": "NEUTRAL",
-            "up_probability": 50,
-            "down_probability": 50
-        }
+        if signal == "UP":
 
-    round_signal = process_round_signal(
-        ticker,
-        sig,
-        market,
-        seconds_left
-    )
-
-    # =====================================================
-    # PRINCIPAL
-    # =====================================================
-
-    main_html = (
-        '<div class="bot-card" style="text-align:center;">'
-
-        '<div class="bot-label">'
-        'BITCOIN • KALSHI 15 MIN'
-        '</div>'
-
-        f'<div style="font-size:30px;font-weight:900;'
-        f'color:{round_signal["color"]};">'
-        f'{round_signal["icon"]} '
-        f'{round_signal["decision"]}'
-        '</div>'
-
-        f'<div style="font-size:19px;margin-top:8px;'
-        f'color:#e2e8f0;">'
-        f'BTC ${sig["price"]:,.2f}'
-        '</div>'
-
-        '</div>'
-    )
-
-    st.markdown(
-        main_html,
-        unsafe_allow_html=True
-    )
-
-    # =====================================================
-    # PROBABILIDAD
-    # =====================================================
-
-    probability_html = (
-        '<div class="bot-card">'
-
-        '<div class="bot-label">'
-        'PROBABILIDAD ESTIMADA'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">🚀 UP</span>'
-        '<span class="bot-right" '
-        'style="color:#34d399;">'
-        f'{sig["up_probability"]}%'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">🔻 DOWN</span>'
-        '<span class="bot-right" '
-        'style="color:#fb7185;">'
-        f'{sig["down_probability"]}%'
-        '</span>'
-        '</div>'
-
-        '<div class="small-note" '
-        'style="margin-top:12px;">'
-        'Estimación interna del motor • '
-        'no representa certeza de resultado'
-        '</div>'
-
-        '</div>'
-    )
-
-    st.markdown(
-        probability_html,
-        unsafe_allow_html=True
-    )
-
-    # =====================================================
-    # REVERSIÓN
-    # =====================================================
-
-    if round_signal["reversal"]:
-
-        st.markdown(
-            '<div class="warning-box">'
-            '⚠️ POSIBLE REVERSIÓN / REBOTE'
-            '<br><br>'
-            f'{round_signal["reversal_text"]}'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-    # =====================================================
-    # TARGET / DISTANCIA
-    # =====================================================
-
-    if target is not None:
-
-        target_text = (
-            f"${target:,.2f}"
-        )
-
-    else:
-
-        target_text = (
-            "NO DISPONIBLE"
-        )
-
-    if sig["distance"] is not None:
-
-        distance = sig["distance"]
-
-        if distance > 0:
-
-            distance_text = (
-                f"+${abs(distance):,.2f} ARRIBA"
+            signal_html = (
+                '<div class="signal-up">'
+                '🚀 POSIBLE UP'
+                '</div>'
             )
 
-            distance_color = (
-                "#34d399"
-            )
+        elif signal == "DOWN":
 
-        elif distance < 0:
-
-            distance_text = (
-                f"-${abs(distance):,.2f} ABAJO"
-            )
-
-            distance_color = (
-                "#fb7185"
+            signal_html = (
+                '<div class="signal-down">'
+                '🔻 POSIBLE DOWN'
+                '</div>'
             )
 
         else:
 
-            distance_text = "$0.00"
-            distance_color = "#fbbf24"
-
-    else:
-
-        distance_text = "--"
-        distance_color = "#94a3b8"
-
-    target_html = (
-        '<div class="bot-card">'
-
-        '<div class="bot-label">'
-        'RONDA ACTUAL'
-        '</div>'
-
-        '<div class="round-box">'
-        f'{ticker}'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">Target</span>'
-        f'<span class="bot-right">{target_text}</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">BTC actual</span>'
-        f'<span class="bot-right">'
-        f'${sig["price"]:,.2f}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">Fuente BTC</span>'
-        f'<span class="bot-right">'
-        f'{btc_reference_text}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">Distancia</span>'
-        f'<span class="bot-right" '
-        f'style="color:{distance_color};">'
-        f'{distance_text}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'Tiempo restante'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{countdown}'
-        '</span>'
-        '</div>'
-
-        '</div>'
-    )
-
-    st.markdown(
-        target_html,
-        unsafe_allow_html=True
-    )
-
-    # =====================================================
-    # SEÑAL DE ESTA RONDA
-    # =====================================================
-
-    state = round_signal[
-        "round_state"
-    ]
-
-    if state:
-
-        if (
-            state["first_signal_time"]
-            is not None
-        ):
-
-            signal_time_text = (
-                state[
-                    "first_signal_time"
-                ]
-                .astimezone()
-                .strftime("%H:%M:%S")
+            signal_html = (
+                '<div class="signal-wait">'
+                '⏳ ESPERAR'
+                '</div>'
             )
 
-        else:
+        render_card(
+            f"""
+<div class="card">
+<div class="card-title">BTC • KALSHI 15 MIN</div>
+{signal_html}
+<div style="text-align:center;font-size:25px;margin-top:14px;">
+BTC ${btc_price:,.2f}
+</div>
+</div>
+"""
+        )
 
-            signal_time_text = "--"
+        # =================================================
+        # PROBABILITY
+        # =================================================
 
-        if (
-            state["first_signal_seconds"]
-            is not None
-        ):
+        render_card(
+            f"""
+<div class="card">
+<div class="card-title">PROBABILIDAD ESTIMADA</div>
+<div class="row"><span class="label">🚀 UP</span><span class="prob green">{model["up_probability"]:.0f}%</span></div>
+<div class="row"><span class="label">🔻 DOWN</span><span class="prob red">{model["down_probability"]:.0f}%</span></div>
+<div class="disclaimer">Estimación interna del modelo. No representa certeza de resultado.</div>
+</div>
+"""
+        )
 
-            signal_seconds_text = (
-                format_countdown(
-                    state[
-                        "first_signal_seconds"
-                    ]
+        # =================================================
+        # ROUND
+        # =================================================
+
+        ticker = (
+            market.get(
+                "ticker",
+                "N/A"
+            )
+            if market
+            else "N/A"
+        )
+
+        if target is not None:
+
+            target_text = (
+                f"${target:,.2f}"
+            )
+
+            if model["distance"] >= 0:
+
+                distance_text = (
+                    f'+${model["distance"]:,.2f} ARRIBA'
                 )
-            )
+
+                distance_class = "green"
+
+            else:
+
+                distance_text = (
+                    f'-${abs(model["distance"]):,.2f} ABAJO'
+                )
+
+                distance_class = "red"
 
         else:
 
-            signal_seconds_text = "--:--"
+            target_text = "N/A"
+            distance_text = "N/A"
+            distance_class = "yellow"
 
-        if (
-            state["first_signal_price"]
-            is not None
-        ):
-
-            first_price_text = (
-                f'${state["first_signal_price"]:.2f}'
-            )
-
-        else:
-
-            first_price_text = "--"
-
-        first_direction = (
-            state["first_direction"]
-            if state["first_direction"]
-            else "NINGUNA"
+        render_card(
+            f"""
+<div class="card">
+<div class="card-title">RONDA ACTUAL</div>
+<div style="text-align:center;border:1px solid #35bdf4;border-radius:14px;padding:12px;margin-bottom:15px;color:#79d7ff;font-weight:800;">{ticker}</div>
+<div class="row"><span class="label">Target</span><span class="value">{target_text}</span></div>
+<div class="row"><span class="label">BTC referencia</span><span class="value">${btc_price:,.2f}</span></div>
+<div class="row"><span class="label">Fuente BTC</span><span class="value">{source}</span></div>
+<div class="row"><span class="label">Distancia</span><span class="value {distance_class}">{distance_text}</span></div>
+<div class="row"><span class="label">Tiempo restante</span><span class="value">{format_countdown(time_left)}</span></div>
+</div>
+"""
         )
 
-        active_direction = (
-            state["active_direction"]
-            if state["active_direction"]
-            else "ESPERANDO"
+        # =================================================
+        # MOMENTUM
+        # =================================================
+
+        render_card(
+            f"""
+<div class="card">
+<div class="card-title">⚡ IMPULSO A CORTO PLAZO</div>
+
+<div class="momentum-grid">
+
+<div class="momentum-box">
+<div class="small-label">1M</div>
+<div class="big-number">{momentum_text(model["mom1"])}</div>
+</div>
+
+<div class="momentum-box">
+<div class="small-label">5M</div>
+<div class="big-number">{momentum_text(model["mom5"])}</div>
+</div>
+
+<div class="momentum-box">
+<div class="small-label">10M</div>
+<div class="big-number">{momentum_text(model["mom10"])}</div>
+</div>
+
+<div class="momentum-box">
+<div class="small-label">30M</div>
+<div class="big-number">{momentum_text(model["mom30"])}</div>
+</div>
+
+</div>
+
+<div class="row"><span class="label">Momentum bias</span><span class="value">{model["momentum_bias"]}</span></div>
+<div class="row"><span class="label">Projected close</span><span class="value">${model["projected_close"]:,.2f}</span></div>
+<div class="row"><span class="label">Projected gap</span><span class="value">${model["projected_gap"]:,.2f}</span></div>
+</div>
+"""
         )
 
-        history_html = (
-            '<div class="bot-card">'
+        # =================================================
+        # INDICATORS
+        # =================================================
 
-            '<div class="bot-label">'
-            'SEÑAL DE ESTA RONDA'
-            '</div>'
-
-            '<div class="bot-row">'
-            '<span class="bot-left">'
-            'Primera señal'
-            '</span>'
-            f'<span class="bot-right">'
-            f'{first_direction}'
-            '</span>'
-            '</div>'
-
-            '<div class="bot-row">'
-            '<span class="bot-left">'
-            'Generada'
-            '</span>'
-            f'<span class="bot-right">'
-            f'{signal_time_text}'
-            '</span>'
-            '</div>'
-
-            '<div class="bot-row">'
-            '<span class="bot-left">'
-            'Tiempo restante al aparecer'
-            '</span>'
-            f'<span class="bot-right">'
-            f'{signal_seconds_text}'
-            '</span>'
-            '</div>'
-
-            '<div class="bot-row">'
-            '<span class="bot-left">'
-            'Kalshi al aparecer'
-            '</span>'
-            f'<span class="bot-right">'
-            f'{first_price_text}'
-            '</span>'
-            '</div>'
-
-            '<div class="bot-row">'
-            '<span class="bot-left">'
-            'Estado actual'
-            '</span>'
-            f'<span class="bot-right">'
-            f'{active_direction}'
-            '</span>'
-            '</div>'
-
-            '</div>'
+        render_card(
+            f"""
+<div class="card">
+<div class="card-title">INDICADORES</div>
+<div class="row"><span class="label">EMA9</span><span class="value">${model["ema9"]:,.2f}</span></div>
+<div class="row"><span class="label">EMA21</span><span class="value">${model["ema21"]:,.2f}</span></div>
+<div class="row"><span class="label">VWAP</span><span class="value">${model["vwap"]:,.2f}</span></div>
+<div class="row"><span class="label">RSI 14</span><span class="value">{model["rsi"]:.1f}</span></div>
+<div class="row"><span class="label">Volume ratio</span><span class="value">{model["volume_ratio"]:.2f}x</span></div>
+<div class="row"><span class="label">Score técnico</span><span class="value">{model["technical_score"]:+.2f}</span></div>
+<div class="row"><span class="label">Score target</span><span class="value">{model["target_score"]:+.2f}</span></div>
+<div class="row"><span class="label">Score total</span><span class="value">{model["score"]:+.2f}</span></div>
+</div>
+"""
         )
+
+        # =================================================
+        # CHART
+        # =================================================
 
         st.markdown(
-            history_html,
-            unsafe_allow_html=True
+            "### 📈 GRÁFICA BTC + INDICADORES"
         )
 
-    # =====================================================
-    # CALIDAD DE ENTRADA ACTUAL
-    # =====================================================
-
-    if round_signal[
-        "entry_price"
-    ] is not None:
-
-        entry_price_text = (
-            f'${round_signal["entry_price"]:.2f}'
+        chart_data = make_chart(
+            df,
+            target
         )
 
-    else:
-
-        entry_price_text = "--"
-
-    entry_html = (
-        '<div class="bot-card">'
-
-        '<div class="bot-label">'
-        'ENTRADA ACTUAL'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'Precio contrato'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{entry_price_text}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'Calidad'
-        '</span>'
-        f'<span class="bot-right" '
-        f'style="color:'
-        f'{round_signal["entry_quality_color"]};">'
-        f'{round_signal["entry_quality"]}'
-        '</span>'
-        '</div>'
-
-        '</div>'
-    )
-
-    st.markdown(
-        entry_html,
-        unsafe_allow_html=True
-    )
-
-    # =====================================================
-    # KALSHI
-    # =====================================================
-
-    kalshi_status = (
-        "CONECTADO 🟢"
-        if kalshi_ok
-        else
-        "SIN MERCADO ⚠️"
-    )
-
-    kalshi_html = (
-        '<div class="bot-card">'
-
-        '<div class="bot-label">'
-        'KALSHI • BTC 15 MIN'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">Ticker</span>'
-        f'<span class="bot-right">'
-        f'{ticker}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'YES bid'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{yes_bid_display}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'YES ask'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{yes_ask_display}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'NO ask'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{no_ask_display}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'Último'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{last_display}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'API Kalshi'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{kalshi_status}'
-        '</span>'
-        '</div>'
-
-        '</div>'
-    )
-
-    st.markdown(
-        kalshi_html,
-        unsafe_allow_html=True
-    )
-
-    # =====================================================
-    # INDICADORES
-    # =====================================================
-
-    if kalshi_live_ok:
-
-        live_status = (
-            "KALSHI LIVE 🟢"
+        st.line_chart(
+            chart_data,
+            height=380,
+            use_container_width=True
         )
 
-    elif coinbase_live_ok:
-
-        live_status = (
-            "COINBASE FALLBACK 🟡"
+        st.caption(
+            "BTC + EMA9 + EMA21 + VWAP + target de la ronda."
         )
 
-    else:
-
-        live_status = (
-            "FALLBACK VELA 🟡"
-        )
-
-    indicators_html = (
-        '<div class="bot-card">'
-
-        '<div class="bot-label">'
-        'ANÁLISIS TÉCNICO'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'EMA 9 / 21'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{sig["ema"]}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'RSI 14'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{sig["rsi"]:.1f}'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'Momentum 3m'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{sig["mom3"]:+.3f}%'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'Momentum 5m'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{sig["mom5"]:+.3f}%'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'Momentum 15m'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{sig["mom15"]:+.3f}%'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'Volumen'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{sig["vol_ratio"]:.2f}x'
-        '</span>'
-        '</div>'
-
-        '<div class="bot-row">'
-        '<span class="bot-left">'
-        'BTC referencia'
-        '</span>'
-        f'<span class="bot-right">'
-        f'{live_status}'
-        '</span>'
-        '</div>'
-
-        '</div>'
-    )
-
-    st.markdown(
-        indicators_html,
-        unsafe_allow_html=True
-    )
-
-    # =====================================================
-    # DECISIÓN DEL MOTOR
-    # =====================================================
-
-    decision_html = (
-        '<div class="bot-card" '
-        'style="text-align:center;">'
-
-        '<div class="bot-label">'
-        'DECISIÓN DEL MOTOR'
-        '</div>'
-
-        f'<div style="font-size:27px;'
-        f'font-weight:900;'
-        f'color:{round_signal["color"]};">'
-        f'{round_signal["signal"]}'
-        '</div>'
-
-        '<div style="margin-top:12px;'
-        'color:#94a3b8;">'
-
-        f'Score técnico: '
-        f'{sig["technical_score"]:.2f}'
-
-        '<br>'
-
-        f'Score target/tiempo: '
-        f'{sig["target_score"]:.2f}'
-
-        '<br>'
-
-        f'Score combinado: '
-        f'{sig["final_score"]:.2f}'
-
-        '</div>'
-
-        '<div class="small-note" '
-        'style="margin-top:16px;">'
-
-        'Cada ticker = una ronda independiente'
-        '<br>'
-
-        'Nueva ronda requiere confirmación'
-        '<br>'
-
-        'No crea nuevas entradas en los '
-        'últimos 75 segundos'
-        '<br>'
-
-        'BTC live / distancia cada ~2 segundos 🔄'
-        '<br>'
-
-        'BTC referencia: Kalshi live'
-        '<br>'
-
-        'Coinbase: velas e indicadores'
-        '<br>'
-
-        'Probabilidades = estimación del motor'
-        '<br>'
-
-        'Modo análisis / paper'
-        '<br>'
-
-        'No envía órdenes reales'
-
-        '</div>'
-
-        '</div>'
-    )
-
-    st.markdown(
-        decision_html,
-        unsafe_allow_html=True
-    )
-
-    # =====================================================
-    # ERRORES
-    # =====================================================
-
-    if target is None and kalshi_ok:
-
-        st.warning(
-            "Kalshi está conectado, pero esta ronda no "
-            "entregó un strike numérico utilizable como "
-            "target. El bot NO inventará uno."
-        )
-
-    if btc_error:
+    except Exception as e:
 
         st.error(
-            "Error Coinbase velas: " +
-            btc_error
-        )
-
-    if live_price_error:
-
-        st.warning(
-            "Ticker Coinbase live falló temporalmente: " +
-            live_price_error
-        )
-
-    if (
-        kalshi_live_error
-        and
-        coinbase_live_price is not None
-    ):
-
-        st.warning(
-            "Kalshi BTC live no estuvo disponible. "
-            "Usando Coinbase como respaldo. Detalle: " +
-            kalshi_live_error
-        )
-
-    if kalshi_error:
-
-        st.error(
-            "Error Kalshi: " +
-            kalshi_error
+            f"Error cargando datos: {e}"
         )
 
 
 # =========================================================
-# INICIAR
+# AUTO REFRESH
 # =========================================================
+
+@st.fragment(run_every=2)
+def live_dashboard():
+    dashboard()
+
 
 live_dashboard()
