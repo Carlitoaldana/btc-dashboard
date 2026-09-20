@@ -108,6 +108,7 @@ header{visibility:hidden}
     border-radius:14px;
     padding:14px;
     margin-top:12px;
+    margin-bottom:12px;
     color:#fbbf24;
     text-align:center;
     font-weight:800;
@@ -122,7 +123,6 @@ header{visibility:hidden}
 defaults = {
     "rounds": {},
     "active_ticker": None,
-
     "auto_paper_enabled": True,
     "auto_paper_amount": 1,
     "auto_paper_entries": {},
@@ -140,22 +140,17 @@ def new_round_state(ticker, seconds_left):
         "ticker": ticker,
         "detected_at": datetime.now(timezone.utc),
         "detected_seconds_left": seconds_left,
-
         "first_direction": None,
         "first_signal_time": None,
         "first_signal_seconds": None,
         "first_signal_price": None,
-
         "active_direction": None,
         "active_since": None,
-
         "last_score": 0.0,
         "previous_score": 0.0,
         "opposite_count": 0,
-
         "last_live_price": None,
         "previous_live_price": None,
-
         "reversal_warning": False,
         "reversal_text": ""
     }
@@ -180,33 +175,15 @@ def get_btc_data():
     data = r.json()
 
     if not isinstance(data, list) or len(data) < 30:
-        raise ValueError(
-            "Coinbase no devolvió suficientes datos."
-        )
+        raise ValueError("Coinbase no devolvió suficientes datos.")
 
     df = pd.DataFrame(
         data,
-        columns=[
-            "time",
-            "low",
-            "high",
-            "open",
-            "close",
-            "volume"
-        ]
+        columns=["time", "low", "high", "open", "close", "volume"]
     )
 
-    for c in [
-        "low",
-        "high",
-        "open",
-        "close",
-        "volume"
-    ]:
-        df[c] = pd.to_numeric(
-            df[c],
-            errors="coerce"
-        )
+    for c in ["low", "high", "open", "close", "volume"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
 
     df["time"] = pd.to_datetime(
         df["time"],
@@ -231,11 +208,7 @@ def get_btc_live_price():
             "Cache-Control": "no-cache"
         },
         params={
-            "_": int(
-                datetime.now(
-                    timezone.utc
-                ).timestamp()
-            )
+            "_": int(datetime.now(timezone.utc).timestamp())
         },
         timeout=6
     )
@@ -245,9 +218,7 @@ def get_btc_live_price():
     p = r.json().get("price")
 
     if p in [None, ""]:
-        raise ValueError(
-            "Coinbase ticker no devolvió precio."
-        )
+        raise ValueError("Coinbase ticker no devolvió precio.")
 
     return float(p)
 
@@ -266,27 +237,19 @@ def get_kalshi_btc_market():
             "status": "open",
             "series_ticker": "KXBTC15M"
         },
-        headers={
-            "User-Agent": "MacalyAlphaBot/4.6.1"
-        },
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
         timeout=10
     )
 
     r.raise_for_status()
 
-    markets = r.json().get(
-        "markets",
-        []
-    )
+    markets = r.json().get("markets", [])
 
     if not markets:
         return None
 
     markets.sort(
-        key=lambda m: str(
-            m.get("close_time")
-            or "9999"
-        )
+        key=lambda m: str(m.get("close_time") or "9999")
     )
 
     return markets[0]
@@ -298,9 +261,7 @@ def get_event_ticker_from_market(market):
         return None
 
     if market.get("event_ticker"):
-        return str(
-            market["event_ticker"]
-        )
+        return str(market["event_ticker"])
 
     ticker = market.get("ticker")
 
@@ -310,9 +271,7 @@ def get_event_ticker_from_market(market):
     parts = str(ticker).split("-")
 
     if len(parts) >= 2:
-        return "-".join(
-            parts[:-1]
-        )
+        return "-".join(parts[:-1])
 
     return None
 
@@ -322,10 +281,7 @@ def extract_kalshi_btc_price(data):
     if not isinstance(data, dict):
         return None
 
-    live = data.get(
-        "live_data",
-        data
-    )
+    live = data.get("live_data", data)
 
     details = (
         live.get("details", {})
@@ -355,11 +311,7 @@ def extract_kalshi_btc_price(data):
 
             for k, v in o.items():
 
-                nk = (
-                    str(k)
-                    .lower()
-                    .replace("-", "_")
-                )
+                nk = str(k).lower().replace("-", "_")
 
                 if nk in preferred:
 
@@ -369,10 +321,7 @@ def extract_kalshi_btc_price(data):
                         if 10000 < n < 1000000:
                             found.append(n)
 
-                    except (
-                        TypeError,
-                        ValueError
-                    ):
+                    except (TypeError, ValueError):
                         pass
 
                 walk(v)
@@ -385,9 +334,7 @@ def extract_kalshi_btc_price(data):
     walk(details)
 
     if found:
-        return float(
-            found[-1]
-        )
+        return float(found[-1])
 
     pairs = []
 
@@ -403,10 +350,7 @@ def extract_kalshi_btc_price(data):
                     if 10000 < n < 1000000:
                         pairs.append(n)
 
-                except (
-                    TypeError,
-                    ValueError
-                ):
+                except (TypeError, ValueError):
                     pass
 
             for x in o:
@@ -420,33 +364,23 @@ def extract_kalshi_btc_price(data):
     walk_pairs(details)
 
     if pairs:
-        return float(
-            pairs[-1]
-        )
+        return float(pairs[-1])
 
     return None
 
 
 def get_kalshi_live_btc(market):
 
-    event = get_event_ticker_from_market(
-        market
-    )
+    event = get_event_ticker_from_market(market)
 
     if not event:
-        raise ValueError(
-            "La ronda no entregó event_ticker."
-        )
+        raise ValueError("La ronda no entregó event_ticker.")
 
     r = requests.get(
         f"https://external-api.kalshi.com/trade-api/v2/live_data/events/{event}",
         params={
             "range": "15min",
-            "_": int(
-                datetime.now(
-                    timezone.utc
-                ).timestamp()
-            )
+            "_": int(datetime.now(timezone.utc).timestamp())
         },
         headers={
             "User-Agent": "MacalyAlphaBot/4.6.1",
@@ -457,9 +391,7 @@ def get_kalshi_live_btc(market):
 
     r.raise_for_status()
 
-    price = extract_kalshi_btc_price(
-        r.json()
-    )
+    price = extract_kalshi_btc_price(r.json())
 
     if price is None:
         raise ValueError(
@@ -476,7 +408,6 @@ def get_kalshi_live_btc(market):
 def add_indicators(df):
 
     df = df.copy()
-
     close = df["close"]
 
     df["ema9"] = close.ewm(
@@ -491,13 +422,8 @@ def add_indicators(df):
 
     delta = close.diff()
 
-    gain = delta.clip(
-        lower=0
-    )
-
-    loss = -delta.clip(
-        upper=0
-    )
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
 
     avg_gain = gain.ewm(
         alpha=1 / 14,
@@ -511,46 +437,21 @@ def add_indicators(df):
         min_periods=14
     ).mean()
 
-    rs = (
-        avg_gain /
-        avg_loss.replace(
-            0,
-            np.nan
-        )
-    )
+    rs = avg_gain / avg_loss.replace(0, np.nan)
 
     df["rsi"] = (
-        100 -
-        (100 / (1 + rs))
+        100 - (100 / (1 + rs))
     ).fillna(50)
 
-    df["mom3"] = (
-        close.pct_change(3) *
-        100
-    )
+    df["mom3"] = close.pct_change(3) * 100
+    df["mom5"] = close.pct_change(5) * 100
+    df["mom15"] = close.pct_change(15) * 100
 
-    df["mom5"] = (
-        close.pct_change(5) *
-        100
-    )
-
-    df["mom15"] = (
-        close.pct_change(15) *
-        100
-    )
-
-    avg_volume = (
-        df["volume"]
-        .rolling(20)
-        .mean()
-    )
+    avg_volume = df["volume"].rolling(20).mean()
 
     df["vol_ratio"] = (
         df["volume"] /
-        avg_volume.replace(
-            0,
-            np.nan
-        )
+        avg_volume.replace(0, np.nan)
     )
 
     return df
@@ -565,21 +466,15 @@ def get_target_from_market(market):
     if not market:
         return None
 
-    for key in (
-        "floor_strike",
-        "cap_strike"
-    ):
+    for key in ("floor_strike", "cap_strike"):
 
         try:
-
-            x = float(
-                market.get(key)
-            )
+            x = float(market.get(key))
 
             if x > 1000:
                 return x
 
-        except:
+        except (TypeError, ValueError):
             pass
 
     return None
@@ -587,20 +482,13 @@ def get_target_from_market(market):
 
 def get_seconds_remaining(market):
 
-    if (
-        not market
-        or not market.get(
-            "close_time"
-        )
-    ):
+    if not market or not market.get("close_time"):
         return None
 
     try:
 
         dt = datetime.fromisoformat(
-            str(
-                market["close_time"]
-            ).replace(
+            str(market["close_time"]).replace(
                 "Z",
                 "+00:00"
             )
@@ -611,14 +499,12 @@ def get_seconds_remaining(market):
             int(
                 (
                     dt -
-                    datetime.now(
-                        timezone.utc
-                    )
+                    datetime.now(timezone.utc)
                 ).total_seconds()
             )
         )
 
-    except:
+    except (TypeError, ValueError):
         return None
 
 
@@ -627,46 +513,31 @@ def format_countdown(seconds):
     if seconds is None:
         return "--:--"
 
-    return (
-        f"{seconds // 60:02d}:"
-        f"{seconds % 60:02d}"
-    )
+    return f"{seconds // 60:02d}:{seconds % 60:02d}"
 
 
-def numeric_kalshi_price(
-    dollars,
-    cents
-):
+def numeric_kalshi_price(dollars, cents):
 
     try:
 
-        if dollars not in [
-            None,
-            ""
-        ]:
+        if dollars not in [None, ""]:
             return float(dollars)
 
-    except:
+    except (TypeError, ValueError):
         pass
 
     try:
 
-        if cents not in [
-            None,
-            ""
-        ]:
+        if cents not in [None, ""]:
             return float(cents) / 100
 
-    except:
+    except (TypeError, ValueError):
         pass
 
     return None
 
 
-def kalshi_price(
-    dollars,
-    cents
-):
+def kalshi_price(dollars, cents):
 
     value = numeric_kalshi_price(
         dollars,
@@ -685,12 +556,8 @@ def get_yes_ask(market):
         return None
 
     return numeric_kalshi_price(
-        market.get(
-            "yes_ask_dollars"
-        ),
-        market.get(
-            "yes_ask"
-        )
+        market.get("yes_ask_dollars"),
+        market.get("yes_ask")
     )
 
 
@@ -700,35 +567,20 @@ def get_no_ask(market):
         return None
 
     value = numeric_kalshi_price(
-        market.get(
-            "no_ask_dollars"
-        ),
-        market.get(
-            "no_ask"
-        )
+        market.get("no_ask_dollars"),
+        market.get("no_ask")
     )
 
     if value is not None:
         return value
 
     yes_bid = numeric_kalshi_price(
-        market.get(
-            "yes_bid_dollars"
-        ),
-        market.get(
-            "yes_bid"
-        )
+        market.get("yes_bid_dollars"),
+        market.get("yes_bid")
     )
 
     if yes_bid is not None:
-
-        return max(
-            0,
-            min(
-                1,
-                1 - yes_bid
-            )
-        )
+        return max(0, min(1, 1 - yes_bid))
 
     return None
 
@@ -746,11 +598,7 @@ def estimated_probabilities(
 ):
 
     score = float(
-        np.clip(
-            score,
-            -10,
-            10
-        )
+        np.clip(score, -10, 10)
     )
 
     up = 50 + score * 4.2
@@ -777,18 +625,9 @@ def estimated_probabilities(
         elif distance < 0:
             up -= 3
 
-    up = float(
-        np.clip(
-            up,
-            5,
-            95
-        )
-    )
+    up = float(np.clip(up, 5, 95))
 
-    return (
-        round(up),
-        round(100 - up)
-    )
+    return round(up), round(100 - up)
 
 
 def build_signal(
@@ -800,9 +639,7 @@ def build_signal(
 
     last = df.iloc[-1]
 
-    candle = float(
-        last["close"]
-    )
+    candle = float(last["close"])
 
     price = (
         float(live_price)
@@ -810,9 +647,7 @@ def build_signal(
         else candle
     )
 
-    rsi = float(
-        last["rsi"]
-    )
+    rsi = float(last["rsi"])
 
     mom3 = (
         float(last["mom3"])
@@ -834,18 +669,13 @@ def build_signal(
 
     vol_ratio = (
         float(last["vol_ratio"])
-        if pd.notna(
-            last["vol_ratio"]
-        )
+        if pd.notna(last["vol_ratio"])
         else 0
     )
 
     technical_score = 0.0
 
-    if (
-        last["ema9"] >
-        last["ema21"]
-    ):
+    if last["ema9"] > last["ema21"]:
 
         technical_score += 2
         ema = "ALCISTA 🚀"
@@ -909,9 +739,7 @@ def build_signal(
 
         if seconds_left is not None:
 
-            abs_distance = abs(
-                distance
-            )
+            abs_distance = abs(distance)
 
             if seconds_left <= 30:
                 bonus = 4
@@ -954,14 +782,12 @@ def build_signal(
     else:
         momentum = "NEUTRAL"
 
-    up_probability, down_probability = (
-        estimated_probabilities(
-            final_score,
-            distance,
-            seconds_left,
-            mom3,
-            mom5
-        )
+    up_probability, down_probability = estimated_probabilities(
+        final_score,
+        distance,
+        seconds_left,
+        mom3,
+        mom5
     )
 
     return {
@@ -984,43 +810,24 @@ def build_signal(
     }
 
 
-def entry_quality(
-    price,
-    seconds
-):
+def entry_quality(price, seconds):
 
     if price is None:
-        return (
-            "PRECIO NO DISPONIBLE",
-            "#94a3b8"
-        )
+        return "PRECIO NO DISPONIBLE", "#94a3b8"
 
     if (
         seconds is not None
-        and seconds <=
-        NEW_ENTRY_LOCK
+        and seconds <= NEW_ENTRY_LOCK
     ):
-        return (
-            "TARDE ⏰",
-            "#fb7185"
-        )
+        return "TARDE ⏰", "#fb7185"
 
     if price <= 0.60:
-        return (
-            "BUENA 🟢",
-            "#34d399"
-        )
+        return "BUENA 🟢", "#34d399"
 
     if price <= 0.70:
-        return (
-            "PRECAUCIÓN 🟡",
-            "#fbbf24"
-        )
+        return "PRECAUCIÓN 🟡", "#fbbf24"
 
-    return (
-        "CARA / TARDE 🔴",
-        "#fb7185"
-    )
+    return "CARA / TARDE 🔴", "#fb7185"
 
 
 def process_round_signal(
@@ -1030,33 +837,22 @@ def process_round_signal(
     seconds_left
 ):
 
-    now = datetime.now(
-        timezone.utc
-    )
+    now = datetime.now(timezone.utc)
 
     if (
         ticker
         and ticker != "--"
-        and
-        st.session_state.active_ticker
-        != ticker
+        and st.session_state.active_ticker != ticker
     ):
 
-        st.session_state.active_ticker = (
-            ticker
-        )
+        st.session_state.active_ticker = ticker
 
-        st.session_state.rounds[
-            ticker
-        ] = new_round_state(
+        st.session_state.rounds[ticker] = new_round_state(
             ticker,
             seconds_left
         )
 
-    if (
-        not ticker
-        or ticker == "--"
-    ):
+    if not ticker or ticker == "--":
 
         return {
             "decision": "NO TRADE",
@@ -1068,106 +864,65 @@ def process_round_signal(
             "reversal_text": "",
             "entry_price": None,
             "entry_quality": "SIN DATOS",
-            "entry_quality_color":
-                "#94a3b8"
+            "entry_quality_color": "#94a3b8"
         }
 
-    if (
-        ticker not in
-        st.session_state.rounds
-    ):
+    if ticker not in st.session_state.rounds:
 
-        st.session_state.rounds[
-            ticker
-        ] = new_round_state(
+        st.session_state.rounds[ticker] = new_round_state(
             ticker,
             seconds_left
         )
 
-    state = (
-        st.session_state.rounds[
-            ticker
-        ]
-    )
+    state = st.session_state.rounds[ticker]
 
     age = (
         now -
         state["detected_at"]
     ).total_seconds()
 
-    score = sig[
-        "final_score"
-    ]
+    score = sig["final_score"]
 
-    previous_price = state[
-        "last_live_price"
-    ]
+    previous_price = state["last_live_price"]
 
-    state[
-        "previous_live_price"
-    ] = previous_price
-
-    state[
-        "last_live_price"
-    ] = sig["price"]
+    state["previous_live_price"] = previous_price
+    state["last_live_price"] = sig["price"]
 
     price_change = (
-        sig["price"] -
-        previous_price
-        if previous_price
-        is not None
+        sig["price"] - previous_price
+        if previous_price is not None
         else 0
     )
 
-    previous_score = state[
-        "last_score"
-    ]
+    previous_score = state["last_score"]
 
-    state[
-        "previous_score"
-    ] = previous_score
+    state["previous_score"] = previous_score
 
-    score_change = (
-        score -
-        previous_score
-    )
+    score_change = score - previous_score
 
-    state[
-        "last_score"
-    ] = score
+    state["last_score"] = score
 
     if age < NEW_ROUND_WAIT:
 
-        state[
-            "reversal_warning"
-        ] = False
-
-        state[
-            "reversal_text"
-        ] = ""
+        state["reversal_warning"] = False
+        state["reversal_text"] = ""
 
         return {
-            "decision":
-                "ANALIZANDO NUEVA RONDA",
-            "signal":
-                "ESPERANDO CONFIRMACIÓN",
+            "decision": "ANALIZANDO NUEVA RONDA",
+            "signal": "ESPERANDO CONFIRMACIÓN",
             "icon": "⏳",
             "color": "#38bdf8",
             "round_state": state,
             "reversal": False,
             "reversal_text": "",
             "entry_price": None,
-            "entry_quality":
-                "ESPERANDO",
-            "entry_quality_color":
-                "#38bdf8"
+            "entry_quality": "ESPERANDO",
+            "entry_quality_color": "#38bdf8"
         }
 
     locked = (
         seconds_left is not None
-        and
-        seconds_left <=
-        NEW_ENTRY_LOCK
+        and seconds_left <= NEW_ENTRY_LOCK
     )
 
     if score >= UP_THRESHOLD:
@@ -1180,41 +935,28 @@ def process_round_signal(
         candidate = None
 
     if (
-        state[
-            "active_direction"
-        ] is None
+        state["active_direction"] is None
         and candidate
         and not locked
     ):
 
         if candidate == "UP":
-            px = get_yes_ask(
-                market
-            )
+            px = get_yes_ask(market)
 
         else:
-            px = get_no_ask(
-                market
-            )
+            px = get_no_ask(market)
 
         state.update(
-            active_direction=
-                candidate,
+            active_direction=candidate,
             active_since=now,
-            first_direction=
-                candidate,
-            first_signal_time=
-                now,
-            first_signal_seconds=
-                seconds_left,
-            first_signal_price=
-                px,
+            first_direction=candidate,
+            first_signal_time=now,
+            first_signal_seconds=seconds_left,
+            first_signal_price=px,
             opposite_count=0
         )
 
-    active = state[
-        "active_direction"
-    ]
+    active = state["active_direction"]
 
     reversal = False
     reversal_text = ""
@@ -1228,17 +970,11 @@ def process_round_signal(
             sig["mom5"] < 0,
             price_change < -8,
             (
-                sig["distance"]
-                is not None
-                and
-                seconds_left
-                is not None
-                and
-                seconds_left <= 180
-                and
-                sig["distance"] < 25
-                and
-                price_change < 0
+                sig["distance"] is not None
+                and seconds_left is not None
+                and seconds_left <= 180
+                and sig["distance"] < 25
+                and price_change < 0
             )
         ])
 
@@ -1252,42 +988,27 @@ def process_round_signal(
             )
 
         if (
-            score <=
-            FLIP_DOWN_THRESHOLD
-            and
-            sig["mom3"] < 0
+            score <= FLIP_DOWN_THRESHOLD
+            and sig["mom3"] < 0
         ):
 
-            state[
-                "opposite_count"
-            ] += 1
+            state["opposite_count"] += 1
 
         else:
 
-            state[
-                "opposite_count"
-            ] = 0
+            state["opposite_count"] = 0
 
         if (
-            state[
-                "opposite_count"
-            ] >=
-            FLIP_CONFIRMATIONS
+            state["opposite_count"]
+            >= FLIP_CONFIRMATIONS
         ):
 
             if not locked:
 
-                state[
-                    "active_direction"
-                ] = "DOWN"
+                state["active_direction"] = "DOWN"
+                state["active_since"] = now
 
-                state[
-                    "active_since"
-                ] = now
-
-            state[
-                "opposite_count"
-            ] = 0
+            state["opposite_count"] = 0
 
     elif active == "DOWN":
 
@@ -1298,17 +1019,11 @@ def process_round_signal(
             sig["mom5"] > 0,
             price_change > 8,
             (
-                sig["distance"]
-                is not None
-                and
-                seconds_left
-                is not None
-                and
-                seconds_left <= 180
-                and
-                sig["distance"] > -25
-                and
-                price_change > 0
+                sig["distance"] is not None
+                and seconds_left is not None
+                and seconds_left <= 180
+                and sig["distance"] > -25
+                and price_change > 0
             )
         ])
 
@@ -1322,54 +1037,32 @@ def process_round_signal(
             )
 
         if (
-            score >=
-            FLIP_UP_THRESHOLD
-            and
-            sig["mom3"] > 0
+            score >= FLIP_UP_THRESHOLD
+            and sig["mom3"] > 0
         ):
 
-            state[
-                "opposite_count"
-            ] += 1
+            state["opposite_count"] += 1
 
         else:
 
-            state[
-                "opposite_count"
-            ] = 0
+            state["opposite_count"] = 0
 
         if (
-            state[
-                "opposite_count"
-            ] >=
-            FLIP_CONFIRMATIONS
+            state["opposite_count"]
+            >= FLIP_CONFIRMATIONS
         ):
 
             if not locked:
 
-                state[
-                    "active_direction"
-                ] = "UP"
+                state["active_direction"] = "UP"
+                state["active_since"] = now
 
-                state[
-                    "active_since"
-                ] = now
+            state["opposite_count"] = 0
 
-            state[
-                "opposite_count"
-            ] = 0
+    state["reversal_warning"] = reversal
+    state["reversal_text"] = reversal_text
 
-    state[
-        "reversal_warning"
-    ] = reversal
-
-    state[
-        "reversal_text"
-    ] = reversal_text
-
-    active = state[
-        "active_direction"
-    ]
+    active = state["active_direction"]
 
     if active == "UP":
 
@@ -1377,42 +1070,20 @@ def process_round_signal(
         signal = "SEÑAL UP"
         icon = "🚀"
         color = "#34d399"
-
-        entry_price = (
-            get_yes_ask(
-                market
-            )
-        )
+        entry_price = get_yes_ask(market)
 
     elif active == "DOWN":
 
-        decision = (
-            "POSIBLE DOWN"
-        )
-
-        signal = (
-            "SEÑAL DOWN"
-        )
-
+        decision = "POSIBLE DOWN"
+        signal = "SEÑAL DOWN"
         icon = "🔻"
         color = "#fb7185"
-
-        entry_price = (
-            get_no_ask(
-                market
-            )
-        )
+        entry_price = get_no_ask(market)
 
     elif locked:
 
-        decision = (
-            "NO NUEVA ENTRADA"
-        )
-
-        signal = (
-            "FINAL DE RONDA"
-        )
-
+        decision = "NO NUEVA ENTRADA"
+        signal = "FINAL DE RONDA"
         icon = "⏰"
         color = "#fbbf24"
         entry_price = None
@@ -1425,11 +1096,9 @@ def process_round_signal(
         color = "#fbbf24"
         entry_price = None
 
-    quality, quality_color = (
-        entry_quality(
-            entry_price,
-            seconds_left
-        )
+    quality, quality_color = entry_quality(
+        entry_price,
+        seconds_left
     )
 
     return {
@@ -1439,14 +1108,10 @@ def process_round_signal(
         "color": color,
         "round_state": state,
         "reversal": reversal,
-        "reversal_text":
-            reversal_text,
-        "entry_price":
-            entry_price,
-        "entry_quality":
-            quality,
-        "entry_quality_color":
-            quality_color
+        "reversal_text": reversal_text,
+        "entry_price": entry_price,
+        "entry_quality": quality,
+        "entry_quality_color": quality_color
     }
 
 
@@ -1454,44 +1119,28 @@ def process_round_signal(
 # AUTO PAPER
 # =========================================================
 
-def auto_next_amount(
-    current,
-    won
-):
+def auto_next_amount(current, won):
 
     current = int(current)
 
     if current not in AUTO_LEVELS:
         current = 1
 
-    # WIN = mismo monto
     if won:
         return current
 
-    # LOSS = próximo nivel
-    index = AUTO_LEVELS.index(
-        current
-    )
+    index = AUTO_LEVELS.index(current)
 
     return AUTO_LEVELS[
-        (index + 1) %
-        len(AUTO_LEVELS)
+        (index + 1) % len(AUTO_LEVELS)
     ]
 
 
-def auto_settle_previous(
-    new_ticker
-):
+def auto_settle_previous(new_ticker):
 
-    old = (
-        st.session_state
-        .auto_previous_ticker
-    )
+    old = st.session_state.auto_previous_ticker
 
-    if (
-        not old
-        or old == new_ticker
-    ):
+    if not old or old == new_ticker:
         return
 
     trade = (
@@ -1502,24 +1151,14 @@ def auto_settle_previous(
 
     if (
         not trade
-        or
-        trade["status"]
-        != "OPEN"
+        or trade["status"] != "OPEN"
     ):
         return
 
-    price = trade.get(
-        "last_seen_btc"
-    )
+    price = trade.get("last_seen_btc")
+    target = trade.get("target")
 
-    target = trade.get(
-        "target"
-    )
-
-    if (
-        price is None
-        or target is None
-    ):
+    if price is None or target is None:
         return
 
     actual = (
@@ -1529,8 +1168,7 @@ def auto_settle_previous(
     )
 
     won = (
-        trade["direction"]
-        == actual
+        trade["direction"] == actual
     )
 
     trade["actual"] = actual
@@ -1541,26 +1179,18 @@ def auto_settle_previous(
         else "LOSS"
     )
 
-    trade["status"] = (
-        "SETTLED"
+    trade["status"] = "SETTLED"
+
+    trade["next_amount"] = auto_next_amount(
+        trade["amount"],
+        won
     )
 
-    trade["next_amount"] = (
-        auto_next_amount(
-            trade["amount"],
-            won
-        )
+    st.session_state.auto_paper_amount = (
+        trade["next_amount"]
     )
 
-    st.session_state[
-        "auto_paper_amount"
-    ] = trade[
-        "next_amount"
-    ]
-
-    st.session_state[
-        "auto_paper_history"
-    ].append(
+    st.session_state.auto_paper_history.append(
         dict(trade)
     )
 
@@ -1573,117 +1203,72 @@ def auto_process(
     live_price
 ):
 
-    # AUTO apagado
-    if (
-        not st.session_state
-        .auto_paper_enabled
-        or
-        not ticker
-        or ticker == "--"
-    ):
+    if not ticker or ticker == "--":
         return
 
-    # Cierra la ronda anterior
-    auto_settle_previous(
-        ticker
-    )
+    # Siempre permite cerrar/registrar una ronda paper anterior,
+    # incluso si el switch se apagó después de haber entrado.
+    auto_settle_previous(ticker)
 
-    state = round_signal.get(
-        "round_state"
-    )
+    # Registrar ticker actual después de intentar cerrar el anterior.
+    st.session_state.auto_previous_ticker = ticker
 
-    # =====================================================
-    # ENTRADA PAPER
-    # Versión estable:
-    # utiliza la primera señal válida del motor.
-    # =====================================================
+    state = round_signal.get("round_state")
 
+    # Solo crea NUEVAS entradas cuando AUTO PAPER está encendido.
     if (
-        state
-        and
-        state.get(
-            "first_direction"
-        )
-        and
-        ticker not in
-        st.session_state
-        .auto_paper_entries
+        st.session_state.auto_paper_enabled
+        and state
+        and state.get("first_direction")
+        and ticker not in st.session_state.auto_paper_entries
     ):
 
-        entry_price = state.get(
-            "first_signal_price"
-        )
+        entry_price = state.get("first_signal_price")
 
         if (
             entry_price is not None
-            and
-            target is not None
-            and
-            not (
-                seconds_left
-                is not None
-                and
-                seconds_left <=
-                NEW_ENTRY_LOCK
+            and target is not None
+            and not (
+                seconds_left is not None
+                and seconds_left <= NEW_ENTRY_LOCK
             )
         ):
 
             amount = int(
-                st.session_state
-                .auto_paper_amount
+                st.session_state.auto_paper_amount
             )
 
-            entry_price = float(
-                entry_price
-            )
+            entry_price = float(entry_price)
 
-            contracts = max(
-                1,
-                int(
-                    amount //
-                    entry_price
+            if 0 < entry_price <= 1:
+
+                contracts = max(
+                    1,
+                    int(amount // entry_price)
                 )
-            )
 
-            st.session_state[
-                "auto_paper_entries"
-            ][ticker] = {
+                st.session_state.auto_paper_entries[ticker] = {
+                    "ticker": ticker,
+                    "direction": state["first_direction"],
+                    "amount": amount,
+                    "entry_price": entry_price,
+                    "contracts": contracts,
+                    "paper_cost": round(
+                        contracts * entry_price,
+                        2
+                    ),
+                    "target": float(target),
+                    "status": "OPEN",
+                    "last_seen_btc": (
+                        float(live_price)
+                        if live_price is not None
+                        else None
+                    ),
+                    "last_seen_seconds": seconds_left,
+                    "result": None
+                }
 
-                "ticker":
-                    ticker,
-
-                "direction":
-                    state[
-                        "first_direction"
-                    ],
-
-                "amount":
-                    amount,
-
-                "entry_price":
-                    entry_price,
-
-                "contracts":
-                    contracts,
-
-                "paper_cost":
-                    contracts *
-                    entry_price,
-
-                "target":
-                    float(target),
-
-                "status":
-                    "OPEN",
-
-                "last_seen_btc":
-                    live_price,
-
-                "result":
-                    None
-            }
-
-    # Actualiza último BTC observado
+    # Actualizar la última referencia BTC de una entrada abierta.
     trade = (
         st.session_state
         .auto_paper_entries
@@ -1692,88 +1277,49 @@ def auto_process(
 
     if (
         trade
-        and
-        trade["status"]
-        == "OPEN"
-        and
-        live_price is not None
+        and trade["status"] == "OPEN"
+        and live_price is not None
     ):
 
-        trade[
-            "last_seen_btc"
-        ] = float(
-            live_price
-        )
-
-    st.session_state[
-        "auto_previous_ticker"
-    ] = ticker
+        trade["last_seen_btc"] = float(live_price)
+        trade["last_seen_seconds"] = seconds_left
 
 
 # =========================================================
 # UI
 # =========================================================
 
-def card(
-    title,
-    rows,
-    note=""
-):
+def card(title, rows, note=""):
 
     body = "".join(
-
-        f"""
-        <div class="bot-row">
-            <span class="bot-left">
-                {left}
-            </span>
-
-            <span class="bot-right">
-                {right}
-            </span>
-        </div>
-        """
-
-        for left, right
-        in rows
+        f'<div class="bot-row">'
+        f'<span class="bot-left">{left}</span>'
+        f'<span class="bot-right">{right}</span>'
+        f'</div>'
+        for left, right in rows
     )
 
     note_html = (
-
-        f"""
-        <div
-            class="small-note"
-            style="margin-top:12px;"
-        >
-            {note}
-        </div>
-        """
-
+        f'<div class="small-note" style="margin-top:12px;">'
+        f'{note}'
+        f'</div>'
         if note
         else ""
     )
 
-    return f"""
-    <div class="bot-card">
-
-        <div class="bot-label">
-            {title}
-        </div>
-
-        {body}
-
-        {note_html}
-
-    </div>
-    """
+    return (
+        f'<div class="bot-card">'
+        f'<div class="bot-label">{title}</div>'
+        f'{body}'
+        f'{note_html}'
+        f'</div>'
+    )
 
 
 st.markdown(
-    """
-    <div class="bot-title">
-        ⚡ MACALY + ALPHA BOT • v4.6.1
-    </div>
-    """,
+    '<div class="bot-title">'
+    '⚡ MACALY + ALPHA BOT • v4.6.1'
+    '</div>',
     unsafe_allow_html=True
 )
 
@@ -1814,13 +1360,9 @@ def live_dashboard():
 
     try:
 
-        market = (
-            get_kalshi_btc_market()
-        )
+        market = get_kalshi_btc_market()
 
-        kalshi_ok = (
-            market is not None
-        )
+        kalshi_ok = market is not None
 
     except Exception as e:
 
@@ -1832,18 +1374,12 @@ def live_dashboard():
 
     try:
 
-        coinbase_live = (
-            get_btc_live_price()
-        )
+        coinbase_live = get_btc_live_price()
 
-    except:
+    except Exception:
 
         coinbase_live = (
-
-            float(
-                df.iloc[-1]["close"]
-            )
-
+            float(df.iloc[-1]["close"])
             if btc_ok
             else None
         )
@@ -1856,48 +1392,28 @@ def live_dashboard():
 
         try:
 
-            kalshi_live = (
-                get_kalshi_live_btc(
-                    market
-                )
+            kalshi_live = get_kalshi_live_btc(
+                market
             )
 
         except Exception as e:
 
-            kalshi_live_error = (
-                str(e)
-            )
-
-    # Kalshi principal.
-    # Coinbase fallback.
+            kalshi_live_error = str(e)
 
     live_price = (
-
         kalshi_live
-
-        if kalshi_live
-        is not None
-
+        if kalshi_live is not None
         else coinbase_live
     )
 
     if kalshi_live is not None:
-
-        source = (
-            "KALSHI LIVE 🟢"
-        )
+        source = "KALSHI LIVE 🟢"
 
     elif coinbase_live is not None:
-
-        source = (
-            "COINBASE FALLBACK 🟡"
-        )
+        source = "COINBASE FALLBACK 🟡"
 
     else:
-
-        source = (
-            "SIN DATOS 🔴"
-        )
+        source = "SIN DATOS 🔴"
 
     # ---------------- ROUND ----------------
 
@@ -1908,16 +1424,12 @@ def live_dashboard():
             "--"
         )
 
-        target = (
-            get_target_from_market(
-                market
-            )
+        target = get_target_from_market(
+            market
         )
 
-        seconds_left = (
-            get_seconds_remaining(
-                market
-            )
+        seconds_left = get_seconds_remaining(
+            market
         )
 
     else:
@@ -1940,9 +1452,7 @@ def live_dashboard():
     else:
 
         sig = {
-            "price":
-                live_price or 0,
-
+            "price": live_price or 0,
             "rsi": 50,
             "mom3": 0,
             "mom5": 0,
@@ -1957,13 +1467,11 @@ def live_dashboard():
             "down_probability": 50
         }
 
-    round_signal = (
-        process_round_signal(
-            ticker,
-            sig,
-            market,
-            seconds_left
-        )
+    round_signal = process_round_signal(
+        ticker,
+        sig,
+        market,
+        seconds_left
     )
 
     # ---------------- AUTO PAPER ----------------
@@ -1980,42 +1488,21 @@ def live_dashboard():
     # MAIN
     # =====================================================
 
+    main_html = (
+        '<div class="bot-card" style="text-align:center;">'
+        '<div class="bot-label">BITCOIN • KALSHI 15 MIN</div>'
+        f'<div style="font-size:30px;font-weight:900;'
+        f'color:{round_signal["color"]};">'
+        f'{round_signal["icon"]} {round_signal["decision"]}'
+        '</div>'
+        '<div style="font-size:19px;margin-top:8px;color:#e2e8f0;">'
+        f'BTC ${sig["price"]:,.2f}'
+        '</div>'
+        '</div>'
+    )
+
     st.markdown(
-
-        f"""
-        <div
-            class="bot-card"
-            style="text-align:center;"
-        >
-
-            <div class="bot-label">
-                BITCOIN • KALSHI 15 MIN
-            </div>
-
-            <div
-                style="
-                font-size:30px;
-                font-weight:900;
-                color:{round_signal["color"]};
-                "
-            >
-                {round_signal["icon"]}
-                {round_signal["decision"]}
-            </div>
-
-            <div
-                style="
-                font-size:19px;
-                margin-top:8px;
-                color:#e2e8f0;
-                "
-            >
-                BTC ${sig["price"]:,.2f}
-            </div>
-
-        </div>
-        """,
-
+        main_html,
         unsafe_allow_html=True
     )
 
@@ -2039,16 +1526,11 @@ def live_dashboard():
 
     else:
 
-        current_trade = (
-            "ESPERANDO SEÑAL"
-        )
+        current_trade = "ESPERANDO SEÑAL"
 
     last_result = "--"
 
-    if (
-        st.session_state
-        .auto_paper_history
-    ):
+    if st.session_state.auto_paper_history:
 
         history = (
             st.session_state
@@ -2062,50 +1544,37 @@ def live_dashboard():
         )
 
     st.markdown(
-
         card(
-
             "🤖 AUTO PAPER",
-
             [
                 (
                     "Estado",
-
                     "ENCENDIDO 🟢"
-                    if
-                    st.session_state
-                    .auto_paper_enabled
-                    else
-                    "APAGADO ⚪"
+                    if st.session_state.auto_paper_enabled
+                    else "APAGADO ⚪"
                 ),
-
                 (
                     "Monto actual",
-
                     f'${st.session_state.auto_paper_amount}'
                 ),
-
                 (
                     "Ronda",
                     current_trade
                 ),
-
                 (
                     "Último resultado",
                     last_result
                 )
             ],
-
-            """
-            WIN = mismo monto •
-            LOSS = siguiente nivel
-            <br>
-            $1 → $2 → $3 → $4 → $5 → $1
-            <br>
-            PAPER: NO ENVÍA ÓRDENES REALES
-            """
+            (
+                "WIN = mismo monto • "
+                "LOSS = siguiente nivel"
+                "<br>"
+                "$1 → $2 → $3 → $4 → $5 → $1"
+                "<br>"
+                "PAPER: NO ENVÍA ÓRDENES REALES"
+            )
         ),
-
         unsafe_allow_html=True
     )
 
@@ -2114,29 +1583,23 @@ def live_dashboard():
     # =====================================================
 
     st.markdown(
-
         card(
-
             "PROBABILIDAD ESTIMADA",
-
             [
                 (
                     "🚀 UP",
                     f'{sig["up_probability"]}%'
                 ),
-
                 (
                     "🔻 DOWN",
                     f'{sig["down_probability"]}%'
                 )
             ],
-
-            """
-            Estimación interna del motor •
-            no representa certeza
-            """
+            (
+                "Estimación interna del motor • "
+                "no representa certeza"
+            )
         ),
-
         unsafe_allow_html=True
     )
 
@@ -2144,28 +1607,18 @@ def live_dashboard():
     # REVERSAL
     # =====================================================
 
-    if round_signal[
-        "reversal"
-    ]:
+    if round_signal["reversal"]:
+
+        reversal_html = (
+            '<div class="warning-box">'
+            '⚠️ POSIBLE REVERSIÓN / REBOTE'
+            '<br><br>'
+            f'{round_signal["reversal_text"]}'
+            '</div>'
+        )
 
         st.markdown(
-
-            f"""
-            <div class="warning-box">
-
-                ⚠️ POSIBLE REVERSIÓN / REBOTE
-
-                <br><br>
-
-                {
-                    round_signal[
-                        "reversal_text"
-                    ]
-                }
-
-            </div>
-            """,
-
+            reversal_html,
             unsafe_allow_html=True
         )
 
@@ -2173,79 +1626,58 @@ def live_dashboard():
     # ROUND INFO
     # =====================================================
 
-    distance = sig[
-        "distance"
-    ]
+    distance = sig["distance"]
 
     if distance is None:
-
         distance_text = "--"
 
     elif distance > 0:
-
         distance_text = (
-            f'+${abs(distance):,.2f} '
-            f'ARRIBA'
+            f'+${abs(distance):,.2f} ARRIBA'
         )
 
     elif distance < 0:
-
         distance_text = (
-            f'-${abs(distance):,.2f} '
-            f'ABAJO'
+            f'-${abs(distance):,.2f} ABAJO'
         )
 
     else:
-
         distance_text = "$0.00"
 
     st.markdown(
-
         card(
-
             "RONDA ACTUAL",
-
             [
                 (
                     "Ticker",
                     ticker
                 ),
-
                 (
                     "Target",
-
                     f'${target:,.2f}'
-                    if target
-                    else
-                    "NO DISPONIBLE"
+                    if target is not None
+                    else "NO DISPONIBLE"
                 ),
-
                 (
                     "BTC actual",
-
                     f'${sig["price"]:,.2f}'
                 ),
-
                 (
                     "Fuente BTC",
                     source
                 ),
-
                 (
                     "Distancia",
                     distance_text
                 ),
-
                 (
                     "Tiempo restante",
-
                     format_countdown(
                         seconds_left
                     )
                 )
             ]
         ),
-
         unsafe_allow_html=True
     )
 
@@ -2253,96 +1685,62 @@ def live_dashboard():
     # SIGNAL INFO
     # =====================================================
 
-    state = round_signal[
-        "round_state"
-    ]
+    state = round_signal["round_state"]
 
     if state:
 
-        if state[
-            "first_signal_time"
-        ]:
+        if state["first_signal_time"]:
 
             signal_time = (
-                state[
-                    "first_signal_time"
-                ]
+                state["first_signal_time"]
                 .astimezone()
-                .strftime(
-                    "%H:%M:%S"
-                )
+                .strftime("%H:%M:%S")
             )
 
         else:
-
             signal_time = "--"
 
-        signal_seconds = (
-            format_countdown(
-                state[
-                    "first_signal_seconds"
-                ]
-            )
+        signal_seconds = format_countdown(
+            state["first_signal_seconds"]
         )
 
-        if (
-            state[
-                "first_signal_price"
-            ] is not None
-        ):
+        if state["first_signal_price"] is not None:
 
             first_price = (
                 f'${state["first_signal_price"]:.2f}'
             )
 
         else:
-
             first_price = "--"
 
         st.markdown(
-
             card(
-
                 "SEÑAL DE ESTA RONDA",
-
                 [
                     (
                         "Primera señal",
-
-                        state[
-                            "first_direction"
-                        ]
-                        or
-                        "NINGUNA"
+                        state["first_direction"]
+                        or "NINGUNA"
                     ),
-
                     (
                         "Generada",
                         signal_time
                     ),
-
                     (
                         "Tiempo restante al aparecer",
                         signal_seconds
                     ),
-
                     (
                         "Kalshi al aparecer",
                         first_price
                     ),
-
                     (
                         "Estado actual",
-
-                        state[
-                            "active_direction"
-                        ]
-                        or
-                        "ESPERANDO"
+                        state["active_direction"]
+                        or "ESPERANDO"
                     )
                 ]
             ),
-
             unsafe_allow_html=True
         )
 
@@ -2350,42 +1748,29 @@ def live_dashboard():
     # ENTRY
     # =====================================================
 
-    if (
-        round_signal[
-            "entry_price"
-        ] is not None
-    ):
+    if round_signal["entry_price"] is not None:
 
         entry_price_text = (
             f'${round_signal["entry_price"]:.2f}'
         )
 
     else:
-
         entry_price_text = "--"
 
     st.markdown(
-
         card(
-
             "ENTRADA ACTUAL",
-
             [
                 (
                     "Precio contrato",
                     entry_price_text
                 ),
-
                 (
                     "Calidad",
-
-                    round_signal[
-                        "entry_quality"
-                    ]
+                    round_signal["entry_quality"]
                 )
             ]
         ),
-
         unsafe_allow_html=True
     )
 
@@ -2396,75 +1781,45 @@ def live_dashboard():
     if market:
 
         st.markdown(
-
             card(
-
                 "KALSHI • BTC 15 MIN",
-
                 [
                     (
                         "YES bid",
-
                         kalshi_price(
-                            market.get(
-                                "yes_bid_dollars"
-                            ),
-                            market.get(
-                                "yes_bid"
-                            )
+                            market.get("yes_bid_dollars"),
+                            market.get("yes_bid")
                         )
                     ),
-
                     (
                         "YES ask",
-
                         kalshi_price(
-                            market.get(
-                                "yes_ask_dollars"
-                            ),
-                            market.get(
-                                "yes_ask"
-                            )
+                            market.get("yes_ask_dollars"),
+                            market.get("yes_ask")
                         )
                     ),
-
                     (
                         "NO ask",
-
                         kalshi_price(
-                            market.get(
-                                "no_ask_dollars"
-                            ),
-                            market.get(
-                                "no_ask"
-                            )
+                            market.get("no_ask_dollars"),
+                            market.get("no_ask")
                         )
                     ),
-
                     (
                         "Último",
-
                         kalshi_price(
-                            market.get(
-                                "last_price_dollars"
-                            ),
-                            market.get(
-                                "last_price"
-                            )
+                            market.get("last_price_dollars"),
+                            market.get("last_price")
                         )
                     ),
-
                     (
                         "API Kalshi",
-
                         "CONECTADO 🟢"
                         if kalshi_ok
-                        else
-                        "SIN MERCADO ⚠️"
+                        else "SIN MERCADO ⚠️"
                     )
                 ]
             ),
-
             unsafe_allow_html=True
         )
 
@@ -2473,49 +1828,39 @@ def live_dashboard():
     # =====================================================
 
     st.markdown(
-
         card(
-
             "ANÁLISIS TÉCNICO",
-
             [
                 (
                     "EMA 9 / 21",
                     sig["ema"]
                 ),
-
                 (
                     "RSI 14",
                     f'{sig["rsi"]:.1f}'
                 ),
-
                 (
                     "Momentum 3m",
                     f'{sig["mom3"]:+.3f}%'
                 ),
-
                 (
                     "Momentum 5m",
                     f'{sig["mom5"]:+.3f}%'
                 ),
-
                 (
                     "Momentum 15m",
                     f'{sig["mom15"]:+.3f}%'
                 ),
-
                 (
                     "Volumen",
                     f'{sig["vol_ratio"]:.2f}x'
                 ),
-
                 (
                     "BTC referencia",
                     source
                 )
             ]
         ),
-
         unsafe_allow_html=True
     )
 
@@ -2524,46 +1869,36 @@ def live_dashboard():
     # =====================================================
 
     st.markdown(
-
         card(
-
             "DECISIÓN DEL MOTOR",
-
             [
                 (
                     "Señal",
-                    round_signal[
-                        "signal"
-                    ]
+                    round_signal["signal"]
                 ),
-
                 (
                     "Score técnico",
                     f'{sig["technical_score"]:.2f}'
                 ),
-
                 (
                     "Score target/tiempo",
                     f'{sig["target_score"]:.2f}'
                 ),
-
                 (
                     "Score combinado",
                     f'{sig["final_score"]:.2f}'
                 )
             ],
-
-            """
-            Cada ticker = una ronda independiente
-            <br>
-            No crea nuevas entradas en últimos 75 segundos
-            <br>
-            Modo análisis / paper
-            <br>
-            No envía órdenes reales
-            """
+            (
+                "Cada ticker = una ronda independiente"
+                "<br>"
+                "No crea nuevas entradas en últimos 75 segundos"
+                "<br>"
+                "Modo análisis / paper"
+                "<br>"
+                "No envía órdenes reales"
+            )
         ),
-
         unsafe_allow_html=True
     )
 
@@ -2571,10 +1906,7 @@ def live_dashboard():
     # ERRORS
     # =====================================================
 
-    if (
-        target is None
-        and kalshi_ok
-    ):
+    if target is None and kalshi_ok:
 
         st.warning(
             "Kalshi conectado, pero sin target numérico. "
@@ -2590,8 +1922,7 @@ def live_dashboard():
 
     if (
         kalshi_live_error
-        and
-        coinbase_live is not None
+        and coinbase_live is not None
     ):
 
         st.warning(
