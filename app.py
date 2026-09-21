@@ -2,10 +2,12 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
+import json
+from pathlib import Path
 from datetime import datetime, timezone
 
 # =========================================================
-# MACALY + ALPHA BOT v4.6.2 PRO
+# MACALY + ALPHA BOT v4.6.4 PAPER SAFE + DB
 # BTC 15 MIN • PAPER ONLY • NO REAL ORDERS
 # =========================================================
 
@@ -20,6 +22,11 @@ FLIP_UP_THRESHOLD = 4.75
 FLIP_DOWN_THRESHOLD = -4.75
 FLIP_CONFIRMATIONS = 2
 AUTO_LEVELS = (1, 2, 3, 4, 5)
+MAX_PAPER_ENTRY_PRICE = 0.60  # No compra PAPER si el contrato ya está demasiado caro
+PAPER_STATE_FILE = Path('/tmp/macaly_alpha_paper_state.json')
+SUPABASE_URL = "https://inhnaklezpdikdgvbgdf.supabase.co"
+SUPABASE_KEY = "sb_publishable_CcMHlHjhcbWsBqW3a3i03Q_KtGG3Lyu"
+SUPABASE_STATE_ID = "main"
 
 st.markdown("""
 <style>
@@ -50,9 +57,82 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def _default_paper_state():
+    return {
+        "enabled": True,
+        "amount": 1,
+        "entries": {},
+        "history": [],
+        "previous_ticker": None,
+    }
+
+def _supabase_headers():
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+def _load_paper_state():
+    state = _default_paper_state()
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/macaly_paper_state",
+            params={"id": f"eq.{SUPABASE_STATE_ID}", "select": "state"},
+            headers=_supabase_headers(), timeout=8,
+        )
+        r.raise_for_status()
+        rows = r.json()
+        if rows and isinstance(rows[0].get("state"), dict):
+            saved = rows[0]["state"]
+            for k in state:
+                if k in saved:
+                    state[k] = saved[k]
+            return state
+    except Exception:
+        pass
+    try:
+        if PAPER_STATE_FILE.exists():
+            saved = json.loads(PAPER_STATE_FILE.read_text(encoding="utf-8"))
+            if isinstance(saved, dict):
+                for k in state:
+                    if k in saved:
+                        state[k] = saved[k]
+    except Exception:
+        pass
+    return state
+
+def _write_paper_state(state):
+    try:
+        tmp = PAPER_STATE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        tmp.replace(PAPER_STATE_FILE)
+    except Exception:
+        pass
+    try:
+        r = requests.post(
+            f"{SUPABASE_URL}/rest/v1/macaly_paper_state",
+            params={"on_conflict": "id"},
+            headers={**_supabase_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"},
+            json={"id": SUPABASE_STATE_ID, "state": state},
+            timeout=8,
+        )
+        r.raise_for_status()
+    except Exception:
+        pass
+
 @st.cache_resource
 def get_auto_memory():
-    return {"enabled":True,"amount":1,"entries":{},"history":[],"previous_ticker":None,"rounds":{},"active_ticker":None}
+    saved = _load_paper_state()
+    return {
+        "enabled": saved["enabled"],
+        "amount": saved["amount"],
+        "entries": saved["entries"],
+        "history": saved["history"],
+        "previous_ticker": saved["previous_ticker"],
+        "rounds": {},
+        "active_ticker": None,
+    }
 
 memory=get_auto_memory()
 if "auto_loaded" not in st.session_state:
@@ -73,6 +153,13 @@ def save_memory():
     memory["previous_ticker"]=st.session_state.auto_previous_ticker
     memory["rounds"]=st.session_state.rounds
     memory["active_ticker"]=st.session_state.active_ticker
+    _write_paper_state({
+        "enabled": memory["enabled"],
+        "amount": memory["amount"],
+        "entries": memory["entries"],
+        "history": memory["history"],
+        "previous_ticker": memory["previous_ticker"],
+    })
 
 def new_round_state(ticker,seconds_left):
     return {"ticker":ticker,"detected_at":datetime.now(timezone.utc),"detected_seconds_left":seconds_left,
@@ -306,7 +393,7 @@ def auto_process(ticker,round_signal,target,seconds_left,live_price):
         ep=state.get("first_signal_price")
         if ep is not None and target is not None and not(seconds_left is not None and seconds_left<=NEW_ENTRY_LOCK):
             amount=int(st.session_state.auto_paper_amount);ep=float(ep)
-            if 0<ep<=1:
+            if 0 < ep <= MAX_PAPER_ENTRY_PRICE:
                 contracts=max(1,int(amount//ep))
                 st.session_state.auto_paper_entries[ticker]={"ticker":ticker,"direction":state["first_direction"],"amount":amount,
                 "entry_price":ep,"contracts":contracts,"paper_cost":round(contracts*ep,2),"target":float(target),"status":"OPEN",
@@ -326,7 +413,7 @@ def local_time(v):
     try:return datetime.fromisoformat(str(v).replace("Z","+00:00")).astimezone().strftime("%I:%M:%S %p")
     except:return "--"
 
-st.markdown('<div class="brand"><div><div class="brand-name">⚡ MACALY + ALPHA BOT</div><div class="sub">v4.6.2 • BTC 15 MIN • PRO PAPER</div></div><div class="online">● EN LÍNEA</div></div>',unsafe_allow_html=True)
+st.markdown('<div class="brand"><div><div class="brand-name">⚡ MACALY + ALPHA BOT</div><div class="sub">v4.6.4 • BTC 15 MIN • PAPER SAFE + DB</div></div><div class="online">● EN LÍNEA</div></div>',unsafe_allow_html=True)
 def auto_toggle_changed():save_memory()
 st.toggle("🤖 AUTO PAPER",key="auto_paper_enabled",on_change=auto_toggle_changed)
 
