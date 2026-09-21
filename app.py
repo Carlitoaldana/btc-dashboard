@@ -318,74 +318,309 @@ def auto_process(ticker,round_signal,target,seconds_left,live_price):
         trade["last_seen_btc"]=float(live_price);trade["last_seen_seconds"]=seconds_left
     save_memory()
 
-def card(title,rows,note=""):
-    body="".join(f'<div class="row"><span class="l">{a}</span><span class="r">{b}</span></div>' for a,b in rows)
-    return f'<div class="card"><div class="title">{title}</div>{body}{f"""<div class="note">{note}</div>""" if note else ""}</div>'
+def esc(v):
+    import html
+    return html.escape(str(v))
+
+def rows_html(rows):
+    return "".join(
+        '<div class="kv"><span>'+esc(a)+'</span><b>'+str(b)+'</b></div>'
+        for a,b in rows
+    )
+
+def box(title, rows):
+    return '<section class="panel"><h3>'+title+'</h3>'+rows_html(rows)+'</section>'
 
 def local_time(v):
-    try:return datetime.fromisoformat(str(v).replace("Z","+00:00")).astimezone().strftime("%I:%M:%S %p")
-    except:return "--"
+    try:
+        return datetime.fromisoformat(str(v).replace("Z","+00:00")).astimezone().strftime("%H:%M:%S")
+    except Exception:
+        return "--"
 
-st.markdown('<div class="brand"><div><div class="brand-name">⚡ MACALY + ALPHA BOT</div><div class="sub">v4.6.2 • BTC 15 MIN • PRO PAPER</div></div><div class="online">● EN LÍNEA</div></div>',unsafe_allow_html=True)
-def auto_toggle_changed():save_memory()
-st.toggle("🤖 AUTO PAPER",key="auto_paper_enabled",on_change=auto_toggle_changed)
+st.markdown("""
+<style>
+:root{--bg:#020b13;--card:#061827;--line:#16496b;--cyan:#26b9ff;--green:#21e5a1;--red:#ff5369;--amber:#ffc43d;--text:#f1f7ff;--muted:#7899ae}
+#MainMenu,footer,header{visibility:hidden}
+.stApp{background:radial-gradient(circle at 50% 0,#08263d 0,#03101c 36%,#020911 100%);color:var(--text)}
+.block-container{max-width:1100px!important;padding:10px 10px 25px!important}
+[data-testid="stToggle"]{margin:0 0 7px 0}
+[data-testid="stToggle"] label p{font-weight:900!important;color:#e7f2fb!important}
+.dash{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.top{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;background:linear-gradient(135deg,#071a2b,#061321);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:8px}
+.brand{display:flex;align-items:center;gap:10px}.logo{width:42px;height:42px;border-radius:8px;background:linear-gradient(145deg,#0875bd,#0a2742);display:grid;place-items:center;font-size:25px}
+.brand h1{font-size:20px;margin:0;font-weight:950}.brand h1 i{font-style:normal;color:var(--cyan)}.sub{font-size:9px;color:#87a8bd;margin-top:2px}
+.badge{border:1px solid #17845f;background:#062c25;color:#3de7a6;padding:7px 11px;border-radius:99px;font-size:9px;font-weight:950}.clock{font-size:9px;color:#9cb5c6;text-align:right}
+.gtop{display:grid;grid-template-columns:1.55fr .65fr;gap:8px;margin-bottom:8px}
+.g3{display:grid;grid-template-columns:1.2fr .82fr 1fr;gap:8px;margin-bottom:8px}
+.g3b{display:grid;grid-template-columns:1fr .9fr 1fr;gap:8px;margin-bottom:8px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.panel{background:linear-gradient(145deg,#071a2a,#061421);border:1px solid var(--line);border-radius:10px;padding:11px;min-width:0}
+.panel h3{font-size:10px;color:var(--cyan);margin:0 0 8px;font-weight:950;letter-spacing:.7px}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #153b56;font-size:9px}.kv:last-child{border-bottom:0}.kv span{color:#8aa7bb}.kv b{color:#f2f7ff;text-align:right;overflow-wrap:anywhere}
+.hero{border-color:var(--hero);box-shadow:inset 0 0 26px var(--glow);padding:14px}.heroflex{display:grid;grid-template-columns:1fr .55fr;gap:12px;align-items:center}.hero small{font-size:8px;color:#67e5b7;font-weight:900}.heroSignal{font-size:24px;font-weight:950;color:var(--hero);margin:6px 0 1px}.heroSub{font-size:10px;font-weight:900;color:var(--hero)}.heroPrice{border-left:1px solid #1b566b;padding-left:12px}.heroPrice label{font-size:8px;color:#58e3b2}.heroPrice strong{font-size:16px;display:block;margin-top:2px}.roundline{text-align:center;border-top:1px solid #16475f;margin-top:8px;padding-top:7px;font-size:8px;color:#8eb0c5}
+.timer strong{font-size:26px}.progress{height:7px;border-radius:99px;background:#102c43;overflow:hidden;margin:7px 0}.progress i{display:block;height:100%;background:linear-gradient(90deg,#10aee9,#39d7a0)}
+.pill{display:inline-block;font-size:8px;border-radius:99px;padding:4px 7px;background:#073729;color:#42e9aa;border:1px solid #1a8a66;font-weight:900}
+.probs{display:grid;gap:6px}.prob{border-radius:7px;padding:9px;border:1px solid #155642;background:#08291f}.prob.red{border-color:#642234;background:#2b1019}.prob label{font-size:9px;font-weight:900}.prob strong{display:block;font-size:23px;margin-top:2px}
+.up{color:var(--green)!important}.down{color:var(--red)!important}.cyan{color:var(--cyan)!important}.amber{color:var(--amber)!important}
+.warn{margin-top:7px;background:#3a2b06;border:1px solid #b47a09;color:#ffd45b;border-radius:8px;padding:8px;font-size:8px;font-weight:900;line-height:1.4}
+.fixed{border:1px solid var(--trade);border-radius:8px;padding:8px}.fixedPrice{font-size:23px;font-weight:950;color:var(--trade);margin:3px 0 7px}.miniGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.mini{background:#081d2d;border:1px solid #164b6d;border-radius:7px;padding:7px}.mini label{display:block;color:#7798ae;font-size:7px;font-weight:900}.mini strong{display:block;font-size:14px;margin-top:3px}.tiny{font-size:7px;color:#7192a8;text-align:center;line-height:1.45;margin-top:6px}
+.histSummary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:7px}.histrow{display:grid;grid-template-columns:1.2fr .55fr .65fr .55fr .65fr;gap:6px;padding:6px;border-top:1px solid #153c57;font-size:8px}
+.foot{display:flex;justify-content:space-between;gap:10px;align-items:center;background:#071929;border:1px solid #154665;border-radius:9px;padding:8px 11px;font-size:7px;color:#7899ae}
+@media(max-width:760px){
+ .block-container{padding:5px 4px 15px!important}
+ .top{grid-template-columns:1fr auto;padding:7px;gap:5px;margin-bottom:5px}.clock{display:none}.logo{width:31px;height:31px;font-size:19px}.brand{gap:6px}.brand h1{font-size:13px}.sub{font-size:6px}.badge{font-size:6px;padding:5px 7px}
+ .gtop{grid-template-columns:1.55fr .75fr;gap:4px;margin-bottom:4px}.g3{grid-template-columns:1.2fr .82fr 1fr;gap:4px;margin-bottom:4px}.g3b{grid-template-columns:1fr .9fr 1fr;gap:4px;margin-bottom:4px}.g2{grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px}
+ .panel{padding:6px;border-radius:7px}.panel h3{font-size:6.4px;margin-bottom:4px;letter-spacing:.25px}.kv{font-size:5.8px;padding:3.5px 0;gap:3px}
+ .hero{padding:7px}.heroflex{gap:5px}.hero small{font-size:5.5px}.heroSignal{font-size:14px;margin:3px 0}.heroSub{font-size:6px}.heroPrice{padding-left:5px}.heroPrice label{font-size:5px}.heroPrice strong{font-size:9px}.roundline{font-size:5px;margin-top:4px;padding-top:3px}
+ .timer strong{font-size:15px}.progress{height:4px;margin:4px 0}.pill{font-size:5px;padding:2px 4px}.prob{padding:5px}.prob label{font-size:5.5px}.prob strong{font-size:14px}.warn{font-size:5px;padding:5px;margin-top:4px}
+ .fixed{padding:5px}.fixedPrice{font-size:14px}.miniGrid{gap:3px}.mini{padding:4px}.mini label{font-size:4.8px}.mini strong{font-size:8px}.tiny{font-size:4.8px;margin-top:3px}
+ .histSummary{gap:3px}.histrow{font-size:5px;padding:3px;gap:2px}.foot{font-size:4.8px;padding:5px}
+}
+</style>
+""", unsafe_allow_html=True)
+
+def auto_toggle_changed():
+    save_memory()
 
 @st.fragment(run_every="2s")
 def live_dashboard():
-    btc_error=kalshi_error=kalshi_live_error=""
-    try:df=add_indicators(get_btc_data());btc_ok=True
-    except Exception as e:btc_ok=False;btc_error=str(e);df=None
-    try:market=get_kalshi_btc_market();kalshi_ok=market is not None
-    except Exception as e:market=None;kalshi_ok=False;kalshi_error=str(e)
-    try:coinbase_live=get_btc_live_price()
-    except Exception:coinbase_live=float(df.iloc[-1]["close"]) if btc_ok else None
-    kalshi_live=None
+    btc_error = ""
+    kalshi_error = ""
+    kalshi_live_error = ""
+
+    try:
+        df = add_indicators(get_btc_data())
+        btc_ok = True
+    except Exception as e:
+        btc_ok = False
+        btc_error = str(e)
+        df = None
+
+    try:
+        market = get_kalshi_btc_market()
+        kalshi_ok = market is not None
+    except Exception as e:
+        market = None
+        kalshi_ok = False
+        kalshi_error = str(e)
+
+    try:
+        coinbase_live = get_btc_live_price()
+    except Exception:
+        coinbase_live = float(df.iloc[-1]["close"]) if btc_ok else None
+
+    kalshi_live = None
     if market:
-        try:kalshi_live=get_kalshi_live_btc(market)
-        except Exception as e:kalshi_live_error=str(e)
-    live_price=kalshi_live if kalshi_live is not None else coinbase_live
-    source="KALSHI LIVE 🟢" if kalshi_live is not None else "COINBASE FALLBACK 🟡" if coinbase_live is not None else "SIN DATOS 🔴"
-    ticker=market.get("ticker","--") if market else "--";target=get_target_from_market(market) if market else None;seconds_left=get_seconds_remaining(market) if market else None
-    sig=build_signal(df,target,seconds_left,live_price) if btc_ok else {"price":live_price or 0,"rsi":50,"mom3":0,"mom5":0,"mom15":0,"vol_ratio":0,"ema":"SIN DATOS","technical_score":0,"target_score":0,"final_score":0,"distance":None,"up_probability":50,"down_probability":50}
-    rs=process_round_signal(ticker,sig,market,seconds_left);auto_process(ticker,rs,target,seconds_left,live_price)
+        try:
+            kalshi_live = get_kalshi_live_btc(market)
+        except Exception as e:
+            kalshi_live_error = str(e)
 
-    st.markdown(f'<div class="hero" style="--c:{rs["color"]}"><div class="eyebrow">SEÑAL ACTUAL • BITCOIN / KALSHI</div><div class="hero-main">{rs["icon"]} {rs["decision"]}</div><div class="btc">BTC ${sig["price"]:,.2f}</div><div class="muted">{source} • SCORE {sig["final_score"]:.2f}</div></div>',unsafe_allow_html=True)
-    pct=max(0,min(100,(seconds_left or 0)/900*100))
-    st.markdown(f'<div class="card"><div class="title">⏱️ RONDA EN VIVO</div><div class="grid"><div class="tile"><div class="tl">TIEMPO</div><div class="tv cyan">{format_countdown(seconds_left)}</div></div><div class="tile"><div class="tl">TARGET</div><div class="tv">{f"${target:,.2f}" if target is not None else "--"}</div></div></div><div class="barbg"><div class="bar" style="width:{pct}%"></div></div><div class="note">{ticker}</div></div>',unsafe_allow_html=True)
+    live_price = kalshi_live if kalshi_live is not None else coinbase_live
+    source = "KALSHI LIVE 🟢" if kalshi_live is not None else ("COINBASE 🟡" if coinbase_live is not None else "SIN DATOS 🔴")
+    ticker = market.get("ticker","--") if market else "--"
+    target = get_target_from_market(market) if market else None
+    seconds_left = get_seconds_remaining(market) if market else None
 
-    trade=st.session_state.auto_paper_entries.get(ticker)
-    if trade and trade.get("status")=="OPEN":
-        d=trade["direction"];tc="#3ee6a4" if d=="UP" else "#ff6474";live_contract=get_yes_ask(market) if d=="UP" else get_no_ask(market)
-        st.markdown(f'<div class="card"><div class="title">🤖 AUTO PAPER • OPERACIÓN ACTUAL</div><div class="trade" style="--tc:{tc}"><div class="trade-top"><div class="trade-dir">{d}</div><div class="pill">OPEN • ENTRADA FIJA</div></div><div class="lock-label">PRECIO DE COMPRA PAPER</div><div class="lock-price">${trade["entry_price"]:.2f}</div><div class="grid"><div class="tile"><div class="tl">NIVEL</div><div class="tv">${trade["amount"]}</div></div><div class="tile"><div class="tl">CONTRATOS</div><div class="tv">{trade["contracts"]}</div></div><div class="tile"><div class="tl">COSTO PAPER</div><div class="tv">${trade["paper_cost"]:.2f}</div></div><div class="tile"><div class="tl">CONTRATO AHORA</div><div class="tv">{f"${live_contract:.2f}" if live_contract is not None else "--"}</div></div></div><div class="note">Entrada {local_time(trade.get("entry_time"))} • Quedaban {format_countdown(trade.get("entry_seconds_left"))}</div></div></div>',unsafe_allow_html=True)
+    if btc_ok:
+        sig = build_signal(df,target,seconds_left,live_price)
     else:
-        st.markdown(card("🤖 AUTO PAPER",[("Estado","ENCENDIDO 🟢" if st.session_state.auto_paper_enabled else "APAGADO ⚪"),("Nivel actual",f'${st.session_state.auto_paper_amount}'),("Operación","ESPERANDO PRIMERA SEÑAL")],"WIN = mismo nivel • LOSS = siguiente nivel<br>$1 → $2 → $3 → $4 → $5 → $1<br>PAPER ONLY"),unsafe_allow_html=True)
+        sig = {"price":live_price or 0,"rsi":50,"mom3":0,"mom5":0,"mom15":0,"vol_ratio":0,"ema":"SIN DATOS","technical_score":0,"target_score":0,"final_score":0,"distance":None,"up_probability":50,"down_probability":50}
 
-    st.markdown(f'<div class="card"><div class="title">📊 PROBABILIDAD ESTIMADA</div><div class="grid"><div class="tile"><div class="tl">🚀 UP</div><div class="tv up">{sig["up_probability"]}%</div></div><div class="tile"><div class="tl">🔻 DOWN</div><div class="tv down">{sig["down_probability"]}%</div></div></div><div class="note">Estimación interna del motor • no representa certeza</div></div>',unsafe_allow_html=True)
-    if rs["reversal"]:st.markdown(f'<div class="warn">⚠️ POSIBLE REVERSIÓN / REBOTE<br>{rs["reversal_text"]}</div>',unsafe_allow_html=True)
-    dist=sig["distance"];dtxt="--" if dist is None else f'+${abs(dist):,.2f} ARRIBA' if dist>0 else f'-${abs(dist):,.2f} ABAJO' if dist<0 else "$0.00"
-    st.markdown(card("🎯 RONDA ACTUAL",[("Ticker",ticker),("Target",f'${target:,.2f}' if target is not None else "NO DISPONIBLE"),("BTC actual",f'${sig["price"]:,.2f}'),("Fuente BTC",source),("Distancia",dtxt),("Tiempo restante",format_countdown(seconds_left))]),unsafe_allow_html=True)
-    state=rs["round_state"]
+    rs = process_round_signal(ticker,sig,market,seconds_left)
+    auto_process(ticker,rs,target,seconds_left,live_price)
+
+    state = rs["round_state"]
+    trade = st.session_state.auto_paper_entries.get(ticker)
+    pct = max(0,min(100,(seconds_left or 0)/900*100))
+    hero = rs["color"]
+    glow = "#0b5f3b44" if rs["decision"] == "POSIBLE UP" else "#6d1e3144"
+    target_txt = f"${target:,.2f}" if target is not None else "--"
+    dist = sig["distance"]
+    if dist is None:
+        dtxt = "--"
+    elif dist > 0:
+        dtxt = f'<span class="up">+${abs(dist):,.2f} ARRIBA</span>'
+    elif dist < 0:
+        dtxt = f'<span class="down">-${abs(dist):,.2f} ABAJO</span>'
+    else:
+        dtxt = "$0.00"
+
+    nowtxt = datetime.now().astimezone().strftime("%d %b %Y<br>%H:%M:%S")
+
+    st.markdown(
+        '<div class="dash"><div class="top">'
+        '<div class="brand"><div class="logo">⚡</div><div><h1>MACALY <i>+ ALPHA BOT</i> <span style="font-size:9px;color:#8dcfff">v4.6.2</span></h1>'
+        '<div class="sub">BTC 15 MIN • PAPER ONLY • NO REAL ORDERS</div></div></div>'
+        '<div class="badge">● EN LÍNEA</div><div class="clock">'+nowtxt+'</div></div></div>',
+        unsafe_allow_html=True
+    )
+
+    st.toggle("🤖 AUTO PAPER", key="auto_paper_enabled", on_change=auto_toggle_changed)
+
+    st.markdown(
+        '<div class="dash gtop">'
+        '<section class="panel hero" style="--hero:'+hero+';--glow:'+glow+'">'
+        '<div class="heroflex"><div><small>SEÑAL ACTUAL</small><div class="heroSignal">'+rs["icon"]+' '+esc(rs["decision"])+'</div>'
+        '<div class="heroSub">'+esc(rs["signal"])+'</div></div>'
+        '<div class="heroPrice"><label>BTC ACTUAL</label><strong>$'+f'{sig["price"]:,.2f}'+'</strong>'
+        '<span style="font-size:7px;color:#5ddca9">SCORE '+f'{sig["final_score"]:.2f}'+'</span></div></div>'
+        '<div class="roundline">KALSHI 15 MIN • RONDA EN CURSO</div></section>'
+        '<section class="panel timer"><h3>⏱️ TIEMPO RESTANTE</h3><strong>'+format_countdown(seconds_left)+'</strong>'
+        '<div class="progress"><i style="width:'+str(pct)+'%"></i></div>'
+        '<div class="tiny">RONDA: '+esc(ticker)+'<br>TARGET: '+target_txt+'</div></section></div>',
+        unsafe_allow_html=True
+    )
+
+    if trade and trade.get("status") == "OPEN":
+        d = trade["direction"]
+        tc = "#21e6a1" if d == "UP" else "#ff5369"
+        next_loss = auto_next_amount(trade["amount"],False)
+        auto_rows = [
+            ("Monto actual", f'${trade["amount"]}'),
+            ("Siguiente monto (si pierde)", f'${next_loss}'),
+            ("Ronda actual", f'<span style="color:{tc}">{d} • ${trade["amount"]} • ABIERTA</span>'),
+            ("Precio de entrada (paper)", f'${trade["entry_price"]:.2f}'),
+            ("Contratos", trade["contracts"])
+        ]
+        auto_body = '<div style="text-align:right"><span class="pill">● ENCENDIDO</span></div>'+rows_html(auto_rows)
+    else:
+        auto_body = '<div style="text-align:right"><span class="pill">● '+("ENCENDIDO" if st.session_state.auto_paper_enabled else "APAGADO")+'</span></div>'+rows_html([
+            ("Monto actual",f'${st.session_state.auto_paper_amount}'),
+            ("Ronda actual","ESPERANDO SEÑAL")
+        ])
+    auto_body += '<div class="tiny">WIN = mismo monto • LOSS = siguiente nivel<br>$1 → $2 → $3 → $4 → $5 → $1<br>PAPER: NO ENVÍA ÓRDENES REALES</div>'
+
+    warn_html = ""
+    if rs["reversal"]:
+        warn_html = '<div class="warn">⚠️ POSIBLE REVERSIÓN / REBOTE<br>'+esc(rs["reversal_text"])+'</div>'
+
+    round_rows = [
+        ("Ticker",esc(ticker)),("Target",target_txt),("BTC actual",f'${sig["price"]:,.2f}'),
+        ("Distancia",dtxt),("Tiempo restante",format_countdown(seconds_left)),("Fuente BTC",source)
+    ]
+
+    st.markdown(
+        '<div class="dash g3">'
+        '<section class="panel"><h3>🤖 AUTO PAPER</h3>'+auto_body+'</section>'
+        '<section class="panel"><h3>🧠 PROBABILIDAD ESTIMADA</h3><div class="probs">'
+        '<div class="prob"><label class="up">⬆ UP</label><strong class="up">'+str(sig["up_probability"])+'%</strong></div>'
+        '<div class="prob red"><label class="down">⬇ DOWN</label><strong class="down">'+str(sig["down_probability"])+'%</strong></div>'
+        '</div><div class="tiny">Estimación interna del motor<br>No representa certeza</div></section>'
+        '<div><section class="panel"><h3>⏱ RONDA ACTUAL</h3>'+rows_html(round_rows)+'</section>'+warn_html+'</div></div>',
+        unsafe_allow_html=True
+    )
+
     if state:
-        ft=state["first_signal_time"].astimezone().strftime("%I:%M:%S %p") if state["first_signal_time"] else "--";fp=f'${state["first_signal_price"]:.2f}' if state["first_signal_price"] is not None else "--"
-        st.markdown(card("⚡ SEÑAL DE ESTA RONDA",[("Primera señal",state["first_direction"] or "NINGUNA"),("Generada",ft),("Tiempo al aparecer",format_countdown(state["first_signal_seconds"])),("Kalshi al aparecer",fp),("Estado actual",state["active_direction"] or "ESPERANDO")]),unsafe_allow_html=True)
-    cp=f'${rs["entry_price"]:.2f}' if rs["entry_price"] is not None else "--"
-    st.markdown(card("💹 MERCADO AHORA",[("Precio contrato ahora",cp),("Calidad ahora",rs["entry_quality"])],"Este precio es LIVE y puede cambiar. La entrada PAPER queda fija arriba."),unsafe_allow_html=True)
-    if market:st.markdown(card("🏛️ KALSHI • BTC 15 MIN",[("YES bid",kalshi_price(market.get("yes_bid_dollars"),market.get("yes_bid"))),("YES ask",kalshi_price(market.get("yes_ask_dollars"),market.get("yes_ask"))),("NO ask",kalshi_price(market.get("no_ask_dollars"),market.get("no_ask"))),("Último",kalshi_price(market.get("last_price_dollars"),market.get("last_price"))),("API Kalshi","CONECTADO 🟢" if kalshi_ok else "SIN MERCADO ⚠️")]),unsafe_allow_html=True)
-    st.markdown(card("📈 ANÁLISIS TÉCNICO",[("EMA 9 / 21",sig["ema"]),("RSI 14",f'{sig["rsi"]:.1f}'),("Momentum 3m",f'{sig["mom3"]:+.3f}%'),("Momentum 5m",f'{sig["mom5"]:+.3f}%'),("Momentum 15m",f'{sig["mom15"]:+.3f}%'),("Volumen",f'{sig["vol_ratio"]:.2f}x')]),unsafe_allow_html=True)
-    st.markdown(card("🧠 DECISIÓN DEL MOTOR",[("Señal",rs["signal"]),("Score técnico",f'{sig["technical_score"]:.2f}'),("Score target/tiempo",f'{sig["target_score"]:.2f}'),("Score combinado",f'{sig["final_score"]:.2f}')],"Cada ticker = una ronda independiente<br>No crea nuevas entradas en últimos 75 segundos<br>PAPER • NO órdenes reales"),unsafe_allow_html=True)
+        ft = state["first_signal_time"].astimezone().strftime("%H:%M:%S") if state["first_signal_time"] else "--"
+        fp = f'${state["first_signal_price"]:.2f}' if state["first_signal_price"] is not None else "--"
+        first_dir = state["first_direction"] or "--"
+        dir_class = "up" if first_dir == "UP" else "down" if first_dir == "DOWN" else ""
+        signal_rows = [
+            ("Primera señal",f'<span class="{dir_class}">{first_dir}</span>'),
+            ("Generada",ft),
+            ("Tiempo restante al aparecer",format_countdown(state["first_signal_seconds"])),
+            ("Precio de entrada (paper)",fp),
+            ("Estado actual",state["active_direction"] or "--")
+        ]
+    else:
+        signal_rows = [("Primera señal","--"),("Generada","--"),("Tiempo restante al aparecer","--"),("Precio de entrada (paper)","--"),("Estado actual","--")]
 
-    hist=st.session_state.auto_paper_history;wins=sum(h.get("result")=="WIN" for h in hist);losses=sum(h.get("result")=="LOSS" for h in hist);pnl=sum(float(h.get("paper_pnl",0) or 0) for h in hist)
-    hc="up" if pnl>0 else "down" if pnl<0 else "cyan"
-    html=f'<div class="card"><div class="title">📋 HISTORIAL DE OPERACIONES</div><div class="grid"><div class="tile"><div class="tl">GANADAS</div><div class="tv up">{wins}</div></div><div class="tile"><div class="tl">PERDIDAS</div><div class="tv down">{losses}</div></div></div><div class="row"><span class="l">BALANCE PAPER</span><span class="r {hc}">${pnl:+.2f}</span></div>'
-    if hist:
-        for h in reversed(hist[-10:]):
-            rc="up" if h.get("result")=="WIN" else "down";hp=float(h.get("paper_pnl",0) or 0);ep=float(h.get("entry_price",0) or 0);cost=float(h.get("paper_cost",0) or 0)
-            html+=f'<div class="hist"><div class="histtop"><span class="{rc}">{h.get("result","--")} • {h.get("direction","--")}</span><span>${hp:+.2f}</span></div><div class="histmeta">{h.get("ticker","--")}<br>Nivel ${h.get("amount","--")} • Entrada ${ep:.2f} • {h.get("contracts","--")} contratos • Costo ${cost:.2f}<br>Resultado: {h.get("actual","--")} • Próximo nivel ${h.get("next_amount","--")}</div></div>'
-    else:html+='<div class="note">Todavía no hay operaciones terminadas.</div>'
-    st.markdown(html+"</div>",unsafe_allow_html=True)
-    if target is None and kalshi_ok:st.warning("Kalshi conectado, pero sin target numérico. El bot no inventará uno.")
-    if btc_error:st.error("Error Coinbase velas: "+btc_error)
-    if kalshi_live_error and coinbase_live is not None:st.warning("Kalshi BTC live falló; usando Coinbase. "+kalshi_live_error)
-    if kalshi_error:st.error("Error Kalshi: "+kalshi_error)
+    if trade and trade.get("status") == "OPEN":
+        d = trade["direction"]
+        tc = "#21e6a1" if d == "UP" else "#ff5369"
+        live_contract = get_yes_ask(market) if d == "UP" else get_no_ask(market)
+        q,qc = entry_quality(live_contract,seconds_left)
+        live_txt = f"${live_contract:.2f}" if live_contract is not None else "--"
+        entry_body = (
+            '<div class="fixed" style="--trade:'+tc+'"><div style="font-size:7px;color:#7d9eb4">ENTRADA FIJA PAPER • '+d+'</div>'
+            '<div class="fixedPrice">$'+f'{trade["entry_price"]:.2f}'+'</div>'
+            '<div class="miniGrid"><div class="mini"><label>CONTRATOS</label><strong>'+str(trade["contracts"])+'</strong></div>'
+            '<div class="mini"><label>CONTRATO AHORA</label><strong>'+live_txt+'</strong></div></div>'
+            '<div class="tiny">Entrada '+local_time(trade.get("entry_time"))+' • Quedaban '+format_countdown(trade.get("entry_seconds_left"))+
+            '<br>Calidad ahora: <span style="color:'+qc+'">'+q+'</span></div></div>'
+        )
+    else:
+        entry_body = '<div class="tiny">ESPERANDO ENTRADA PAPER<br>No se crean nuevas entradas en los últimos 75 segundos</div>'
+
+    if market:
+        kalshi_rows = [
+            ("YES bid",kalshi_price(market.get("yes_bid_dollars"),market.get("yes_bid"))),
+            ("YES ask",kalshi_price(market.get("yes_ask_dollars"),market.get("yes_ask"))),
+            ("NO ask",kalshi_price(market.get("no_ask_dollars"),market.get("no_ask"))),
+            ("Último",kalshi_price(market.get("last_price_dollars"),market.get("last_price"))),
+            ("API Kalshi","CONECTADO 🟢" if kalshi_ok else "SIN MERCADO")
+        ]
+    else:
+        kalshi_rows = [("API Kalshi","SIN MERCADO")]
+
+    st.markdown(
+        '<div class="dash g3b">'+
+        box("🔀 SEÑAL DE ESTA RONDA",signal_rows)+
+        '<section class="panel"><h3>🐎 ENTRADA ACTUAL</h3>'+entry_body+'</section>'+
+        box("📊 KALSHI • BTC 15 MIN",kalshi_rows)+
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    tech_rows = [
+        ("EMA 9 / 21",sig["ema"]),("RSI 14",f'{sig["rsi"]:.1f}'),
+        ("Momentum 3m",f'<span class="{"up" if sig["mom3"]>=0 else "down"}">{sig["mom3"]:+.3f}%</span>'),
+        ("Momentum 5m",f'<span class="{"up" if sig["mom5"]>=0 else "down"}">{sig["mom5"]:+.3f}%</span>'),
+        ("Momentum 15m",f'<span class="{"up" if sig["mom15"]>=0 else "down"}">{sig["mom15"]:+.3f}%</span>'),
+        ("Volumen",f'{sig["vol_ratio"]:.2f}x'),("BTC referencia",source)
+    ]
+    signal_class = "up" if rs["signal"] == "SEÑAL UP" else "down" if rs["signal"] == "SEÑAL DOWN" else "amber"
+    motor_rows = [
+        ("Señal",f'<span class="{signal_class}">{rs["signal"]}</span>'),
+        ("Score técnico",f'{sig["technical_score"]:.2f}'),
+        ("Score target/tiempo",f'{sig["target_score"]:.2f}'),
+        ("Score combinado",f'{sig["final_score"]:.2f}')
+    ]
+
+    st.markdown(
+        '<div class="dash g2">'+
+        box("📈 ANÁLISIS TÉCNICO (1 MIN)",tech_rows)+
+        '<section class="panel"><h3>⚙️ DECISIÓN DEL MOTOR</h3>'+rows_html(motor_rows)+
+        '<div class="tiny">Cada ticker = una ronda independiente<br>Modo análisis / paper<br>No envía órdenes reales</div></section></div>',
+        unsafe_allow_html=True
+    )
+
+    hist = st.session_state.auto_paper_history
+    wins = sum(h.get("result")=="WIN" for h in hist)
+    losses = sum(h.get("result")=="LOSS" for h in hist)
+    pnl = sum(float(h.get("paper_pnl",0) or 0) for h in hist)
+    history_rows = ""
+    for h in reversed(hist[-8:]):
+        result = h.get("result","--")
+        rc = "up" if result == "WIN" else "down"
+        history_rows += (
+            '<div class="histrow"><span>'+esc(h.get("ticker","--"))+'</span><span>'+esc(h.get("direction","--"))+
+            '</span><span>$'+f'{float(h.get("entry_price",0) or 0):.2f}'+'</span><span class="'+rc+'">'+result+
+            '</span><span>$'+f'{float(h.get("paper_pnl",0) or 0):+.2f}'+'</span></div>'
+        )
+    if not history_rows:
+        history_rows = '<div class="tiny">Todavía no hay operaciones terminadas.</div>'
+
+    pnl_class = "up" if pnl >= 0 else "down"
+    st.markdown(
+        '<div class="dash"><section class="panel"><h3>📋 HISTORIAL DE OPERACIONES</h3>'
+        '<div class="histSummary"><div class="mini"><label>GANADAS</label><strong class="up">'+str(wins)+'</strong></div>'
+        '<div class="mini"><label>PERDIDAS</label><strong class="down">'+str(losses)+'</strong></div>'
+        '<div class="mini"><label>BALANCE PAPER</label><strong class="'+pnl_class+'">$'+f'{pnl:+.2f}'+'</strong></div></div>'+
+        history_rows+'</section></div>'
+        '<div class="dash foot"><span>ⓘ MACALY + ALPHA BOT v4.6.2 • Herramienta de análisis en tiempo real • PAPER ONLY</span>'
+        '<span>BTC 15 MIN • KALSHI</span></div>',
+        unsafe_allow_html=True
+    )
+
+    if target is None and kalshi_ok:
+        st.warning("Kalshi conectado, pero sin target numérico. El bot no inventará uno.")
+    if btc_error:
+        st.error("Error Coinbase velas: "+btc_error)
+    if kalshi_live_error and coinbase_live is not None:
+        st.warning("Kalshi BTC live falló; usando Coinbase. "+kalshi_live_error)
+    if kalshi_error:
+        st.error("Error Kalshi: "+kalshi_error)
 
 live_dashboard()
