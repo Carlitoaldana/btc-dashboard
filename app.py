@@ -623,6 +623,9 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .rgrid{margin-top:1px!important}
 .reader{min-height:0!important}
 
+
+.chartbox{margin-top:10px;background:linear-gradient(180deg,#08121d,#060c14);border:1px solid #203a51;border-radius:12px;padding:10px 8px 8px;box-shadow:inset 0 0 28px rgba(20,80,110,.08)}
+.charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
 </style>
 """,
     unsafe_allow_html=True,
@@ -1590,6 +1593,105 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     }
 
 
+
+
+def render_live_candles(df, live_price, target, active):
+    # Renderiza velas BTC/USD reales de 1 minuto sin cambiar el motor.
+    if df is None or len(df) < 5:
+        return '<div class="chartbox"><div class="charttitle">BTC/USD · 1m</div><div class="chartempty">Esperando velas…</div></div>'
+
+    d = df.tail(42).copy().reset_index(drop=True)
+    # La última vela se mantiene visualmente al precio live recibido por el dashboard.
+    if live_price is not None and len(d):
+        i = d.index[-1]
+        d.loc[i, "close"] = float(live_price)
+        d.loc[i, "high"] = max(float(d.loc[i, "high"]), float(live_price))
+        d.loc[i, "low"] = min(float(d.loc[i, "low"]), float(live_price))
+
+    close = d["close"].astype(float)
+    ema9 = close.ewm(span=9, adjust=False).mean()
+    ema21 = close.ewm(span=21, adjust=False).mean()
+
+    W, H = 700, 430
+    left, right, top, bottom = 18, 82, 54, 82
+    pw, ph = W-left-right, H-top-bottom
+    vals = list(d["low"].astype(float)) + list(d["high"].astype(float))
+    if target is not None: vals.append(float(target))
+    if live_price is not None: vals.append(float(live_price))
+    lo, hi = min(vals), max(vals)
+    pad = max((hi-lo)*0.10, 8)
+    lo, hi = lo-pad, hi+pad
+    def y(v): return top + (hi-float(v))/(hi-lo)*ph
+    n=len(d); step=pw/max(n,1); body=max(3.2, min(8, step*.58))
+
+    svg=[]
+    # horizontal grid + prices
+    for k in range(5):
+        yy=top+ph*k/4; price=hi-(hi-lo)*k/4
+        svg.append(f'<line x1="{left}" y1="{yy:.1f}" x2="{W-right}" y2="{yy:.1f}" stroke="#182536" stroke-width="1"/>')
+        svg.append(f'<text x="{W-right+8}" y="{yy+4:.1f}" fill="#8392a7" font-size="12">{price:,.0f}</text>')
+    # vertical grid
+    for k in range(5):
+        xx=left+pw*k/4
+        svg.append(f'<line x1="{xx:.1f}" y1="{top}" x2="{xx:.1f}" y2="{top+ph}" stroke="#121e2d" stroke-width="1"/>')
+
+    # volume scaled into bottom 52 px of plot
+    vmax=max(float(d["volume"].max()),1)
+    vbase=top+ph
+    for i,row in d.iterrows():
+        x=left+(i+.5)*step; vh=float(row["volume"])/vmax*48
+        col='#16b97a' if float(row['close'])>=float(row['open']) else '#c43d59'
+        svg.append(f'<rect x="{x-body/2:.1f}" y="{vbase-vh:.1f}" width="{body:.1f}" height="{vh:.1f}" fill="{col}" opacity=".55"/>')
+
+    # candles
+    for i,row in d.iterrows():
+        x=left+(i+.5)*step
+        o,c,h,l=map(float,[row['open'],row['close'],row['high'],row['low']])
+        col='#19e6a2' if c>=o else '#ff4e6a'
+        svg.append(f'<line x1="{x:.1f}" y1="{y(h):.1f}" x2="{x:.1f}" y2="{y(l):.1f}" stroke="{col}" stroke-width="1.4"/>')
+        yy=min(y(o),y(c)); hh=max(2.0,abs(y(o)-y(c)))
+        svg.append(f'<rect x="{x-body/2:.1f}" y="{yy:.1f}" width="{body:.1f}" height="{hh:.1f}" rx=".7" fill="{col}"/>')
+
+    # EMA paths
+    def path(series,color):
+        pts=' '.join(f'{left+(i+.5)*step:.1f},{y(v):.1f}' for i,v in enumerate(series))
+        return f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    svg.append(path(ema9,'#df42e7'))
+    svg.append(path(ema21,'#32d7ef'))
+
+    # target line
+    if target is not None and lo <= float(target) <= hi:
+        ty=y(target)
+        svg.append(f'<line x1="{left}" y1="{ty:.1f}" x2="{W-right}" y2="{ty:.1f}" stroke="#23e7c1" stroke-width="1.8" stroke-dasharray="7 6"/>')
+        svg.append(f'<rect x="{W-right-69}" y="{ty-12:.1f}" width="69" height="23" rx="3" fill="#20e7bd"/>')
+        svg.append(f'<text x="{W-right-62}" y="{ty+4:.1f}" fill="#061510" font-size="11" font-weight="800">TARGET</text>')
+    # live price line + label
+    if live_price is not None and lo <= float(live_price) <= hi:
+        ly=y(live_price); lc='#31e889' if active=='UP' else '#ff5367' if active=='DOWN' else '#38bdf8'
+        svg.append(f'<line x1="{left}" y1="{ly:.1f}" x2="{W-right}" y2="{ly:.1f}" stroke="{lc}" stroke-width="1.3" stroke-dasharray="3 4"/>')
+        svg.append(f'<rect x="{W-right}" y="{ly-12:.1f}" width="78" height="23" rx="3" fill="{lc}"/>')
+        svg.append(f'<text x="{W-right+5}" y="{ly+4:.1f}" fill="#061510" font-size="11" font-weight="900">{float(live_price):,.0f}</text>')
+
+    # time labels
+    picks=[0, max(0,n//3), max(0,2*n//3), n-1]
+    for idx in picks:
+        tm=d.iloc[idx]['time'].to_pydatetime().astimezone().strftime('%H:%M')
+        xx=left+(idx+.5)*step
+        svg.append(f'<text x="{xx:.1f}" y="{H-52}" text-anchor="middle" fill="#8392a7" font-size="11">{tm}</text>')
+
+    last=d.iloc[-1]
+    change=float(last['close'])-float(last['open'])
+    pct=(change/float(last['open'])*100) if float(last['open']) else 0
+    direction_color='#31e889' if change>=0 else '#ff5367'
+    target_label=f'${float(target):,.0f}' if target is not None else '--'
+    return f'''<section class="chartbox">
+      <div class="charttop"><div><b>BTC/USD · 1m</b><span class="chartlive">● LIVE</span></div><div class="charttf">1m</div></div>
+      <div class="ohlc">O {float(last['open']):,.0f} &nbsp; H {float(last['high']):,.0f} &nbsp; L {float(last['low']):,.0f} &nbsp; C {float(last['close']):,.0f} &nbsp; <strong style="color:{direction_color}">{change:+,.0f} ({pct:+.2f}%)</strong></div>
+      <div class="indicators"><span class="ema9dot">●</span> EMA9 {float(ema9.iloc[-1]):,.0f} &nbsp;&nbsp; <span class="ema21dot">●</span> EMA21 {float(ema21.iloc[-1]):,.0f} &nbsp;&nbsp; <span class="targetdot">━</span> TARGET {target_label}</div>
+      <svg class="candlesvg" viewBox="0 0 {W} {H}" preserveAspectRatio="none">{''.join(svg)}</svg>
+      <div class="chartfoot"><span class="selected">1m</span><span>VELAS REALES COINBASE</span><span>ACTUALIZACIÓN LIVE</span></div>
+    </section>'''
+
 @st.fragment(run_every="2s")
 def live_dashboard():
     btc_error = ""
@@ -1824,6 +1926,11 @@ def live_dashboard():
 </div>
 <div class="ticker">{ticker} • SCORE {sig["final_score"]:+.2f}</div>
 """, unsafe_allow_html=True)
+
+    # Gráfico real BTC/USD de 1 minuto. No modifica ninguna señal del motor.
+    if btc_ok:
+        st.markdown(render_live_candles(btc_df, live_btc_price, target, active), unsafe_allow_html=True)
+
     if round_signal["reversal"]:
         st.markdown(
             f'<div class="alert">⚠ {round_signal["reversal_text"]}</div>',
