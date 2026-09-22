@@ -1595,12 +1595,32 @@ def closing_reader(sig, round_signal, seconds_left, micro):
 
 
 
-def render_live_candles(df, live_price, target, active):
-    # Renderiza velas BTC/USD reales de 1 minuto sin cambiar el motor.
+def render_live_candles(df, live_price, target, active, timeframe="1m"):
+    # Renderiza velas BTC/USD para visualización sin cambiar el motor v4.6.1.
+    # 3m y 5m se construyen agrupando las velas reales de Coinbase de 1 minuto.
     if df is None or len(df) < 5:
-        return '<div class="chartbox"><div class="charttitle">BTC/USD · 1m</div><div class="chartempty">Esperando velas…</div></div>'
+        return f'<div class="chartbox"><div class="charttitle">BTC/USD · {timeframe}</div><div class="chartempty">Esperando velas…</div></div>'
 
-    d = df.tail(42).copy().reset_index(drop=True)
+    tf_minutes = {"1m": 1, "3m": 3, "5m": 5}.get(timeframe, 1)
+    source_df = df.copy().sort_values("time")
+    if tf_minutes > 1:
+        d = (
+            source_df.set_index("time")
+            .resample(f"{tf_minutes}min", label="left", closed="left")
+            .agg({
+                "open": "first",
+                "high": "max",
+                "low": "min",
+                "close": "last",
+                "volume": "sum",
+            })
+            .dropna()
+            .reset_index()
+        )
+    else:
+        d = source_df[["time", "open", "high", "low", "close", "volume"]].copy()
+
+    d = d.tail(42).reset_index(drop=True)
     # La última vela se mantiene visualmente al precio live recibido por el dashboard.
     if live_price is not None and len(d):
         i = d.index[-1]
@@ -1663,8 +1683,9 @@ def render_live_candles(df, live_price, target, active):
     if target is not None and lo <= float(target) <= hi:
         ty=y(target)
         svg.append(f'<line x1="{left}" y1="{ty:.1f}" x2="{W-right}" y2="{ty:.1f}" stroke="#23e7c1" stroke-width="1.8" stroke-dasharray="7 6"/>')
-        svg.append(f'<rect x="{W-right-69}" y="{ty-12:.1f}" width="69" height="23" rx="3" fill="#20e7bd"/>')
-        svg.append(f'<text x="{W-right-62}" y="{ty+4:.1f}" fill="#061510" font-size="11" font-weight="800">TARGET</text>')
+        # La etiqueta queda en el margen derecho, fuera del área de velas.
+        svg.append(f'<rect x="{W-right+2}" y="{ty-12:.1f}" width="78" height="23" rx="3" fill="#20e7bd"/>')
+        svg.append(f'<text x="{W-right+7}" y="{ty+4:.1f}" fill="#061510" font-size="10" font-weight="800">TARGET</text>')
     # live price line + label
     if live_price is not None and lo <= float(live_price) <= hi:
         ly=y(live_price); lc='#31e889' if active=='UP' else '#ff5367' if active=='DOWN' else '#38bdf8'
@@ -1685,11 +1706,11 @@ def render_live_candles(df, live_price, target, active):
     direction_color='#31e889' if change>=0 else '#ff5367'
     target_label=f'${float(target):,.0f}' if target is not None else '--'
     return f'''<section class="chartbox">
-      <div class="charttop"><div><b>BTC/USD · 1m</b><span class="chartlive">● LIVE</span></div><div class="charttf">1m</div></div>
+      <div class="charttop"><div><b>BTC/USD · {timeframe}</b><span class="chartlive">● LIVE</span></div><div class="charttf">{timeframe}</div></div>
       <div class="ohlc">O {float(last['open']):,.0f} &nbsp; H {float(last['high']):,.0f} &nbsp; L {float(last['low']):,.0f} &nbsp; C {float(last['close']):,.0f} &nbsp; <strong style="color:{direction_color}">{change:+,.0f} ({pct:+.2f}%)</strong></div>
       <div class="indicators"><span class="ema9dot">●</span> EMA9 {float(ema9.iloc[-1]):,.0f} &nbsp;&nbsp; <span class="ema21dot">●</span> EMA21 {float(ema21.iloc[-1]):,.0f} &nbsp;&nbsp; <span class="targetdot">━</span> TARGET {target_label}</div>
       <svg class="candlesvg" viewBox="0 0 {W} {H}" preserveAspectRatio="none">{''.join(svg)}</svg>
-      <div class="chartfoot"><span class="selected">1m</span><span>VELAS REALES COINBASE</span><span>ACTUALIZACIÓN LIVE</span></div>
+      <div class="chartfoot"><span class="selected">{timeframe}</span><span>VELAS REALES COINBASE</span><span>ACTUALIZACIÓN LIVE</span></div>
     </section>'''
 
 @st.fragment(run_every="2s")
@@ -1929,7 +1950,19 @@ def live_dashboard():
 
     # Gráfico real BTC/USD de 1 minuto. No modifica ninguna señal del motor.
     if btc_ok:
-        st.markdown(render_live_candles(btc_df, live_btc_price, target, active), unsafe_allow_html=True)
+        chart_timeframe = st.radio(
+            "Temporalidad del gráfico",
+            ["1m", "3m", "5m"],
+            horizontal=True,
+            key="chart_timeframe",
+            label_visibility="collapsed",
+        )
+        st.markdown(
+            render_live_candles(
+                btc_df, live_btc_price, target, active, chart_timeframe
+            ),
+            unsafe_allow_html=True,
+        )
 
     if round_signal["reversal"]:
         st.markdown(
