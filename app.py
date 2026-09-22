@@ -533,6 +533,42 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .refapp footer{border-top:1px solid #182a3a;padding:5px 1px;display:flex;justify-content:space-between;color:#708197;font-size:5.2px}
 .ticker{text-align:center;color:#53667d;font-size:6px;margin-top:5px}
 
+
+/* ===== FINAL PHONE REFERENCE PROPORTIONS ===== */
+.block-container{max-width:365px!important;padding:3px 7px 14px!important}
+.rhead{height:49px!important;padding-top:4px!important}
+.rtitle{font-size:14px!important}.rver{font-size:8px!important}
+.gear{right:7px!important;top:4px!important;font-size:18px!important}
+.rlive{right:7px!important;bottom:0!important;font-size:8px!important}
+.rhero{padding:1px 0 7px!important}
+.rsignal{font-size:61px!important;line-height:.80!important;letter-spacing:-4px!important}
+.rarrow{font-size:66px!important;margin-right:4px!important}
+.rhero.waiting .rsignal{font-size:29px!important;letter-spacing:-1px!important}
+.rconf{margin-top:9px!important;padding:4px 14px!important;font-size:9px!important}
+.rgrid{gap:5px!important}
+.keycard{height:57px!important;padding:6px 8px!important;gap:7px!important}
+.bigicon{font-size:27px!important}.bars{width:27px!important;height:26px!important}.clock{font-size:27px!important}
+.rlabel{font-size:7px!important}.rvalue{font-size:16px!important}.rdelta{font-size:8px!important}
+.timebar{height:5px!important;margin-top:4px!important}
+.probs{margin-top:5px!important;padding:7px!important}.pup,.pdown{height:18px!important;font-size:9px!important}
+.pleg{font-size:9px!important;margin-top:5px!important}
+.reader{margin-top:5px!important;padding:7px 8px!important}
+.readerhead{font-size:8px!important}.readerhead .pulse{font-size:15px!important}
+.readerbody{grid-template-columns:1fr 58px!important;margin-top:5px!important}
+.readerbody strong{font-size:13px!important}.readerbody small{font-size:6.3px!important;margin-top:3px!important}
+.rring{width:55px!important;height:55px!important}.rring:after{width:43px!important;height:43px!important}.rring span{font-size:13px!important}
+.tech{margin-top:5px!important;padding:6px 7px!important}.techhead{font-size:8px!important;padding-bottom:5px!important}
+.techrow>div{padding:5px 1px 1px!important}.techrow small,.techrow i{font-size:5.3px!important}.techrow b{font-size:9px!important;margin:3px 0!important}
+.rnav{margin-top:6px!important;padding:6px 0!important}.rnav div{font-size:7px!important}.rnav b{font-size:15px!important}
+.features{padding:7px 1px 5px!important;gap:3px!important}.features>div{gap:4px!important}
+.features>div>b{width:22px!important;height:22px!important;font-size:11px!important}
+.features strong{font-size:5px!important}.features span{font-size:4.8px!important}
+.refapp footer{padding:4px 1px!important;font-size:4.7px!important}
+.ticker{font-size:5.3px!important;margin-top:4px!important}
+
+/* Make arrows chunky like the reference rather than thin text arrows */
+.rarrow{font-family:Arial Black,Arial,sans-serif!important;font-weight:1000!important}
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -1584,10 +1620,10 @@ def live_dashboard():
         first_time = state["first_signal_time"].astimezone().strftime("%H:%M")
 
     if active == "UP":
-        hero_arrow, hero_word = "↑", "UP"
+        hero_arrow, hero_word = "⬆", "UP"
         btc_delta = f"{sig['mom3']:+.2f}%"
     elif active == "DOWN":
-        hero_arrow, hero_word = "↓", "DOWN"
+        hero_arrow, hero_word = "⬇", "DOWN"
         btc_delta = f"{sig['mom3']:+.2f}%"
     else:
         hero_arrow, hero_word = "•", "ESPERANDO"
@@ -1659,7 +1695,7 @@ def live_dashboard():
   </section>
 
   <nav class="rnav">
-    <div class="active"><b>⬟</b><span>Señal</span></div>
+    <div class="active"><b>⌂</b><span>Señal</span></div>
     <div><b>⌁</b><span>Gráfico</span></div>
     <div><b>▣</b><span>Kalshi</span></div>
     <div><b>⚙</b><span>Ajustes</span></div>
