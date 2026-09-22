@@ -339,6 +339,133 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     font-size:10px;
     font-weight:900;
 }
+
+/* ===== REFERENCE UI OVERRIDES ===== */
+.block-container{
+    max-width:390px !important;
+    padding:5px 9px 20px !important;
+}
+.topbar{
+    min-height:39px !important;
+    padding:2px 1px 3px !important;
+}
+.brand{font-size:12px !important;}
+.version{font-size:6.5px !important;color:#536174 !important;}
+.live{top:23px !important;font-size:6.8px !important;}
+
+.hero{padding:0 2px 5px !important;}
+.hero-signal{
+    font-size:55px !important;
+    line-height:.90 !important;
+    letter-spacing:-4px !important;
+}
+.confidence{
+    margin-top:8px !important;
+    padding:4px 9px !important;
+    border-radius:6px !important;
+    font-size:8px !important;
+}
+
+.two{
+    gap:6px !important;
+    margin-top:6px !important;
+}
+.mini{
+    min-height:57px !important;
+    padding:7px 8px !important;
+    border-radius:8px !important;
+    background:#0d141d !important;
+    border-color:#172230 !important;
+}
+.mini-label{font-size:6.8px !important;margin-bottom:3px !important;}
+.mini-value{font-size:15px !important;line-height:1.05 !important;}
+.mini-sub{font-size:6.8px !important;margin-top:2px !important;}
+
+.section{
+    padding:8px !important;
+    margin-top:6px !important;
+    border-radius:8px !important;
+    background:#0c131c !important;
+    border-color:#172230 !important;
+}
+.section-title{
+    font-size:7px !important;
+    margin-bottom:6px !important;
+}
+.prob-row{gap:5px !important;}
+.prob-up,.prob-down{height:15px !important;border-radius:3px !important;}
+.prob-labels{margin-top:5px !important;font-size:7.5px !important;}
+
+.close-reader{
+    padding:9px !important;
+    margin-top:6px !important;
+    border-radius:8px !important;
+}
+.reader-top{font-size:7px !important;}
+.reader-active{font-size:6px !important;padding:2px 5px !important;}
+.reader-main{
+    grid-template-columns:1fr 58px !important;
+    margin-top:7px !important;
+}
+.reader-text{font-size:11px !important;line-height:1.08 !important;}
+.reader-note{font-size:6.5px !important;margin-top:4px !important;}
+.ring{width:54px !important;height:54px !important;}
+.ring:after{width:42px !important;height:42px !important;}
+.ring span{font-size:12px !important;}
+
+.tech-grid{gap:0 !important;}
+.tech-grid > div{
+    padding:0 4px !important;
+    border-right:1px solid #1c2734;
+}
+.tech-grid > div:last-child{border-right:none;}
+.tech-label{font-size:5.8px !important;}
+.tech-value{font-size:8.5px !important;margin-top:3px !important;}
+
+.ref-features{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:4px;
+    padding:8px 2px 6px;
+    margin-top:6px;
+    border-top:1px solid #182331;
+}
+.ref-feature{
+    display:grid;
+    grid-template-columns:22px 1fr;
+    gap:5px;
+    align-items:center;
+    color:#66758a;
+    font-size:5.6px;
+    line-height:1.22;
+}
+.ref-feature-icon{
+    width:20px;height:20px;border-radius:50%;
+    display:grid;place-items:center;
+    border:1px solid #28dd79;
+    color:#34e982;
+    font-size:10px;font-weight:1000;
+}
+.ref-feature strong{
+    display:block;color:#cfd7e1;
+    font-size:5.8px;margin-bottom:1px;
+}
+.ref-footer{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    padding:5px 1px 1px;
+    border-top:1px solid #131d29;
+    color:#435064;
+    font-size:5.2px;
+    font-weight:800;
+}
+.footer-nav{
+    padding:7px 2px 1px !important;
+    margin-top:4px !important;
+}
+.nav-item{font-size:6.8px !important;}
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -1466,8 +1593,8 @@ def live_dashboard():
 <div class="section">
   <div class="section-title">Probabilidades</div>
   <div class="prob-row">
-    <div class="prob-up" style="width:{up}%"></div>
-    <div class="prob-down" style="width:{down}%"></div>
+    <div class="prob-up" style="width:{up}%;display:flex;align-items:center;justify-content:center;color:#062c19;font-size:7px;font-weight:1000;">{up}%</div>
+    <div class="prob-down" style="width:{down}%;display:flex;align-items:center;justify-content:center;color:#3b0810;font-size:7px;font-weight:1000;">{down}%</div>
   </div>
   <div class="prob-labels">
     <span class="green">● UP&nbsp; {up}%</span>
@@ -1563,6 +1690,25 @@ def live_dashboard():
 </div>
 
 <div class="ticker">{ticker} • SCORE {sig["final_score"]:+.2f}</div>
+
+<div class="ref-features">
+  <div class="ref-feature">
+    <div class="ref-feature-icon">⌁</div>
+    <div><strong>Señal en tiempo real</strong>Actualiza cada ~2 segundos</div>
+  </div>
+  <div class="ref-feature">
+    <div class="ref-feature-icon">◎</div>
+    <div><strong>Datos clave</strong>BTC, target, distancia y tiempo</div>
+  </div>
+  <div class="ref-feature">
+    <div class="ref-feature-icon">▥</div>
+    <div><strong>Probabilidades visuales</strong>UP vs DOWN de un vistazo</div>
+  </div>
+</div>
+<div class="ref-footer">
+  <span>Datos en vivo • Coinbase + Kalshi</span>
+  <span>Modo análisis • No ejecuta órdenes</span>
+</div>
 
 <div style="--accent:{accent};">
   <div class="footer-nav">
