@@ -54,39 +54,41 @@ html, body, [class*="css"] {
 }
 
 .block-container {
-    max-width:430px !important;
-    padding:14px 14px 30px !important;
+    max-width:410px !important;
+    padding:8px 10px 24px !important;
 }
 
 div[data-testid="stVerticalBlock"] {gap:.55rem;}
 
 .topbar {
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    padding:4px 4px 9px;
+    position:relative;
+    min-height:45px;
+    padding:3px 2px 4px;
+    text-align:center;
 }
 .brand {
     color:#f8fafc;
-    font-size:15px;
-    line-height:1.1;
-    font-weight:900;
-    letter-spacing:.3px;
+    font-size:13px;
+    line-height:1.05;
+    font-weight:950;
+    letter-spacing:.15px;
 }
 .version {
-    color:#68758a;
-    font-size:9px;
+    color:#647184;
+    font-size:7px;
     font-weight:800;
-    margin-top:3px;
+    margin-top:2px;
 }
 .live {
+    position:absolute;
+    right:3px;
+    top:27px;
     display:flex;
     align-items:center;
-    gap:6px;
-    color:#9ba8bb;
-    font-size:10px;
+    gap:5px;
+    color:#91a0b3;
+    font-size:7.5px;
     font-weight:800;
-    padding-top:2px;
 }
 .live-dot {
     width:7px;
@@ -98,10 +100,10 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 
 .hero {
     text-align:center;
-    padding:6px 4px 8px;
+    padding:0 4px 8px;
 }
 .hero-signal {
-    font-size:62px;
+    font-size:58px;
     line-height:.96;
     font-weight:1000;
     letter-spacing:-3px;
@@ -135,11 +137,11 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     margin-top:7px;
 }
 .mini {
-    min-height:68px;
+    min-height:61px;
     background:linear-gradient(180deg,#101722,#0c121b);
     border:1px solid #1b2735;
     border-radius:10px;
-    padding:10px 11px;
+    padding:8px 9px;
 }
 .mini-label {
     color:#69778a;
@@ -1176,14 +1178,26 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         ratio = micro["up_ratio"] if direction == "UP" else 1 - micro["up_ratio"]
 
         micro_score = 0
-        micro_score += 4 if c10 > 8 else (2 if c10 > 2 else (-4 if c10 < -8 else (-2 if c10 < -2 else 0)))
-        micro_score += 4 if c30 > 15 else (2 if c30 > 5 else (-4 if c30 < -15 else (-2 if c30 < -5 else 0)))
-        micro_score += 3 if slope > 0.45 else (-3 if slope < -0.45 else 0)
-        micro_score += 3 if ratio >= 0.62 else (-3 if ratio <= 0.38 else 0)
+        micro_score += 6 if c10 > 8 else (3 if c10 > 2 else (-7 if c10 < -8 else (-4 if c10 < -2 else 0)))
+        micro_score += 7 if c30 > 15 else (4 if c30 > 5 else (-9 if c30 < -15 else (-5 if c30 < -5 else 0)))
+        micro_score += 4 if slope > 0.45 else (-5 if slope < -0.45 else 0)
+        micro_score += 4 if ratio >= 0.62 else (-5 if ratio <= 0.38 else 0)
 
-        # Limita cuánto puede alterar la lectura de cierre:
-        # confirma/rechaza la señal, pero no reemplaza el motor.
-        confidence += float(np.clip(micro_score, -12, 12))
+        weight = 1.0
+        if seconds_left is not None:
+            if seconds_left <= 60:
+                weight = 1.55
+            elif seconds_left <= 120:
+                weight = 1.35
+            elif seconds_left <= 180:
+                weight = 1.20
+
+        confidence += float(np.clip(micro_score * weight, -28, 20))
+
+        strong_contradiction = (c10 < -5 and c30 < -10)
+        if strong_contradiction:
+            confidence = min(confidence, 69)
+
         micro_text = (
             f"MICRO {micro['pressure']} • "
             f"10s {micro['change_10s']:+.1f} • "
@@ -1199,6 +1213,9 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     if round_signal.get("reversal"):
         headline = "SEÑAL PERDIENDO FUERZA"
         note = round_signal.get("reversal_text") or "Posible cambio de dirección."
+    elif micro.get("ready") and 'strong_contradiction' in locals() and strong_contradiction:
+        headline = f"{direction} PERDIENDO FUERZA"
+        note = "La presión live de 10s y 30s va contra la señal activa."
     elif confidence >= 75:
         headline = f"ALTA PROBABILIDAD DE CIERRE EN {direction}"
         note = "Motor + presión live de segundos alineados."
@@ -1336,13 +1353,13 @@ def live_dashboard():
         accent = "#34e982"
         glow = "rgba(52,233,130,.46)"
         soft = "rgba(52,233,130,.10)"
-        hero = "⬆ UP"
+        hero = "↑ UP"
         confidence = sig["up_probability"]
     elif active == "DOWN":
         accent = "#ff4e5f"
         glow = "rgba(255,78,95,.45)"
         soft = "rgba(255,78,95,.10)"
-        hero = "⬇ DOWN"
+        hero = "↓ DOWN"
         confidence = sig["down_probability"]
     else:
         accent = "#38bdf8"
@@ -1359,10 +1376,8 @@ def live_dashboard():
         f"""
 <div style="--accent:{accent};--glow:{glow};--soft:{soft};">
   <div class="topbar">
-    <div>
-      <div class="brand">BTC Signal</div>
-      <div class="version">v4.6.1</div>
-    </div>
+    <div class="brand">BTC Signal</div>
+    <div class="version">v4.6.1</div>
     <div class="live">
       <span class="live-dot" style="background:{'#2ee67b' if market_live else '#f7bd4d'}"></span>
       {'Mercado en vivo' if market_live else 'Conexión parcial'}
@@ -1475,7 +1490,6 @@ def live_dashboard():
     <div>
       <div class="reader-text">{reader['headline']}</div>
       <div class="reader-note">{reader['note']}</div>
-      <div class="reader-note" style="margin-top:6px;color:#8fa7c3;">{reader['micro']}</div>
     </div>
     <div class="ring" style="--p:{reader['percent']};--ring:{reader['color']};">
       <span>{reader['percent']}%</span>
