@@ -1632,8 +1632,8 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     ema9 = close.ewm(span=9, adjust=False).mean()
     ema21 = close.ewm(span=21, adjust=False).mean()
 
-    W, H = 700, 430
-    left, right, top, bottom = 18, 82, 54, 82
+    W, H = 760, 430
+    left, right, top, bottom = 18, 142, 54, 82
     pw, ph = W-left-right, H-top-bottom
     vals = list(d["low"].astype(float)) + list(d["high"].astype(float))
     if target is not None: vals.append(float(target))
@@ -1684,14 +1684,14 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         ty=y(target)
         svg.append(f'<line x1="{left}" y1="{ty:.1f}" x2="{W-right}" y2="{ty:.1f}" stroke="#23e7c1" stroke-width="1.8" stroke-dasharray="7 6"/>')
         # La etiqueta queda en el margen derecho, fuera del área de velas.
-        svg.append(f'<rect x="{W-right+2}" y="{ty-12:.1f}" width="78" height="23" rx="3" fill="#20e7bd"/>')
-        svg.append(f'<text x="{W-right+7}" y="{ty+4:.1f}" fill="#061510" font-size="10" font-weight="800">TARGET</text>')
+        svg.append(f'<rect x="{W-right+18}" y="{ty-12:.1f}" width="96" height="23" rx="3" fill="#20e7bd"/>')
+        svg.append(f'<text x="{W-right+25}" y="{ty+4:.1f}" fill="#061510" font-size="10" font-weight="800">TARGET</text>')
     # live price line + label
     if live_price is not None and lo <= float(live_price) <= hi:
         ly=y(live_price); lc='#31e889' if active=='UP' else '#ff5367' if active=='DOWN' else '#38bdf8'
         svg.append(f'<line x1="{left}" y1="{ly:.1f}" x2="{W-right}" y2="{ly:.1f}" stroke="{lc}" stroke-width="1.3" stroke-dasharray="3 4"/>')
-        svg.append(f'<rect x="{W-right}" y="{ly-12:.1f}" width="78" height="23" rx="3" fill="{lc}"/>')
-        svg.append(f'<text x="{W-right+5}" y="{ly+4:.1f}" fill="#061510" font-size="11" font-weight="900">{float(live_price):,.0f}</text>')
+        svg.append(f'<rect x="{W-right+18}" y="{ly-12:.1f}" width="96" height="23" rx="3" fill="{lc}"/>')
+        svg.append(f'<text x="{W-right+25}" y="{ly+4:.1f}" fill="#061510" font-size="11" font-weight="900">{float(live_price):,.0f}</text>')
 
     # time labels
     picks=[0, max(0,n//3), max(0,2*n//3), n-1]
