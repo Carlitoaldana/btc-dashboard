@@ -501,6 +501,38 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .tech-head{display:flex;justify-content:space-between;align-items:center}
 .tech-chevron{font-size:13px;color:#b6c6da}
 
+
+/* ===== REBUILT REFERENCE FRONTEND ===== */
+.block-container{max-width:430px!important;padding:4px 9px 18px!important}
+.refapp{font-family:Arial,sans-serif;color:#eaf2fb}
+.rhead{height:54px;position:relative;text-align:center;padding-top:7px}
+.rtitle{font-size:15px;font-weight:900}.rver{font-size:9px;color:#9badc3;margin-top:2px}
+.gear{position:absolute;right:9px;top:7px;font-size:19px;color:#a9c9ec}
+.rlive{position:absolute;right:8px;bottom:1px;font-size:9px;color:#b9c9db}
+.rlive i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-right:5px;box-shadow:0 0 12px var(--accent)}
+.rhero{text-align:center;padding:4px 0 8px}
+.rsignal{display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:72px;font-weight:1000;line-height:.82;letter-spacing:-5px;text-shadow:0 0 12px var(--glow),0 0 25px var(--glow)}
+.rarrow{font-size:79px;margin-right:5px;line-height:.7}.rhero.waiting .rsignal{font-size:39px;letter-spacing:-2px}.rhero.waiting .rarrow{display:none}
+.rconf{display:inline-block;margin-top:11px;border:1.5px solid var(--accent);border-radius:18px;padding:5px 17px;color:#fff;font-size:10px;font-weight:900;box-shadow:0 0 10px var(--soft)}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+.rcard{background:linear-gradient(180deg,#0d1823,#09131c);border:1px solid #203348;border-radius:8px}
+.keycard{height:68px;padding:8px 9px;display:flex;align-items:center;gap:8px}
+.bigicon{font-size:31px;font-weight:900;line-height:1}.btcicon{color:#ff9d00}.targeticon{color:#a9cff5}
+.rlabel{font-size:8px;color:#b9c9dc;letter-spacing:.4px}.rvalue{font-size:19px;font-weight:900;line-height:1.05;margin-top:2px}.rdelta{font-size:9px;font-weight:900;margin-top:2px}
+.green{color:#32e981!important}.red{color:#ff4c5d!important}
+.bars{display:flex;align-items:flex-end;gap:3px;width:31px;height:30px}.bars b{width:7px;background:var(--accent);border-radius:2px}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
+.clock{font-size:30px;color:#b9d8f7}.timecontent{flex:1}.timebar{height:6px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}.timebar b{display:block;height:100%;background:var(--accent);border-radius:5px}
+.probs{margin-top:6px;padding:8px}.pbar{display:flex;gap:4px;margin-top:5px}.pup,.pdown{height:21px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;border-radius:4px}.pup{background:linear-gradient(90deg,#10d76d,#54ed91);color:#06331d}.pdown{background:linear-gradient(90deg,#ff3548,#ff6472);color:#3d0710}.pleg{display:flex;justify-content:space-between;font-size:10px;font-weight:900;margin-top:6px}
+.reader{margin-top:6px;border:1.5px solid var(--rb);background:var(--rbg);border-radius:9px;padding:9px 10px}
+.readerhead{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--rr)}.readerhead .pulse{font-size:18px}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#45ec8e}
+.readerbody{display:grid;grid-template-columns:1fr 65px;align-items:center;margin-top:7px}.readerbody strong{display:block;font-size:15px;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:7px;margin-top:5px}
+.rring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:48px;height:48px;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:15px;font-weight:900}
+.tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
+.rnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #203448;border-bottom:1px solid #203448;margin-top:7px;padding:7px 0}.rnav div{text-align:center;color:#9db0c5;font-size:8px}.rnav b{display:block;font-size:17px;margin-bottom:2px}.rnav .active{color:var(--accent)}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 1px}.features>div{display:flex;gap:5px;align-items:center}.features>div>b{width:25px;height:25px;border:1px solid #28e57f;border-radius:50%;display:grid;place-items:center;color:#35e986;font-size:13px}.features p{margin:0}.features strong{display:block;font-size:5.7px;color:#e1e8f0}.features span{display:block;font-size:5.4px;color:#8c9db0;margin-top:2px}
+.refapp footer{border-top:1px solid #182a3a;padding:5px 1px;display:flex;justify-content:space-between;color:#708197;font-size:5.2px}
+.ticker{text-align:center;color:#53667d;font-size:6px;margin-top:5px}
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -1534,229 +1566,114 @@ def live_dashboard():
 
     market_live = kalshi_ok and live_btc_price is not None
 
-    st.markdown(
-        f"""
-<div style="--accent:{accent};--glow:{glow};--soft:{soft};">
-  <div class="topbar">
-    <div class="brand">BTC Signal</div>
-    <div class="version">v4.6.1</div>
-    <div class="live">
-      <span class="live-dot" style="background:{'#2ee67b' if market_live else '#f7bd4d'}"></span>
-      {'Mercado en vivo' if market_live else 'Conexión parcial'}
-    </div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    if hero:
-        hero_html = f"""
-<div style="--accent:{accent};--glow:{glow};--soft:{soft};">
-  <div class="hero">
-    <div class="hero-signal" style="color:{accent};">{hero}</div>
-    <div class="confidence">CONFIANZA {confidence}%</div>
-  </div>
-</div>
-"""
-    else:
-        hero_html = f"""
-<div style="--accent:{accent};--glow:{glow};--soft:{soft};">
-  <div class="hero">
-    <div class="hero-wait">{round_signal["decision"]}</div>
-    <div class="confidence">{round_signal["signal"]}</div>
-  </div>
-</div>
-"""
-
-    st.markdown(hero_html, unsafe_allow_html=True)
-
     distance = sig["distance"]
     distance_pct = sig.get("distance_pct")
-
-    if distance is None:
-        distance_text = "--"
-        distance_sub = "sin target"
-        distance_class = ""
-    else:
-        distance_text = f"${abs(distance):,.0f}"
-        distance_sub = (
-            f"{abs(distance_pct):.2f}% • "
-            + ("ARRIBA" if distance > 0 else "ABAJO")
-        )
-        distance_class = "green" if distance > 0 else "red"
-
+    up = int(sig["up_probability"])
+    down = int(sig["down_probability"])
     target_text = f"${target:,.0f}" if target is not None else "--"
     countdown = format_countdown(seconds_left)
 
-    st.markdown(
-        f"""
-<div class="two">
-  <div class="mini">
-    <div class="mini-label"><span class="ref-icon ref-btc">₿</span>BTC</div>
-    <div class="mini-value">${sig["price"]:,.0f}</div>
-    <div class="mini-sub">{source}</div>
-  </div>
-  <div class="mini">
-    <div class="mini-label">◎ Target</div>
-    <div class="mini-value">{target_text}</div>
-    <div class="mini-sub">KALSHI 15 MIN</div>
-  </div>
-</div>
-
-<div class="two">
-  <div class="mini">
-    <div class="mini-label">▥ Distancia al target</div>
-    <div class="mini-value {distance_class}">{distance_text}</div>
-    <div class="mini-sub">{distance_sub}</div>
-  </div>
-  <div class="mini">
-    <div class="mini-label">◷ Tiempo restante</div>
-    <div class="mini-value">{countdown}</div>
-    <div class="mini-sub">{round_signal["entry_quality"]}</div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    up = int(sig["up_probability"])
-    down = int(sig["down_probability"])
-
-    st.markdown(
-        f"""
-<div class="section">
-  <div class="section-title">Probabilidades</div>
-  <div class="prob-row">
-    <div class="prob-up" style="width:{up}%;display:flex;align-items:center;justify-content:center;color:#062c19;font-size:7px;font-weight:1000;">{up}%</div>
-    <div class="prob-down" style="width:{down}%;display:flex;align-items:center;justify-content:center;color:#3b0810;font-size:7px;font-weight:1000;">{down}%</div>
-  </div>
-  <div class="prob-labels">
-    <span class="green">● UP&nbsp; {up}%</span>
-    <span class="red">● DOWN&nbsp; {down}%</span>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        f"""
-<div class="close-reader"
-     style="--reader-border:{reader['border']};--reader-bg:{reader['bg']};">
-  <div class="reader-top">
-    <span style="color:{reader['color']};">⌁ &nbsp; LECTOR DE CIERRE</span>
-    <span class="reader-active">ACTIVO</span>
-  </div>
-  <div class="reader-main">
-    <div>
-      <div class="reader-text">{reader['headline']}</div>
-      <div class="reader-note">{reader['note']}</div>
-    </div>
-    <div class="ring" style="--p:{reader['percent']};--ring:{reader['color']};">
-      <span>{reader['percent']}%</span>
-    </div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    first_signal = (
-        state.get("first_direction") if state else None
-    ) or "--"
+    if distance is None:
+        distance_text, distance_sub = "--", "SIN TARGET"
+    else:
+        distance_text = f"${abs(distance):,.0f}"
+        distance_sub = f"{abs(distance_pct):.2f}%"
+    first_signal = (state.get("first_direction") if state else None) or "--"
     first_time = "--"
     if state and state.get("first_signal_time"):
-        first_time = (
-            state["first_signal_time"]
-            .astimezone()
-            .strftime("%H:%M")
-        )
+        first_time = state["first_signal_time"].astimezone().strftime("%H:%M")
 
-    ema_class = (
-        "green" if sig["ema"] == "BULL" else "red"
-    )
-    rsi_class = (
-        "green"
-        if sig["rsi"] >= 55
-        else "red"
-        if sig["rsi"] <= 45
-        else ""
-    )
-    mom_class = (
-        "green"
-        if sig["mom3"] > 0
-        else "red"
-        if sig["mom3"] < 0
-        else ""
-    )
+    if active == "UP":
+        hero_arrow, hero_word = "↑", "UP"
+        btc_delta = f"{sig['mom3']:+.2f}%"
+    elif active == "DOWN":
+        hero_arrow, hero_word = "↓", "DOWN"
+        btc_delta = f"{sig['mom3']:+.2f}%"
+    else:
+        hero_arrow, hero_word = "•", "ESPERANDO"
+        btc_delta = f"{sig['mom3']:+.2f}%"
+
+    ema_class = "green" if sig["ema"] == "BULL" else "red"
+    rsi_class = "green" if sig["rsi"] >= 55 else "red" if sig["rsi"] <= 45 else ""
+    mom_class = "green" if sig["mom3"] > 0 else "red" if sig["mom3"] < 0 else ""
+    time_pct = max(0, min(100, int((seconds_left or 0) / 900 * 100)))
 
     st.markdown(
         f"""
-<div class="section">
-  <div class="section-title">Detalles técnicos</div>
-  <div class="tech-grid">
-    <div>
-      <div class="tech-label">1ª señal</div>
-      <div class="tech-value" style="color:{accent};">{first_signal}</div>
-      <div class="tech-label">{first_time}</div>
+<div class="refapp" style="--accent:{accent};--glow:{glow};--soft:{soft};">
+  <header class="rhead">
+    <div class="rtitle">BTC Signal</div>
+    <div class="rver">v4.6.1</div>
+    <div class="gear">⚙</div>
+    <div class="rlive"><i></i>{'Mercado en vivo' if market_live else 'Conexión parcial'}</div>
+  </header>
+
+  <section class="rhero {'waiting' if active not in ('UP','DOWN') else ''}">
+    <div class="rsignal"><span class="rarrow">{hero_arrow}</span><span>{hero_word}</span></div>
+    <div class="rconf">{'CONFIANZA ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
+  </section>
+
+  <div class="rgrid">
+    <div class="rcard keycard">
+      <div class="bigicon btcicon">₿</div>
+      <div><div class="rlabel">BTC</div><div class="rvalue">${sig["price"]:,.0f}</div>
+      <div class="rdelta {'green' if sig["mom3"] >= 0 else 'red'}">{btc_delta}</div></div>
     </div>
-    <div>
-      <div class="tech-label">Kalshi</div>
-      <div class="tech-value">{confidence}%</div>
-      <div class="tech-label">{round_signal["entry_quality"]}</div>
+    <div class="rcard keycard">
+      <div class="bigicon targeticon">◎</div>
+      <div><div class="rlabel">TARGET</div><div class="rvalue">{target_text}</div></div>
     </div>
-    <div>
-      <div class="tech-label">EMA</div>
-      <div class="tech-value {ema_class}">{sig["ema"]}</div>
-      <div class="tech-label">9 / 21</div>
+    <div class="rcard keycard">
+      <div class="bars"><b></b><b></b><b></b></div>
+      <div><div class="rlabel">DISTANCIA AL TARGET</div><div class="rvalue">{distance_text}</div>
+      <div class="rdelta" style="color:var(--accent)">{distance_sub}</div></div>
     </div>
-    <div>
-      <div class="tech-label">RSI</div>
-      <div class="tech-value {rsi_class}">{sig["rsi"]:.0f}</div>
-      <div class="tech-label">14</div>
-    </div>
-    <div>
-      <div class="tech-label">Momentum</div>
-      <div class="tech-value {mom_class}">{sig["mom3"]:+.2f}</div>
-      <div class="tech-label">3 min</div>
+    <div class="rcard keycard">
+      <div class="clock">◷</div>
+      <div class="timecontent"><div class="rlabel">TIEMPO RESTANTE</div><div class="rvalue">{countdown}</div>
+      <div class="timebar"><b style="width:{time_pct}%"></b></div></div>
     </div>
   </div>
-</div>
 
+  <section class="rcard probs">
+    <div class="rlabel">PROBABILIDADES</div>
+    <div class="pbar"><div class="pup" style="width:{up}%">{up}%</div><div class="pdown" style="width:{down}%">{down}%</div></div>
+    <div class="pleg"><span class="green">● &nbsp;UP&nbsp; {up}%</span><span class="red">● &nbsp;DOWN&nbsp; {down}%</span></div>
+  </section>
+
+  <section class="reader" style="--rb:{reader['border']};--rbg:{reader['bg']};--rr:{reader['color']}">
+    <div class="readerhead"><span class="pulse">⌁</span><span>LECTOR DE CIERRE</span><em>ACTIVO</em></div>
+    <div class="readerbody"><div><strong>{reader['headline']}</strong><small>{reader['note']}</small></div>
+    <div class="rring" style="--p:{reader['percent']}"><span>{reader['percent']}%</span></div></div>
+  </section>
+
+  <section class="rcard tech">
+    <div class="techhead"><span>DETALLES TÉCNICOS</span><span>⌃</span></div>
+    <div class="techrow">
+      <div><small>1ª SEÑAL</small><b style="color:var(--accent)">{first_signal}</b><i>{first_time}</i></div>
+      <div><small>KALSHI</small><b>{confidence}%</b><i>{round_signal["entry_quality"]}</i></div>
+      <div><small>EMA</small><b class="{ema_class}">{sig["ema"]}</b><i>9 / 21</i></div>
+      <div><small>RSI</small><b class="{rsi_class}">{sig["rsi"]:.0f}</b><i>14</i></div>
+      <div><small>MOMENTUM</small><b class="{mom_class}">{sig["mom3"]:+.2f}</b><i>3 MIN</i></div>
+    </div>
+  </section>
+
+  <nav class="rnav">
+    <div class="active"><b>⬟</b><span>Señal</span></div>
+    <div><b>⌁</b><span>Gráfico</span></div>
+    <div><b>▣</b><span>Kalshi</span></div>
+    <div><b>⚙</b><span>Ajustes</span></div>
+  </nav>
+
+  <section class="features">
+    <div><b>ϟ</b><p><strong>SEÑAL EN TIEMPO REAL</strong><span>UP o DOWN, sin duda</span></p></div>
+    <div><b>◎</b><p><strong>DATOS CLAVE</strong><span>BTC, target, distancia y countdown</span></p></div>
+    <div><b>▥</b><p><strong>PROBABILIDADES VISUALES</strong><span>Con barra y porcentaje</span></p></div>
+  </section>
+  <footer><span>BTC SIGNAL v4.6.1 &nbsp; | &nbsp; DISEÑADO PARA TRADERS REALES</span><span>MENOS RUIDO. MÁS RESULTADOS.</span></footer>
+</div>
 <div class="ticker">{ticker} • SCORE {sig["final_score"]:+.2f}</div>
-
-<div class="ref-features">
-  <div class="ref-feature">
-    <div class="ref-feature-icon">⌁</div>
-    <div><strong>Señal en tiempo real</strong>Actualiza cada ~2 segundos</div>
-  </div>
-  <div class="ref-feature">
-    <div class="ref-feature-icon">◎</div>
-    <div><strong>Datos clave</strong>BTC, target, distancia y tiempo</div>
-  </div>
-  <div class="ref-feature">
-    <div class="ref-feature-icon">▥</div>
-    <div><strong>Probabilidades visuales</strong>UP vs DOWN de un vistazo</div>
-  </div>
-</div>
-<div class="ref-footer">
-  <span>Datos en vivo • Coinbase + Kalshi</span>
-  <span>Modo análisis • No ejecuta órdenes</span>
-</div>
-
-<div style="--accent:{accent};">
-  <div class="footer-nav">
-    <div class="nav-item nav-active">●<br>Señal</div>
-    <div class="nav-item">⌁<br>Gráfico</div>
-    <div class="nav-item">▣<br>Kalshi</div>
-    <div class="nav-item">⚙<br>Ajustes</div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
+""", unsafe_allow_html=True)
     if round_signal["reversal"]:
         st.markdown(
             f'<div class="alert">⚠ {round_signal["reversal_text"]}</div>',
