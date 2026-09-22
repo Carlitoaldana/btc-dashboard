@@ -466,6 +466,41 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 }
 .nav-item{font-size:6.8px !important;}
 
+
+/* FINAL REFERENCE MATCH */
+.block-container{max-width:430px!important;padding:7px 10px 22px!important}
+.topbar{min-height:48px!important;padding:4px 2px 5px!important;text-align:center!important}
+.brand{font-size:15px!important}.version{font-size:8px!important}
+.live{top:29px!important;right:4px!important;font-size:8px!important}
+.hero{padding:2px 2px 7px!important}
+.hero-signal{font-size:72px!important;line-height:.86!important;letter-spacing:-5px!important;text-shadow:0 0 12px currentColor,0 0 28px currentColor!important}
+.confidence{font-size:10px!important;padding:5px 16px!important;border-radius:18px!important;margin-top:9px!important}
+.two{gap:7px!important;margin-top:7px!important}
+.mini{min-height:72px!important;padding:9px 10px!important;border-radius:9px!important}
+.mini-label{font-size:8px!important}.mini-value{font-size:19px!important}.mini-sub{font-size:8px!important}
+.section{padding:9px!important;margin-top:7px!important;border-radius:9px!important}
+.section-title{font-size:8px!important;margin-bottom:6px!important}
+.prob-up,.prob-down{height:20px!important}.prob-labels{font-size:9px!important}
+.close-reader{padding:10px 11px!important;margin-top:7px!important;border-radius:10px!important}
+.reader-top{font-size:9px!important}.reader-active{font-size:7px!important}
+.reader-main{grid-template-columns:1fr 68px!important;margin-top:8px!important}
+.reader-text{font-size:15px!important;line-height:1.08!important}.reader-note{font-size:7.5px!important}
+.ring{width:64px!important;height:64px!important}.ring:after{width:50px!important;height:50px!important}.ring span{font-size:15px!important}
+.tech-label{font-size:6.5px!important}.tech-value{font-size:10px!important}
+.footer-nav{padding:9px 2px 7px!important}.nav-item{font-size:8px!important}
+.ref-features{padding:9px 3px 7px!important}.ref-feature{font-size:6px!important}
+.ref-feature strong{font-size:6.2px!important}.ref-footer{font-size:5.6px!important}
+.ref-icon{font-size:23px;line-height:1;margin-right:8px;display:inline-block;vertical-align:middle}
+.ref-btc{color:#ff9f0a}.ref-target{color:#a9c9f3}
+.ref-bars{display:inline-flex;gap:2px;align-items:flex-end;height:19px;margin-right:8px;vertical-align:middle}
+.ref-bars i{display:block;width:5px;background:var(--accent);border-radius:1px}
+.ref-bars i:nth-child(1){height:7px}.ref-bars i:nth-child(2){height:12px}.ref-bars i:nth-child(3){height:18px}
+.ref-clock{font-size:23px;color:#b9d5f5;margin-right:8px;vertical-align:middle}
+.ref-timebar{height:5px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}
+.ref-timebar b{display:block;height:100%;width:58%;background:var(--accent);border-radius:5px}
+.tech-head{display:flex;justify-content:space-between;align-items:center}
+.tech-chevron{font-size:13px;color:#b6c6da}
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -1344,8 +1379,8 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         headline = f"{direction} PERDIENDO FUERZA"
         note = "La presión live de 10s y 30s va contra la señal activa."
     elif confidence >= 75:
-        headline = f"ALTA PROBABILIDAD DE CIERRE EN {direction}"
-        note = "Motor + presión live de segundos alineados."
+        headline = ("ALTA PROBABILIDAD DE CIERRE EN VERDE" if direction == "UP" else "ALTA PROBABILIDAD DE CIERRE EN ROJO")
+        note = "Basado en momentum, volatilidad y presión de precio."
     elif confidence >= 60:
         headline = f"VENTAJA MODERADA PARA {direction}"
         note = "La dirección sigue activa, pero la presión inmediata aún puede cambiar."
@@ -1558,7 +1593,7 @@ def live_dashboard():
         f"""
 <div class="two">
   <div class="mini">
-    <div class="mini-label">₿ BTC</div>
+    <div class="mini-label"><span class="ref-icon ref-btc">₿</span>BTC</div>
     <div class="mini-value">${sig["price"]:,.0f}</div>
     <div class="mini-sub">{source}</div>
   </div>
