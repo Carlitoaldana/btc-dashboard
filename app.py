@@ -1422,12 +1422,17 @@ def micro_reading():
 
 
 def closing_reader(sig, round_signal, seconds_left, micro):
-    direction = None
+    """
+    Lector independiente de cierre.
+    - La señal principal v4.6.1 NO se modifica.
+    - En los últimos segundos, tiempo + distancia al target dominan sobre
+      una pequeña contradicción de momentum/microlectura.
+    - Nunca llama "confirmado" a un resultado antes del cierre.
+    """
     state = round_signal.get("round_state")
-    if state:
-        direction = state.get("active_direction")
+    active_direction = state.get("active_direction") if state else None
 
-    if direction not in ("UP", "DOWN"):
+    if active_direction not in ("UP", "DOWN"):
         return {
             "percent": 50,
             "headline": "ESPERANDO SEÑAL",
@@ -1438,22 +1443,53 @@ def closing_reader(sig, round_signal, seconds_left, micro):
             "bg": "linear-gradient(135deg,rgba(11,64,91,.30),rgba(9,23,34,.72))",
         }
 
+    distance = sig.get("distance")
+    close_direction = active_direction
+    terminal_override = False
+    terminal_too_close = False
+
+    # En cierre extremo, la posición REAL respecto al target manda.
+    # Umbrales deliberadamente conservadores para no llamar un flip por $2-$10.
+    if seconds_left is not None and distance is not None:
+        abs_d = abs(distance)
+        market_side = "UP" if distance > 0 else "DOWN"
+
+        if seconds_left <= 15:
+            strong_distance = abs_d >= 30
+            too_close = abs_d < 15
+        elif seconds_left <= 30:
+            strong_distance = abs_d >= 45
+            too_close = abs_d < 20
+        elif seconds_left <= 60:
+            strong_distance = abs_d >= 70
+            too_close = abs_d < 25
+        else:
+            strong_distance = False
+            too_close = False
+
+        if strong_distance:
+            close_direction = market_side
+            terminal_override = True
+        elif too_close and seconds_left <= 30:
+            terminal_too_close = True
+
+    direction = close_direction
     base = sig["up_probability"] if direction == "UP" else sig["down_probability"]
     confidence = float(base)
 
-    # Contexto del motor de 1 minuto.
-    if sig["distance"] is not None:
-        aligned = sig["distance"] > 0 if direction == "UP" else sig["distance"] < 0
-        confidence += 4 if aligned else -7
+    if distance is not None:
+        aligned = distance > 0 if direction == "UP" else distance < 0
+        confidence += 6 if aligned else -9
 
     aligned_momentum = sig["mom3"] > 0 if direction == "UP" else sig["mom3"] < 0
     confidence += 3 if aligned_momentum else -5
 
-    if round_signal.get("reversal"):
+    if round_signal.get("reversal") and not terminal_override:
         confidence -= 12
 
-    # Microestructura: muestras live aproximadamente cada 2 s.
     micro_text = "MICROLECTURA REUNIENDO DATOS"
+    strong_contradiction = False
+
     if micro.get("ready"):
         wanted = 1 if direction == "UP" else -1
         c10 = micro["change_10s"] * wanted
@@ -1467,19 +1503,23 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         micro_score += 4 if slope > 0.45 else (-5 if slope < -0.45 else 0)
         micro_score += 4 if ratio >= 0.62 else (-5 if ratio <= 0.38 else 0)
 
+        # La microlectura pesa menos cuando quedan segundos y la distancia es amplia.
         weight = 1.0
         if seconds_left is not None:
-            if seconds_left <= 60:
-                weight = 1.55
+            if seconds_left <= 30:
+                weight = 0.45 if terminal_override else 1.20
+            elif seconds_left <= 60:
+                weight = 0.70 if terminal_override else 1.35
             elif seconds_left <= 120:
                 weight = 1.35
             elif seconds_left <= 180:
                 weight = 1.20
 
         confidence += float(np.clip(micro_score * weight, -28, 20))
-
         strong_contradiction = (c10 < -5 and c30 < -10)
-        if strong_contradiction:
+
+        # Solo limitar por contradicción si tiempo/distancia NO hacen el cierre dominante.
+        if strong_contradiction and not terminal_override:
             confidence = min(confidence, 69)
 
         micro_text = (
@@ -1488,27 +1528,47 @@ def closing_reader(sig, round_signal, seconds_left, micro):
             f"30s {micro['change_30s']:+.1f}"
         )
 
-    # Cerca del cierre, la microlectura pesa más porque importa la presión inmediata.
     if seconds_left is not None and seconds_left <= 180:
         confidence += 2
 
+    # Refuerzo específico de tiempo + distancia.
+    if terminal_override and distance is not None:
+        abs_d = abs(distance)
+        if seconds_left <= 15:
+            confidence = max(confidence, 90 if abs_d >= 75 else 82)
+        elif seconds_left <= 30:
+            confidence = max(confidence, 86 if abs_d >= 100 else 78)
+        elif seconds_left <= 60:
+            confidence = max(confidence, 80 if abs_d >= 120 else 74)
+
     confidence = int(round(np.clip(confidence, 5, 95)))
 
-    if round_signal.get("reversal"):
+    if terminal_too_close:
+        confidence = min(confidence, 58)
+        headline = "DEMASIADO CERRADO"
+        note = "Queda muy poco tiempo y BTC está demasiado cerca del target."
+    elif terminal_override:
+        headline = f"CIERRE MUY FAVORECIDO PARA {direction}"
+        note = (
+            f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
+            f"{'arriba' if distance > 0 else 'abajo'} del target."
+        )
+    elif round_signal.get("reversal"):
         headline = "SEÑAL PERDIENDO FUERZA"
         note = round_signal.get("reversal_text") or "Posible cambio de dirección."
-    elif micro.get("ready") and 'strong_contradiction' in locals() and strong_contradiction:
+    elif strong_contradiction:
         headline = f"{direction} PERDIENDO FUERZA"
         note = "La presión live de 10s y 30s va contra la señal activa."
     elif confidence >= 75:
-        headline = ("ALTA PROBABILIDAD DE CIERRE EN VERDE" if direction == "UP" else "ALTA PROBABILIDAD DE CIERRE EN ROJO")
-        note = "Basado en momentum, volatilidad y presión de precio."
+        headline = ("ALTA PROBABILIDAD DE CIERRE EN VERDE" if direction == "UP"
+                    else "ALTA PROBABILIDAD DE CIERRE EN ROJO")
+        note = "Basado en momentum, volatilidad, presión de precio y distancia al target."
     elif confidence >= 60:
         headline = f"VENTAJA MODERADA PARA {direction}"
         note = "La dirección sigue activa, pero la presión inmediata aún puede cambiar."
     else:
         headline = f"CIERRE {direction} SIN VENTAJA CLARA"
-        note = "La microlectura no confirma con fuerza la señal activa."
+        note = "La microlectura no confirma con fuerza la dirección."
 
     if direction == "UP":
         color = "#34e982"
