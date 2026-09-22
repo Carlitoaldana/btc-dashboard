@@ -569,6 +569,60 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 /* Make arrows chunky like the reference rather than thin text arrows */
 .rarrow{font-family:Arial Black,Arial,sans-serif!important;font-weight:1000!important}
 
+
+/* ===== TRUE FINAL: CSS ARROW + VISIBLE HEADER ===== */
+.rhead{
+    display:block!important;
+    visibility:visible!important;
+    height:58px!important;
+    min-height:58px!important;
+    padding-top:7px!important;
+    overflow:visible!important;
+    position:relative!important;
+    z-index:20!important;
+}
+.rtitle,.rver,.gear,.rlive{display:block!important;visibility:visible!important}
+.rtitle{font-size:14px!important;line-height:17px!important}
+.rver{font-size:8px!important;line-height:11px!important}
+.gear{top:7px!important;right:8px!important}
+.rlive{bottom:3px!important;right:8px!important}
+
+.rhero{padding-top:4px!important}
+.rsignal{gap:9px!important}
+.rarrow{display:none!important}
+
+/* Solid arrow matching signal color; no iOS emoji rendering */
+.cssarrow{
+    position:relative;
+    display:inline-block;
+    width:42px;
+    height:46px;
+    background:var(--accent);
+    border-radius:3px;
+    box-shadow:0 0 12px var(--glow),0 0 24px var(--glow);
+    flex:0 0 auto;
+}
+.cssarrow:before{
+    content:"";
+    position:absolute;
+    left:-17px;
+    top:-27px;
+    width:0;height:0;
+    border-left:38px solid transparent;
+    border-right:38px solid transparent;
+    border-bottom:34px solid var(--accent);
+    filter:drop-shadow(0 0 7px var(--glow));
+}
+/* DOWN: arrow head below shaft */
+.refapp.dir-down .cssarrow{transform:rotate(180deg);}
+/* Waiting state: no arrow */
+.rhero.waiting .cssarrow{display:none!important}
+
+/* Keep final phone proportions compact */
+.block-container{max-width:365px!important;padding-top:3px!important}
+.rgrid{margin-top:1px!important}
+.reader{min-height:0!important}
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -1620,10 +1674,10 @@ def live_dashboard():
         first_time = state["first_signal_time"].astimezone().strftime("%H:%M")
 
     if active == "UP":
-        hero_arrow, hero_word = "⬆", "UP"
+        hero_arrow, hero_word = "", "UP"
         btc_delta = f"{sig['mom3']:+.2f}%"
     elif active == "DOWN":
-        hero_arrow, hero_word = "⬇", "DOWN"
+        hero_arrow, hero_word = "", "DOWN"
         btc_delta = f"{sig['mom3']:+.2f}%"
     else:
         hero_arrow, hero_word = "•", "ESPERANDO"
@@ -1636,7 +1690,7 @@ def live_dashboard():
 
     st.markdown(
         f"""
-<div class="refapp" style="--accent:{accent};--glow:{glow};--soft:{soft};">
+<div class="refapp dir-{active.lower() if active in ("UP","DOWN") else "wait"}" style="--accent:{accent};--glow:{glow};--soft:{soft};">
   <header class="rhead">
     <div class="rtitle">BTC Signal</div>
     <div class="rver">v4.6.1</div>
@@ -1645,7 +1699,7 @@ def live_dashboard():
   </header>
 
   <section class="rhero {'waiting' if active not in ('UP','DOWN') else ''}">
-    <div class="rsignal"><span class="rarrow">{hero_arrow}</span><span>{hero_word}</span></div>
+    <div class="rsignal"><span class="cssarrow"></span><span>{hero_word}</span></div>
     <div class="rconf">{'CONFIANZA ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
   </section>
 
