@@ -1886,6 +1886,9 @@ def live_dashboard():
         else None
     )
 
+    # Render del panel de ballenas. Solo visual; no altera el motor v4.6.1.
+    whale_html = render_whale_panel(whale, active)
+
     if active == "UP":
         accent = "#34e982"
         glow = "rgba(52,233,130,.46)"
