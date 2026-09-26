@@ -699,6 +699,70 @@ def get_btc_data():
     return df.dropna().sort_values("time").reset_index(drop=True)
 
 
+@st.cache_data(ttl=2)
+def get_coinbase_whale_flow():
+    # Public Coinbase BTC-USD prints; visual confirmation only.
+    response = requests.get(
+        "https://api.exchange.coinbase.com/products/BTC-USD/trades",
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"}, timeout=6,
+    )
+    response.raise_for_status()
+    rows = response.json()
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("Coinbase no devolvió trades recientes.")
+    trades = []
+    for row in rows:
+        try:
+            notional = float(row.get("price", 0)) * float(row.get("size", 0))
+            maker_side = str(row.get("side", "")).lower()
+            aggressor = "BUY" if maker_side == "sell" else "SELL" if maker_side == "buy" else ""
+            if notional > 0 and aggressor:
+                trades.append({"notional": notional, "side": aggressor})
+        except Exception:
+            continue
+    if not trades:
+        raise ValueError("No se pudieron interpretar trades recientes.")
+    notionals = pd.Series([t["notional"] for t in trades], dtype="float64")
+    threshold = max(100000.0, float(notionals.quantile(0.90)))
+    whales = [t for t in trades if t["notional"] >= threshold] or [max(trades, key=lambda x: x["notional"])]
+    buy = sum(t["notional"] for t in whales if t["side"] == "BUY")
+    sell = sum(t["notional"] for t in whales if t["side"] == "SELL")
+    total = buy + sell
+    imbalance = ((buy - sell) / total * 100.0) if total else 0.0
+    pressure = "UP" if imbalance >= 18 else "DOWN" if imbalance <= -18 else "NEUTRAL"
+    return {"buy": buy, "sell": sell, "pressure": pressure, "latest": whales[0], "threshold": threshold, "count": len(whales)}
+
+
+def compact_usd(value):
+    value = float(value or 0)
+    if value >= 1_000_000:
+        return f"${value/1_000_000:.2f}M"
+    if value >= 1_000:
+        return f"${value/1_000:.0f}K"
+    return f"${value:,.0f}"
+
+
+def render_whale_panel(whale, active):
+    if not whale:
+        return '<section style="margin:8px 0;padding:11px 12px;border:1px solid #26384b;border-radius:13px;background:#0b1420"><b style="font-size:10px;color:#dce8f5">🐋 BALLENAS BTC · LIVE</b><div style="margin-top:7px;font-size:11px;font-weight:900;color:#91a2b5">SIN DATOS DE FLUJO RELEVANTE</div></section>'
+    pressure = whale["pressure"]
+    color, label = ("#35e986", "PRESIÓN COMPRADORA") if pressure == "UP" else (("#ff5367", "PRESIÓN VENDEDORA") if pressure == "DOWN" else ("#aab8c7", "FLUJO NEUTRAL"))
+    if active in ("UP", "DOWN") and pressure in ("UP", "DOWN"):
+        confirm = f"BALLENAS CONFIRMAN {active}" if pressure == active else f"BALLENAS CONTRADICEN {active}"
+        confirm_color = "#35e986" if pressure == active else "#ffb347"
+    else:
+        confirm, confirm_color = "SIN CONFIRMACIÓN DIRECCIONAL", "#91a2b5"
+    balance = whale["buy"] - whale["sell"]
+    icon = "✓" if "CONFIRMAN" in confirm else "⚠" if "CONTRADICEN" in confirm else "•"
+    return f'''<section style="margin:8px 0;padding:11px 12px;border:1px solid #26384b;border-radius:13px;background:linear-gradient(180deg,#0c1724,#09111b)">
+      <div style="display:flex;justify-content:space-between"><b style="font-size:10px;color:#e4edf7">🐋 BALLENAS BTC · LIVE</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
+      <div style="margin-top:6px;font-size:13px;font-weight:900;color:{color}">{label}</div>
+      <div style="display:flex;gap:14px;margin-top:6px;font-size:9px;color:#aab8c7"><span>BUY <b style="color:#35e986">{compact_usd(whale['buy'])}</b></span><span>SELL <b style="color:#ff5367">{compact_usd(whale['sell'])}</b></span><span>BAL <b style="color:{color}">{compact_usd(abs(balance))}</b></span></div>
+      <div style="margin-top:5px;font-size:8px;color:#7f91a5">{whale['count']} prints grandes · umbral {compact_usd(whale['threshold'])} · último {whale['latest']['side']} {compact_usd(whale['latest']['notional'])}</div>
+      <div style="margin-top:7px;padding-top:7px;border-top:1px solid #1e2d3c;font-size:9px;font-weight:900;color:{confirm_color}">{icon} {confirm}</div>
+    </section>'''
+
+
 def get_btc_live_price():
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/ticker",
@@ -1809,6 +1873,12 @@ def live_dashboard():
     micro = micro_reading()
     reader = closing_reader(sig, round_signal, seconds_left, micro)
 
+    # Ballenas: capa visual independiente; NO modifica señales ni probabilidades v4.6.1.
+    try:
+        whale = get_coinbase_whale_flow()
+    except Exception:
+        whale = None
+
     state = round_signal.get("round_state")
     active = (
         state.get("active_direction")
@@ -1919,6 +1989,8 @@ def live_dashboard():
     <div class="readerbody"><div><strong>{reader['headline']}</strong><small>{reader['note']}</small></div>
     <div class="rring" style="--p:{reader['percent']}"><span>{reader['percent']}%</span></div></div>
   </section>
+
+  {whale_html}
 
   <section class="rcard tech">
     <div class="techhead"><span>DETALLES TÉCNICOS</span><span>⌃</span></div>
