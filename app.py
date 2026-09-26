@@ -699,9 +699,10 @@ def get_btc_data():
     return df.dropna().sort_values("time").reset_index(drop=True)
 
 
-@st.cache_data(ttl=2)
+@st.cache_data(ttl=1)
 def get_coinbase_whale_flow():
-    # Public Coinbase BTC-USD prints; visual confirmation only.
+    # ALERTA ESTRICTA: solo imprime una ballena si el trade individual es lo
+    # bastante grande como para ser relevante frente a una vela BTC de 1 min.
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/trades",
         headers={"User-Agent": "MacalyAlphaBot/4.6.1"}, timeout=6,
@@ -709,28 +710,45 @@ def get_coinbase_whale_flow():
     response.raise_for_status()
     rows = response.json()
     if not isinstance(rows, list) or not rows:
-        raise ValueError("Coinbase no devolvió trades recientes.")
+        raise ValueError("Coinbase no devolvió operaciones recientes.")
+
+    # $1M evita llamar “ballena” a prints pequeños de $30K/$100K.
+    # Además exigimos que el trade sea >= 10% del volumen nocional de la última
+    # vela cerrada de 1 minuto. Así la alerta queda reservada a prints con peso real.
+    absolute_threshold = 1_000_000.0
+    candle_notional = 0.0
+    try:
+        candles = get_coinbase_candles()
+        if len(candles) >= 2:
+            closed = candles.iloc[-2]
+            candle_notional = float(closed["volume"]) * float(closed["close"])
+    except Exception:
+        candle_notional = 0.0
+
+    impact_threshold = candle_notional * 0.10 if candle_notional > 0 else 0.0
+    threshold = max(absolute_threshold, impact_threshold)
+
     trades = []
     for row in rows:
         try:
             notional = float(row.get("price", 0)) * float(row.get("size", 0))
             maker_side = str(row.get("side", "")).lower()
-            aggressor = "BUY" if maker_side == "sell" else "SELL" if maker_side == "buy" else ""
-            if notional > 0 and aggressor:
-                trades.append({"notional": notional, "side": aggressor})
+            # Coinbase Exchange reports the maker side; aggressor direction is opposite.
+            side = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
+            if notional > 0 and side:
+                trades.append({"notional": notional, "side": side})
         except Exception:
             continue
+
     if not trades:
-        raise ValueError("No se pudieron interpretar trades recientes.")
-    notionals = pd.Series([t["notional"] for t in trades], dtype="float64")
-    threshold = max(100000.0, float(notionals.quantile(0.90)))
-    whales = [t for t in trades if t["notional"] >= threshold] or [max(trades, key=lambda x: x["notional"])]
-    buy = sum(t["notional"] for t in whales if t["side"] == "BUY")
-    sell = sum(t["notional"] for t in whales if t["side"] == "SELL")
-    total = buy + sell
-    imbalance = ((buy - sell) / total * 100.0) if total else 0.0
-    pressure = "UP" if imbalance >= 18 else "DOWN" if imbalance <= -18 else "NEUTRAL"
-    return {"buy": buy, "sell": sell, "pressure": pressure, "latest": whales[0], "threshold": threshold, "count": len(whales)}
+        raise ValueError("No se pudieron interpretar operaciones recientes.")
+
+    whales = [t for t in trades if t["notional"] >= threshold]
+    if not whales:
+        return {"detected": False, "threshold": threshold, "count": 0, "latest": None}
+
+    # El endpoint viene del trade más reciente al más antiguo.
+    return {"detected": True, "threshold": threshold, "count": len(whales), "latest": whales[0]}
 
 
 def compact_usd(value):
@@ -743,23 +761,26 @@ def compact_usd(value):
 
 
 def render_whale_panel(whale, active):
-    if not whale:
-        return '<section style="margin:8px 0;padding:11px 12px;border:1px solid #26384b;border-radius:13px;background:#0b1420"><b style="font-size:10px;color:#dce8f5">🐋 BALLENAS BTC · LIVE</b><div style="margin-top:7px;font-size:11px;font-weight:900;color:#91a2b5">SIN DATOS DE FLUJO RELEVANTE</div></section>'
-    pressure = whale["pressure"]
-    color, label = ("#35e986", "PRESIÓN COMPRADORA") if pressure == "UP" else (("#ff5367", "PRESIÓN VENDEDORA") if pressure == "DOWN" else ("#aab8c7", "FLUJO NEUTRAL"))
-    if active in ("UP", "DOWN") and pressure in ("UP", "DOWN"):
-        confirm = f"BALLENAS CONFIRMAN {active}" if pressure == active else f"BALLENAS CONTRADICEN {active}"
-        confirm_color = "#35e986" if pressure == active else "#ffb347"
-    else:
-        confirm, confirm_color = "SIN CONFIRMACIÓN DIRECCIONAL", "#91a2b5"
-    balance = whale["buy"] - whale["sell"]
-    icon = "✓" if "CONFIRMAN" in confirm else "⚠" if "CONTRADICEN" in confirm else "•"
-    return f'''<section style="margin:8px 0;padding:11px 12px;border:1px solid #26384b;border-radius:13px;background:linear-gradient(180deg,#0c1724,#09111b)">
-      <div style="display:flex;justify-content:space-between"><b style="font-size:10px;color:#e4edf7">🐋 BALLENAS BTC · LIVE</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
-      <div style="margin-top:6px;font-size:13px;font-weight:900;color:{color}">{label}</div>
-      <div style="display:flex;gap:14px;margin-top:6px;font-size:9px;color:#aab8c7"><span>BUY <b style="color:#35e986">{compact_usd(whale['buy'])}</b></span><span>SELL <b style="color:#ff5367">{compact_usd(whale['sell'])}</b></span><span>BAL <b style="color:{color}">{compact_usd(abs(balance))}</b></span></div>
-      <div style="margin-top:5px;font-size:8px;color:#7f91a5">{whale['count']} prints grandes · umbral {compact_usd(whale['threshold'])} · último {whale['latest']['side']} {compact_usd(whale['latest']['notional'])}</div>
-      <div style="margin-top:7px;padding-top:7px;border-top:1px solid #1e2d3c;font-size:9px;font-weight:900;color:{confirm_color}">{icon} {confirm}</div>
+    base = "margin:8px 0;padding:12px;border:1px solid #26384b;border-radius:13px;background:linear-gradient(180deg,#0c1724,#09111b)"
+    if not whale or not whale.get("detected"):
+        return f'''<section style="{base}">
+          <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 DETECTOR DE BALLENAS · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
+          <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN BALLENA AHORA</div>
+          <div style="margin-top:5px;font-size:8px;color:#7f91a5">Solo alerta operaciones gigantes con peso real frente a la vela de 1 minuto.</div>
+        </section>'''
+    latest = whale["latest"]
+    is_buy = latest["side"] == "COMPRA"
+    color = "#35e986" if is_buy else "#ff5367"
+    direction = "COMPRADORA" if is_buy else "VENDEDORA"
+    relation = ""
+    if active in ("UP", "DOWN"):
+        agrees = (active == "UP" and is_buy) or (active == "DOWN" and not is_buy)
+        relation = " · COINCIDE CON LA SEÑAL" if agrees else " · VA CONTRA LA SEÑAL"
+    return f'''<section style="{base};border-color:{color};box-shadow:0 0 18px {color}22">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 DETECTOR DE BALLENAS · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
+      <div style="margin-top:8px;font-size:15px;font-weight:950;color:{color}">⚡ BALLENA {direction} DETECTADA</div>
+      <div style="margin-top:5px;font-size:12px;font-weight:900;color:#f3f7fb">{latest['side']} {compact_usd(latest['notional'])}</div>
+      <div style="margin-top:5px;font-size:8px;color:#91a2b5">UMBRAL REAL DE ESTA VELA: {compact_usd(whale['threshold'])}{relation}</div>
     </section>'''
 
 
