@@ -699,56 +699,75 @@ def get_btc_data():
     return df.dropna().sort_values("time").reset_index(drop=True)
 
 
-@st.cache_data(ttl=1)
 def get_coinbase_whale_flow():
-    # ALERTA ESTRICTA: solo imprime una ballena si el trade individual es lo
-    # bastante grande como para ser relevante frente a una vela BTC de 1 min.
+    """Detecta ráfagas de flujo agresivo BTC/USD, no simples tickets grandes."""
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/trades",
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1"}, timeout=6,
+        params={"limit": 100},
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
+        timeout=6,
     )
     response.raise_for_status()
     rows = response.json()
     if not isinstance(rows, list) or not rows:
         raise ValueError("Coinbase no devolvió operaciones recientes.")
 
-    # $1M evita llamar “ballena” a prints pequeños de $30K/$100K.
-    # Además exigimos que el trade sea >= 10% del volumen nocional de la última
-    # vela cerrada de 1 minuto. Así la alerta queda reservada a prints con peso real.
-    absolute_threshold = 1_000_000.0
-    candle_notional = 0.0
-    try:
-        candles = get_coinbase_candles()
-        if len(candles) >= 2:
-            closed = candles.iloc[-2]
-            candle_notional = float(closed["volume"]) * float(closed["close"])
-    except Exception:
-        candle_notional = 0.0
+    now = pd.Timestamp.now(tz="UTC").timestamp()
+    tape = st.session_state.setdefault("whale_flow_tape", [])
+    seen = st.session_state.setdefault("whale_seen_ids", {})
 
-    impact_threshold = candle_notional * 0.10 if candle_notional > 0 else 0.0
-    threshold = max(absolute_threshold, impact_threshold)
-
-    trades = []
-    for row in rows:
+    # Coinbase informa el lado del maker; el agresor es el lado opuesto.
+    for row in reversed(rows):
         try:
-            notional = float(row.get("price", 0)) * float(row.get("size", 0))
+            trade_id = str(row.get("trade_id", ""))
+            if not trade_id or trade_id in seen:
+                continue
+            price = float(row.get("price", 0))
+            size = float(row.get("size", 0))
+            notional = price * size
             maker_side = str(row.get("side", "")).lower()
-            # Coinbase Exchange reports the maker side; aggressor direction is opposite.
-            side = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
-            if notional > 0 and side:
-                trades.append({"notional": notional, "side": side})
+            aggressor = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
+            ts = pd.to_datetime(row.get("time"), utc=True, errors="coerce")
+            t = ts.timestamp() if not pd.isna(ts) else now
+            if notional > 0 and aggressor:
+                tape.append({"id": trade_id, "t": t, "notional": notional, "side": aggressor})
+                seen[trade_id] = t
         except Exception:
             continue
 
-    if not trades:
-        raise ValueError("No se pudieron interpretar operaciones recientes.")
+    tape[:] = [x for x in tape if now - x["t"] <= 35]
+    for k in [k for k, t in seen.items() if now - t > 45]:
+        seen.pop(k, None)
 
-    whales = [t for t in trades if t["notional"] >= threshold]
-    if not whales:
-        return {"detected": False, "threshold": threshold, "count": 0, "latest": None}
+    burst = [x for x in tape if now - x["t"] <= 4]
+    baseline = [x for x in tape if 4 < now - x["t"] <= 24]
+    buy = sum(x["notional"] for x in burst if x["side"] == "COMPRA")
+    sell = sum(x["notional"] for x in burst if x["side"] == "VENTA")
+    total = buy + sell
+    dominant = max(buy, sell)
+    imbalance = dominant / total if total > 0 else 0.0
+    direction = "UP" if buy > sell else "DOWN" if sell > buy else None
 
-    # El endpoint viene del trade más reciente al más antiguo.
-    return {"detected": True, "threshold": threshold, "count": len(whales), "latest": whales[0]}
+    baseline_total = sum(x["notional"] for x in baseline)
+    baseline_rate = baseline_total / 20.0 if baseline_total > 0 else 0.0
+    burst_rate = total / 4.0 if total > 0 else 0.0
+    dynamic_min = max(1_500_000.0, baseline_rate * 4.0 * 2.5)
+
+    qualifies = bool(direction and total >= dynamic_min and imbalance >= 0.75 and
+                     (baseline_rate == 0 or burst_rate >= baseline_rate * 2.5))
+
+    alert = st.session_state.get("whale_flow_alert")
+    if qualifies:
+        alert = {"direction": direction, "time": now, "buy": buy, "sell": sell,
+                 "total": total, "imbalance": imbalance}
+        st.session_state["whale_flow_alert"] = alert
+    elif alert and now - float(alert.get("time", 0)) > 8:
+        alert = None
+        st.session_state["whale_flow_alert"] = None
+
+    return {"detected": alert is not None, "alert": alert, "live_buy": buy,
+            "live_sell": sell, "live_total": total, "imbalance": imbalance,
+            "threshold": dynamic_min}
 
 
 def compact_usd(value):
@@ -763,24 +782,30 @@ def compact_usd(value):
 def render_whale_panel(whale, active):
     base = "margin:8px 0;padding:12px;border:1px solid #26384b;border-radius:13px;background:linear-gradient(180deg,#0c1724,#09111b)"
     if not whale or not whale.get("detected"):
+        buy = compact_usd((whale or {}).get("live_buy", 0))
+        sell = compact_usd((whale or {}).get("live_sell", 0))
         return f'''<section style="{base}">
-          <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 DETECTOR DE BALLENAS · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
-          <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN BALLENA AHORA</div>
-          <div style="margin-top:5px;font-size:8px;color:#7f91a5">Solo alerta operaciones gigantes con peso real frente a la vela de 1 minuto.</div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
+          <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN FLUJO EXTREMO AHORA</div>
+          <div style="margin-top:6px;font-size:9px;color:#8da0b4">Últimos 4 s · COMPRAS {buy} · VENTAS {sell}</div>
+          <div style="margin-top:4px;font-size:8px;color:#6f8195">Analiza ráfagas anormales; no alerta por una operación aislada.</div>
         </section>'''
-    latest = whale["latest"]
-    is_buy = latest["side"] == "COMPRA"
-    color = "#35e986" if is_buy else "#ff5367"
-    direction = "COMPRADORA" if is_buy else "VENDEDORA"
+
+    a = whale["alert"]
+    up = a["direction"] == "UP"
+    color = "#35e986" if up else "#ff5367"
+    arrow = "↑" if up else "↓"
+    label = "COMPRADOR · POSIBLE IMPULSO UP" if up else "VENDEDOR · POSIBLE IMPULSO DOWN"
+    dominant = a["buy"] if up else a["sell"]
     relation = ""
     if active in ("UP", "DOWN"):
-        agrees = (active == "UP" and is_buy) or (active == "DOWN" and not is_buy)
-        relation = " · COINCIDE CON LA SEÑAL" if agrees else " · VA CONTRA LA SEÑAL"
-    return f'''<section style="{base};border-color:{color};box-shadow:0 0 18px {color}22">
-      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 DETECTOR DE BALLENAS · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
-      <div style="margin-top:8px;font-size:15px;font-weight:950;color:{color}">⚡ BALLENA {direction} DETECTADA</div>
-      <div style="margin-top:5px;font-size:12px;font-weight:900;color:#f3f7fb">{latest['side']} {compact_usd(latest['notional'])}</div>
-      <div style="margin-top:5px;font-size:8px;color:#91a2b5">UMBRAL REAL DE ESTA VELA: {compact_usd(whale['threshold'])}{relation}</div>
+        relation = " · CONFIRMA SEÑAL" if active == a["direction"] else " · CONTRADICE SEÑAL"
+    return f'''<section style="{base};border-color:{color};box-shadow:0 0 20px {color}33">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:{color}">● ALERTA</span></div>
+      <div style="margin-top:8px;font-size:15px;font-weight:950;color:{color}">⚡ {arrow} FLUJO EXTREMO {label}</div>
+      <div style="margin-top:6px;font-size:12px;font-weight:900;color:#f3f7fb">{compact_usd(dominant)} dominantes en ~4 s</div>
+      <div style="margin-top:5px;font-size:9px;color:#aab8c7">COMPRAS {compact_usd(a['buy'])} · VENTAS {compact_usd(a['sell'])} · DOMINIO {a['imbalance']*100:.0f}%{relation}</div>
+      <div style="margin-top:4px;font-size:8px;color:#7f91a5">Alerta temprana de presión extraordinaria en el flujo real de BTC/USD.</div>
     </section>'''
 
 
