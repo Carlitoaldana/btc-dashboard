@@ -700,7 +700,11 @@ def get_btc_data():
 
 
 def get_coinbase_whale_flow():
-    """Detector adaptativo de ráfagas agresivas BTC/USD."""
+    """
+    Flujo agresivo BTC/USD EN VIVO.
+    No deja alertas pegadas: cada refresco representa el flujo ACTUAL.
+    Usa ventanas rápidas y exige aceleración + desequilibrio + tamaño material.
+    """
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/trades",
         params={"limit": 100},
@@ -715,9 +719,8 @@ def get_coinbase_whale_flow():
     now = pd.Timestamp.now(tz="UTC").timestamp()
     tape = st.session_state.setdefault("whale_flow_tape", [])
     seen = st.session_state.setdefault("whale_seen_ids", {})
-    history = st.session_state.setdefault("whale_flow_history", [])
 
-    # Coinbase reporta el lado del maker; el agresor es el lado contrario.
+    # Añadir únicamente trades nuevos.
     for row in reversed(rows):
         try:
             trade_id = str(row.get("trade_id", ""))
@@ -727,6 +730,7 @@ def get_coinbase_whale_flow():
             size = float(row.get("size", 0))
             notional = price * size
             maker_side = str(row.get("side", "")).lower()
+            # Coinbase devuelve el lado maker; el agresor es el contrario.
             aggressor = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
             ts = pd.to_datetime(row.get("time"), utc=True, errors="coerce")
             t = ts.timestamp() if not pd.isna(ts) else now
@@ -736,74 +740,91 @@ def get_coinbase_whale_flow():
         except Exception:
             continue
 
-    tape[:] = [x for x in tape if now - x["t"] <= 60]
-    for k in [k for k, t in seen.items() if now - t > 75]:
+    tape[:] = [x for x in tape if now - x["t"] <= 45]
+    for k in [k for k, t in seen.items() if now - t > 60]:
         seen.pop(k, None)
 
-    # Ventana rápida de 6 segundos.
-    burst = [x for x in tape if now - x["t"] <= 6]
-    buy = sum(x["notional"] for x in burst if x["side"] == "COMPRA")
-    sell = sum(x["notional"] for x in burst if x["side"] == "VENTA")
-    total = buy + sell
-    net = buy - sell
+    def window_stats(lo, hi=0):
+        xs = [x for x in tape if hi < now - x["t"] <= lo]
+        buy = sum(x["notional"] for x in xs if x["side"] == "COMPRA")
+        sell = sum(x["notional"] for x in xs if x["side"] == "VENTA")
+        total = buy + sell
+        net = buy - sell
+        dom = abs(net) / total if total > 0 else 0.0
+        return buy, sell, total, net, dom
+
+    # "Ahora" = últimos 4 s. Baseline = 4-20 s anteriores, separado para no
+    # contaminar el baseline con el mismo impulso que intentamos detectar.
+    buy, sell, total, net, net_dom = window_stats(4)
+    pb, ps, prev_total, prev_net, prev_dom = window_stats(20, 4)
+
+    current_rate = total / 4.0
+    baseline_rate = prev_total / 16.0 if prev_total > 0 else 0.0
+    acceleration = current_rate / baseline_rate if baseline_rate > 0 else 0.0
+
     direction = "UP" if net > 0 else "DOWN" if net < 0 else None
-    dominant = max(buy, sell)
-    dominance = dominant / total if total > 0 else 0.0
 
-    if total > 0:
-        history.append({"t": now, "total": total})
-    history[:] = [x for x in history if now - x["t"] <= 90]
-    previous = [x["total"] for x in history[:-1] if x["total"] > 0]
-    baseline = float(np.median(previous)) if previous else 0.0
-
-    # Mucho más sensible que el detector anterior de $1.5M/4s.
-    absolute_floor = 150_000.0
-    trigger_total = max(absolute_floor, baseline * 1.8 if baseline > 0 else absolute_floor)
+    # Umbral adaptativo: no dispara por una simple ráfaga pequeña.
+    # Si el mercado está muy activo, el umbral sube automáticamente.
+    dynamic_total = max(400_000.0, baseline_rate * 4.0 * 2.25)
+    strong_net = abs(net) >= max(250_000.0, dynamic_total * 0.55)
 
     qualifies = bool(
         direction
-        and total >= trigger_total
-        and dominance >= 0.68
-        and abs(net) >= 100_000.0
+        and total >= dynamic_total
+        and net_dom >= 0.58
+        and strong_net
+        and (baseline_rate == 0 or acceleration >= 2.25)
+    )
+
+    # Confirmación muy rápida, SIN latch temporal.
+    # Un impulso extremadamente fuerte puede avisar en la primera lectura;
+    # uno normal necesita dos lecturas consecutivas del mismo lado.
+    extreme_now = bool(
+        qualifies
+        and total >= max(750_000.0, dynamic_total * 1.35)
+        and net_dom >= 0.68
+        and (baseline_rate == 0 or acceleration >= 3.0)
     )
 
     pending = st.session_state.get("whale_flow_pending")
     if qualifies:
-        if pending and pending.get("direction") == direction and now - pending.get("time", 0) <= 5:
+        if pending and pending.get("direction") == direction and now - float(pending.get("time", 0)) <= 4.5:
             count = int(pending.get("count", 0)) + 1
         else:
             count = 1
-        pending = {"direction": direction, "time": now, "count": count}
-        st.session_state["whale_flow_pending"] = pending
+        st.session_state["whale_flow_pending"] = {
+            "direction": direction, "time": now, "count": count
+        }
     else:
         count = 0
-        if pending and now - pending.get("time", 0) > 5:
-            st.session_state["whale_flow_pending"] = None
+        st.session_state["whale_flow_pending"] = None
 
-    alert = st.session_state.get("whale_flow_alert")
-    if qualifies and count >= 2:
+    detected = bool(qualifies and (extreme_now or count >= 2))
+
+    # IMPORTANTE: la alerta es SOLO del flujo actual. No se conserva una señal vieja.
+    alert = None
+    if detected:
         alert = {
             "direction": direction,
             "time": now,
             "buy": buy,
             "sell": sell,
             "total": total,
-            "imbalance": dominance,
+            "imbalance": (max(buy, sell) / total) if total > 0 else 0.0,
             "net": abs(net),
+            "acceleration": acceleration,
         }
-        st.session_state["whale_flow_alert"] = alert
-    elif alert and now - float(alert.get("time", 0)) > 10:
-        alert = None
-        st.session_state["whale_flow_alert"] = None
 
     return {
-        "detected": alert is not None,
+        "detected": detected,
         "alert": alert,
         "live_buy": buy,
         "live_sell": sell,
         "live_total": total,
-        "imbalance": dominance,
-        "threshold": trigger_total,
+        "imbalance": (max(buy, sell) / total) if total > 0 else 0.0,
+        "threshold": dynamic_total,
+        "acceleration": acceleration,
     }
 
 def compact_usd(value):
@@ -823,7 +844,7 @@ def render_whale_panel(whale, active):
         return f'''<section style="{base}">
           <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
           <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN FLUJO EXTREMO AHORA</div>
-          <div style="margin-top:6px;font-size:9px;color:#8da0b4">Últimos 6 s · COMPRAS {buy} · VENTAS {sell}</div>
+          <div style="margin-top:6px;font-size:9px;color:#8da0b4">AHORA · COMPRAS {buy} · VENTAS {sell}</div>
           <div style="margin-top:4px;font-size:8px;color:#6f8195">Analiza ráfagas anormales; no alerta por una operación aislada.</div>
         </section>'''
 
@@ -839,7 +860,7 @@ def render_whale_panel(whale, active):
     return f'''<section style="{base};border-color:{color};box-shadow:0 0 20px {color}33">
       <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:{color}">● ALERTA</span></div>
       <div style="margin-top:8px;font-size:15px;font-weight:950;color:{color}">⚡ {arrow} FLUJO EXTREMO {label}</div>
-      <div style="margin-top:6px;font-size:12px;font-weight:900;color:#f3f7fb">{compact_usd(dominant)} dominantes en ~6 s</div>
+      <div style="margin-top:6px;font-size:12px;font-weight:900;color:#f3f7fb">{compact_usd(dominant)} dominantes AHORA</div>
       <div style="margin-top:5px;font-size:9px;color:#aab8c7">COMPRAS {compact_usd(a['buy'])} · VENTAS {compact_usd(a['sell'])} · DOMINIO {a['imbalance']*100:.0f}%{relation}</div>
       <div style="margin-top:4px;font-size:8px;color:#7f91a5">Alerta temprana de presión extraordinaria en el flujo real de BTC/USD.</div>
     </section>'''
