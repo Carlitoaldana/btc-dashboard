@@ -7,8 +7,8 @@ import base64
 import time
 import uuid
 import math
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+import subprocess
+import tempfile
 
 # =========================================================
 # MACALY + ALPHA BOT v4.6.1 • MOBILE PRO UI
@@ -682,13 +682,37 @@ for _k, _v in _AUTO_DEFAULTS.items():
 KALSHI_API_BASE = "https://external-api.kalshi.com"
 KALSHI_API_PREFIX = "/trade-api/v2"
 
-def _kalshi_private_key():
+def _kalshi_sign(message):
+    """RSA-PSS/SHA256 signature using system OpenSSL; no Python crypto package required."""
     pem = st.session_state.get("kalshi_private_key_input", "")
     if not pem:
         raise ValueError("Falta la Private Key.")
-    return serialization.load_pem_private_key(
-        pem.strip().encode("utf-8"), password=None
-    )
+    key_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
+            f.write(pem.strip() + "\n")
+            key_path = f.name
+        proc = subprocess.run(
+            [
+                "openssl", "dgst", "-sha256",
+                "-sigopt", "rsa_padding_mode:pss",
+                "-sigopt", "rsa_pss_saltlen:digest",
+                "-sign", key_path,
+            ],
+            input=message,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+        )
+        if proc.returncode != 0:
+            raise ValueError("Private Key inválida o OpenSSL no pudo firmar.")
+        return proc.stdout
+    finally:
+        if key_path:
+            try:
+                Path(key_path).unlink(missing_ok=True)
+            except Exception:
+                pass
 
 def _kalshi_headers(method, path):
     key_id = st.session_state.get("kalshi_api_key_input", "").strip()
@@ -697,14 +721,7 @@ def _kalshi_headers(method, path):
     ts = str(int(time.time() * 1000))
     clean_path = path.split("?", 1)[0]
     msg = f"{ts}{method.upper()}{clean_path}".encode("utf-8")
-    signature = _kalshi_private_key().sign(
-        msg,
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=32,
-        ),
-        hashes.SHA256(),
-    )
+    signature = _kalshi_sign(msg)
     return {
         "KALSHI-ACCESS-KEY": key_id,
         "KALSHI-ACCESS-TIMESTAMP": ts,
