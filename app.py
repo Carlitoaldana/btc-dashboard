@@ -3,6 +3,13 @@ import requests
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
+from pathlib import Path
+import base64
+import time
+import uuid
+import math
+import subprocess
+import tempfile
 
 # =========================================================
 # MACALY + ALPHA BOT v4.6.1 • MOBILE PRO UI
@@ -648,6 +655,318 @@ if "micro_ticker" not in st.session_state:
     st.session_state.micro_ticker = None
 
 
+# =========================================================
+# KALSHI AUTO TRADING — CAPA SEPARADA DEL MOTOR v4.6.1
+# =========================================================
+_AUTO_DEFAULTS = {
+    "kalshi_auth_ok": False,
+    "kalshi_auth_message": "No conectado",
+    "auto_enabled": False,
+    "auto_amount": 0.50,
+    "auto_limit_cents": 50,
+    "auto_take_profit": 90,
+    "auto_martingale": False,
+    "auto_max_levels": 4,
+    "auto_level": 1,
+    "auto_stop_after_win": False,
+    "auto_last_ticker": None,
+    "auto_last_order": None,
+    "auto_last_status": "AUTO APAGADO",
+    "auto_history": [],
+}
+for _k, _v in _AUTO_DEFAULTS.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
+
+
+
+KALSHI_API_BASE = "https://external-api.kalshi.com"
+KALSHI_API_PREFIX = "/trade-api/v2"
+
+def _kalshi_sign(message):
+    """RSA-PSS/SHA256 signature using system OpenSSL; no Python crypto package required."""
+    pem = st.session_state.get("kalshi_private_key_input", "")
+    if not pem:
+        raise ValueError("Falta la Private Key.")
+    key_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
+            f.write(pem.strip() + "\n")
+            key_path = f.name
+        proc = subprocess.run(
+            [
+                "openssl", "dgst", "-sha256",
+                "-sigopt", "rsa_padding_mode:pss",
+                "-sigopt", "rsa_pss_saltlen:digest",
+                "-sign", key_path,
+            ],
+            input=message,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+        )
+        if proc.returncode != 0:
+            raise ValueError("Private Key inválida o OpenSSL no pudo firmar.")
+        return proc.stdout
+    finally:
+        if key_path:
+            try:
+                Path(key_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+def _kalshi_headers(method, path):
+    key_id = st.session_state.get("kalshi_api_key_input", "").strip()
+    if not key_id:
+        raise ValueError("Falta el API Key ID.")
+    ts = str(int(time.time() * 1000))
+    clean_path = path.split("?", 1)[0]
+    msg = f"{ts}{method.upper()}{clean_path}".encode("utf-8")
+    signature = _kalshi_sign(msg)
+    return {
+        "KALSHI-ACCESS-KEY": key_id,
+        "KALSHI-ACCESS-TIMESTAMP": ts,
+        "KALSHI-ACCESS-SIGNATURE": base64.b64encode(signature).decode("ascii"),
+        "Content-Type": "application/json",
+    }
+
+def kalshi_private_request(method, endpoint, payload=None, params=None):
+    path = KALSHI_API_PREFIX + endpoint
+    headers = _kalshi_headers(method, path)
+    r = requests.request(
+        method.upper(),
+        KALSHI_API_BASE + path,
+        headers=headers,
+        json=payload,
+        params=params,
+        timeout=8,
+    )
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text[:300]
+        raise RuntimeError(f"Kalshi {r.status_code}: {detail}")
+    return r.json() if r.text else {}
+
+def kalshi_test_connection():
+    data = kalshi_private_request("GET", "/portfolio/balance")
+    dollars = data.get("balance_dollars")
+    if dollars is None and data.get("balance") is not None:
+        dollars = f"{float(data['balance']) / 100:.2f}"
+    return data, dollars
+
+def _market_contract_prices(market):
+    """Returns current YES/NO asks as dollars when Kalshi exposes them."""
+    if not market:
+        return None, None
+    def f(name):
+        try:
+            v = market.get(name)
+            return float(v) if v not in (None, "") else None
+        except Exception:
+            return None
+    yes_ask = f("yes_ask_dollars")
+    no_ask = f("no_ask_dollars")
+    # Compatibility with older payloads still returned by some endpoints.
+    if yes_ask is None:
+        y = f("yes_ask")
+        yes_ask = y / 100.0 if y and y > 1 else y
+    if no_ask is None:
+        n = f("no_ask")
+        no_ask = n / 100.0 if n and n > 1 else n
+    return yes_ask, no_ask
+
+def _amount_for_level():
+    base = max(0.01, float(st.session_state.auto_amount))
+    level = max(1, int(st.session_state.auto_level))
+    return base * (2 ** (level - 1)) if st.session_state.auto_martingale else base
+
+def _direction_for_level(signal_direction):
+    level = max(1, int(st.session_state.auto_level))
+    choice = st.session_state.get(f"auto_level_direction_{level}", "Seguir señal")
+    if choice == "Solo UP":
+        return "UP"
+    if choice == "Solo DOWN":
+        return "DOWN"
+    return signal_direction
+
+def _contracts_for_amount(amount, contract_price):
+    if contract_price is None or contract_price <= 0:
+        return 0.0
+    # Fixed-point quantity; never intentionally exceeds configured premium.
+    return math.floor((amount / contract_price) * 100) / 100.0
+
+def kalshi_place_entry(ticker, direction, market):
+    limit = max(1, min(99, int(st.session_state.auto_limit_cents))) / 100.0
+    yes_ask, no_ask = _market_contract_prices(market)
+    observed = yes_ask if direction == "UP" else no_ask
+    if observed is not None and observed > limit:
+        return {"skipped": True, "reason": f"{direction} está a {observed*100:.1f}¢ > límite {limit*100:.0f}¢"}
+
+    amount = _amount_for_level()
+    contract_price = min(observed, limit) if observed is not None else limit
+    count = _contracts_for_amount(amount, contract_price)
+    if count < 0.01:
+        return {"skipped": True, "reason": "Monto demasiado pequeño para el precio actual."}
+
+    # V2 is a single YES book:
+    # UP = buy YES -> bid at max YES price.
+    # DOWN = buy NO -> economically equivalent to ask YES at 1 - max NO price.
+    if direction == "UP":
+        side = "bid"
+        yes_price = limit
+    else:
+        side = "ask"
+        yes_price = 1.0 - limit
+
+    client_id = f"btc461-{ticker}-{direction}-L{st.session_state.auto_level}"
+    payload = {
+        "ticker": ticker,
+        "client_order_id": client_id[:64],
+        "side": side,
+        "count": f"{count:.2f}",
+        "price": f"{yes_price:.4f}",
+        "time_in_force": "immediate_or_cancel",
+        "self_trade_prevention_type": "taker_at_cross",
+        "cancel_order_on_pause": True,
+    }
+    result = kalshi_private_request("POST", "/portfolio/events/orders", payload)
+    result["_direction"] = direction
+    result["_requested_count"] = count
+    result["_amount_level"] = amount
+    result["_entry_contract_price"] = contract_price
+    result["_ticker"] = ticker
+    result["_level"] = int(st.session_state.auto_level)
+    return result
+
+def kalshi_place_take_profit(entry):
+    try:
+        filled = float(entry.get("fill_count") or entry.get("fill_count_fp") or 0)
+    except Exception:
+        filled = 0.0
+    if filled <= 0:
+        return None
+
+    direction = entry["_direction"]
+    p = float(entry["_entry_contract_price"])
+    tp = max(0, float(st.session_state.auto_take_profit)) / 100.0
+    desired_contract_exit = min(0.99, p * (1.0 + tp))
+
+    if direction == "UP":
+        # Close long YES by selling YES.
+        side = "ask"
+        yes_exit = desired_contract_exit
+    else:
+        # Close long NO / short YES by buying YES back at complement.
+        side = "bid"
+        yes_exit = max(0.01, 1.0 - desired_contract_exit)
+
+    payload = {
+        "ticker": entry["_ticker"],
+        "client_order_id": (f"tp-{entry['_ticker']}-{entry['_direction']}-L{entry['_level']}")[:64],
+        "side": side,
+        "count": f"{filled:.2f}",
+        "price": f"{yes_exit:.4f}",
+        "time_in_force": "good_till_canceled",
+        "self_trade_prevention_type": "taker_at_cross",
+        "reduce_only": True,
+        "cancel_order_on_pause": True,
+    }
+    return kalshi_private_request("POST", "/portfolio/events/orders", payload)
+
+def _public_market_by_ticker(ticker):
+    r = requests.get(
+        f"{KALSHI_API_BASE}{KALSHI_API_PREFIX}/markets/{ticker}",
+        timeout=6,
+        headers={"User-Agent": "BTCSignal/4.6.1"},
+    )
+    r.raise_for_status()
+    j = r.json()
+    return j.get("market", j)
+
+def auto_check_previous_result(current_ticker):
+    prev = st.session_state.get("auto_last_order")
+    if not prev or prev.get("_resolved"):
+        return
+    old_ticker = prev.get("_ticker")
+    if not old_ticker or old_ticker == current_ticker:
+        return
+    try:
+        old_market = _public_market_by_ticker(old_ticker)
+        result = str(old_market.get("result", "")).lower()
+        if result not in ("yes", "no"):
+            return
+        won = (prev.get("_direction") == "UP" and result == "yes") or \
+              (prev.get("_direction") == "DOWN" and result == "no")
+        prev["_resolved"] = True
+        prev["_won"] = won
+        if won:
+            st.session_state.auto_level = 1
+            st.session_state.auto_last_status = "WIN · MARTINGALA REINICIADA"
+            if st.session_state.auto_stop_after_win:
+                st.session_state.auto_enabled = False
+                st.session_state.auto_last_status = "WIN · AUTO APAGADO"
+        else:
+            if st.session_state.auto_martingale:
+                st.session_state.auto_level = min(
+                    int(st.session_state.auto_level) + 1,
+                    int(st.session_state.auto_max_levels),
+                )
+            st.session_state.auto_last_status = f"LOSS · NIVEL {st.session_state.auto_level}"
+    except Exception:
+        pass
+
+def auto_trade_tick(ticker, market, round_signal):
+    if not st.session_state.get("auto_enabled"):
+        return
+    if not st.session_state.get("kalshi_auth_ok"):
+        st.session_state.auto_enabled = False
+        st.session_state.auto_last_status = "AUTO APAGADO · KALSHI NO CONECTADO"
+        return
+    if not ticker or ticker == "--":
+        return
+
+    auto_check_previous_result(ticker)
+
+    direction = round_signal.get("decision")
+    if direction not in ("UP", "DOWN"):
+        return
+    direction = _direction_for_level(direction)
+
+    # One entry maximum per Kalshi round.
+    if st.session_state.get("auto_last_ticker") == ticker:
+        return
+
+    try:
+        result = kalshi_place_entry(ticker, direction, market)
+        if result.get("skipped"):
+            st.session_state.auto_last_status = "ESPERANDO · " + result["reason"]
+            return
+
+        st.session_state.auto_last_ticker = ticker
+        st.session_state.auto_last_order = result
+        st.session_state.auto_history.append({
+            "ticker": ticker,
+            "direction": direction,
+            "level": int(st.session_state.auto_level),
+            "time": datetime.now(timezone.utc).isoformat(),
+            "order_id": result.get("order_id"),
+        })
+        filled = float(result.get("fill_count") or 0)
+        if filled > 0:
+            st.session_state.auto_last_status = f"FILLED {direction} · {filled:.2f} contratos"
+            try:
+                tp_order = kalshi_place_take_profit(result)
+                if tp_order:
+                    result["_tp_order_id"] = tp_order.get("order_id")
+            except Exception as e:
+                result["_tp_error"] = str(e)
+        else:
+            st.session_state.auto_last_status = f"ORDEN {direction} ENVIADA · SIN FILL"
+    except Exception as e:
+        st.session_state.auto_last_status = "ERROR AUTO · " + str(e)[:180]
+
 def new_round_state(ticker, seconds_left):
     now = datetime.now(timezone.utc)
     return {
@@ -700,28 +1019,40 @@ def get_btc_data():
 
 
 def get_coinbase_whale_flow():
-    """
-    Flujo agresivo BTC/USD EN VIVO.
-    No deja alertas pegadas: cada refresco representa el flujo ACTUAL.
-    Usa ventanas rápidas y exige aceleración + desequilibrio + tamaño material.
-    """
-    response = requests.get(
-        "https://api.exchange.coinbase.com/products/BTC-USD/trades",
-        params={"limit": 100},
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"},
-        timeout=5,
-    )
-    response.raise_for_status()
-    rows = response.json()
-    if not isinstance(rows, list) or not rows:
-        raise ValueError("Coinbase no devolvió operaciones recientes.")
-
+    """FLOW PULSE BTC/USD: varias páginas de trades, aceleración y desequilibrio."""
     now = pd.Timestamp.now(tz="UTC").timestamp()
     tape = st.session_state.setdefault("whale_flow_tape", [])
     seen = st.session_state.setdefault("whale_seen_ids", {})
+    headers = {"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"}
 
-    # Añadir únicamente trades nuevos.
-    for row in reversed(rows):
+    all_rows, before = [], None
+    for _ in range(5):
+        params = {"limit": 100}
+        if before:
+            params["before"] = before
+        r = requests.get(
+            "https://api.exchange.coinbase.com/products/BTC-USD/trades",
+            params=params, headers=headers, timeout=5
+        )
+        r.raise_for_status()
+        rows = r.json()
+        if not isinstance(rows, list) or not rows:
+            break
+        all_rows.extend(rows)
+        before = r.headers.get("cb-before")
+        try:
+            oldest = pd.to_datetime(rows[-1].get("time"), utc=True, errors="coerce")
+            if not pd.isna(oldest) and now - oldest.timestamp() >= 35:
+                break
+        except Exception:
+            pass
+        if not before:
+            break
+
+    if not all_rows:
+        raise ValueError("Coinbase no devolvió operaciones recientes.")
+
+    for row in reversed(all_rows):
         try:
             trade_id = str(row.get("trade_id", ""))
             if not trade_id or trade_id in seen:
@@ -730,101 +1061,71 @@ def get_coinbase_whale_flow():
             size = float(row.get("size", 0))
             notional = price * size
             maker_side = str(row.get("side", "")).lower()
-            # Coinbase devuelve el lado maker; el agresor es el contrario.
             aggressor = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
             ts = pd.to_datetime(row.get("time"), utc=True, errors="coerce")
             t = ts.timestamp() if not pd.isna(ts) else now
-            if notional > 0 and aggressor:
+            if notional > 0 and aggressor and now - t <= 40:
                 tape.append({"id": trade_id, "t": t, "notional": notional, "side": aggressor})
                 seen[trade_id] = t
         except Exception:
             continue
 
-    tape[:] = [x for x in tape if now - x["t"] <= 45]
-    for k in [k for k, t in seen.items() if now - t > 60]:
+    tape[:] = [x for x in tape if now - x["t"] <= 40]
+    for k in [k for k, t in seen.items() if now - t > 55]:
         seen.pop(k, None)
 
-    def window_stats(lo, hi=0):
+    def stats(lo, hi=0):
         xs = [x for x in tape if hi < now - x["t"] <= lo]
-        buy = sum(x["notional"] for x in xs if x["side"] == "COMPRA")
-        sell = sum(x["notional"] for x in xs if x["side"] == "VENTA")
-        total = buy + sell
-        net = buy - sell
-        dom = abs(net) / total if total > 0 else 0.0
-        return buy, sell, total, net, dom
+        bx = [x for x in xs if x["side"] == "COMPRA"]
+        sx = [x for x in xs if x["side"] == "VENTA"]
+        buy = sum(x["notional"] for x in bx)
+        sell = sum(x["notional"] for x in sx)
+        return buy, sell, buy + sell, buy - sell, len(xs), \
+               sum(x["notional"] >= 50000 for x in bx), \
+               sum(x["notional"] >= 50000 for x in sx)
 
-    # "Ahora" = últimos 4 s. Baseline = 4-20 s anteriores, separado para no
-    # contaminar el baseline con el mismo impulso que intentamos detectar.
-    buy, sell, total, net, net_dom = window_stats(4)
-    pb, ps, prev_total, prev_net, prev_dom = window_stats(20, 4)
+    buy, sell, total, net, trade_count, big_buy, big_sell = stats(5)
+    _, _, old_total, _, _, _, _ = stats(25, 5)
 
-    current_rate = total / 4.0
-    baseline_rate = prev_total / 16.0 if prev_total > 0 else 0.0
-    acceleration = current_rate / baseline_rate if baseline_rate > 0 else 0.0
-
+    rate = total / 5.0
+    old_rate = old_total / 20.0 if old_total > 0 else 0.0
+    acceleration = rate / old_rate if old_rate > 0 else (9.0 if total > 0 else 0.0)
+    gross_dom = max(buy, sell) / total if total > 0 else 0.0
+    net_dom = abs(net) / total if total > 0 else 0.0
     direction = "UP" if net > 0 else "DOWN" if net < 0 else None
+    big_same = big_buy if direction == "UP" else big_sell if direction == "DOWN" else 0
 
-    # Umbral adaptativo: no dispara por una simple ráfaga pequeña.
-    # Si el mercado está muy activo, el umbral sube automáticamente.
-    dynamic_total = max(400_000.0, baseline_rate * 4.0 * 2.25)
-    strong_net = abs(net) >= max(250_000.0, dynamic_total * 0.55)
+    score = 0
+    if total >= 150000: score += 1
+    if total >= 300000: score += 1
+    if total >= 600000: score += 1
+    if gross_dom >= .62: score += 1
+    if gross_dom >= .72: score += 1
+    if net_dom >= .35: score += 1
+    if acceleration >= 1.8: score += 1
+    if acceleration >= 3.0: score += 1
+    if trade_count >= 80: score += 1
+    if big_same >= 2: score += 1
 
-    qualifies = bool(
-        direction
-        and total >= dynamic_total
-        and net_dom >= 0.58
-        and strong_net
-        and (baseline_rate == 0 or acceleration >= 2.25)
-    )
+    detected = bool(direction and total >= 200000 and abs(net) >= 100000
+                    and gross_dom >= .62 and score >= 5)
+    if direction and total >= 500000 and abs(net) >= 250000 and gross_dom >= .68:
+        detected = True
 
-    # Confirmación muy rápida, SIN latch temporal.
-    # Un impulso extremadamente fuerte puede avisar en la primera lectura;
-    # uno normal necesita dos lecturas consecutivas del mismo lado.
-    extreme_now = bool(
-        qualifies
-        and total >= max(750_000.0, dynamic_total * 1.35)
-        and net_dom >= 0.68
-        and (baseline_rate == 0 or acceleration >= 3.0)
-    )
-
-    pending = st.session_state.get("whale_flow_pending")
-    if qualifies:
-        if pending and pending.get("direction") == direction and now - float(pending.get("time", 0)) <= 4.5:
-            count = int(pending.get("count", 0)) + 1
-        else:
-            count = 1
-        st.session_state["whale_flow_pending"] = {
-            "direction": direction, "time": now, "count": count
-        }
-    else:
-        count = 0
-        st.session_state["whale_flow_pending"] = None
-
-    detected = bool(qualifies and (extreme_now or count >= 2))
-
-    # IMPORTANTE: la alerta es SOLO del flujo actual. No se conserva una señal vieja.
+    strength = "EXTREMO" if score >= 8 else "FUERTE" if score >= 6 else "ANORMAL"
     alert = None
     if detected:
         alert = {
-            "direction": direction,
-            "time": now,
-            "buy": buy,
-            "sell": sell,
-            "total": total,
-            "imbalance": (max(buy, sell) / total) if total > 0 else 0.0,
-            "net": abs(net),
-            "acceleration": acceleration,
+            "direction": direction, "time": now, "buy": buy, "sell": sell,
+            "total": total, "imbalance": gross_dom, "net": abs(net),
+            "acceleration": acceleration, "trades": trade_count,
+            "big_trades": big_same, "score": score, "strength": strength,
         }
 
     return {
-        "detected": detected,
-        "alert": alert,
-        "live_buy": buy,
-        "live_sell": sell,
-        "live_total": total,
-        "imbalance": (max(buy, sell) / total) if total > 0 else 0.0,
-        "threshold": dynamic_total,
-        "acceleration": acceleration,
+        "detected": detected, "alert": alert, "live_buy": buy,
+        "live_sell": sell, "live_total": total, "imbalance": gross_dom,
+        "acceleration": acceleration, "trades": trade_count, "score": score,
     }
 
 def compact_usd(value):
@@ -843,9 +1144,9 @@ def render_whale_panel(whale, active):
         sell = compact_usd((whale or {}).get("live_sell", 0))
         return f'''<section style="{base}">
           <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
-          <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN FLUJO EXTREMO AHORA</div>
-          <div style="margin-top:6px;font-size:9px;color:#8da0b4">AHORA · COMPRAS {buy} · VENTAS {sell}</div>
-          <div style="margin-top:4px;font-size:8px;color:#6f8195">Analiza ráfagas anormales; no alerta por una operación aislada.</div>
+          <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">FLUJO NORMAL / SIN CONFIRMACIÓN</div>
+          <div style="margin-top:6px;font-size:9px;color:#8da0b4">5s · COMPRAS {buy} · VENTAS {sell}</div>
+          <div style="margin-top:4px;font-size:8px;color:#6f8195">Lee hasta 500 trades recientes y compara presión, aceleración y desequilibrio.</div>
         </section>'''
 
     a = whale["alert"]
@@ -1880,6 +2181,104 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
       <div class="chartfoot"><span class="selected">{timeframe}</span><span>VELAS REALES COINBASE</span><span>ACTUALIZACIÓN LIVE</span></div>
     </section>'''
 
+
+# =========================================================
+# AJUSTES KALSHI + AUTO TRADING
+# =========================================================
+with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
+    st.caption("Las credenciales quedan en esta sesión; no se escriben dentro del archivo ni se muestran en pantalla.")
+    st.text_input("Kalshi API Key ID", key="kalshi_api_key_input", placeholder="Pega tu API Key ID")
+    st.text_area(
+        "Kalshi Private Key",
+        key="kalshi_private_key_input",
+        placeholder="-----BEGIN PRIVATE KEY----- ...",
+        height=105,
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("🔐 Conectar Kalshi", use_container_width=True):
+            try:
+                _, bal = kalshi_test_connection()
+                st.session_state.kalshi_auth_ok = True
+                st.session_state.kalshi_auth_message = f"Conectado · Balance ${bal}" if bal else "Conectado"
+            except Exception as e:
+                st.session_state.kalshi_auth_ok = False
+                st.session_state.auto_enabled = False
+                st.session_state.kalshi_auth_message = "Error: " + str(e)[:160]
+    with c2:
+        if st.button("Desconectar", use_container_width=True):
+            st.session_state.kalshi_auth_ok = False
+            st.session_state.auto_enabled = False
+            st.session_state.kalshi_auth_message = "No conectado"
+
+    if st.session_state.kalshi_auth_ok:
+        st.success("🟢 " + st.session_state.kalshi_auth_message)
+    else:
+        st.info("🔴 " + st.session_state.kalshi_auth_message)
+
+    st.divider()
+    requested_auto = st.toggle("🤖 AUTO TRADING", value=st.session_state.auto_enabled)
+    if requested_auto and not st.session_state.kalshi_auth_ok:
+        st.warning("Primero conecta Kalshi. AUTO permanece apagado.")
+        st.session_state.auto_enabled = False
+    else:
+        st.session_state.auto_enabled = requested_auto
+
+    st.session_state.auto_amount = st.number_input(
+        "Monto inicial ($)", min_value=0.01, max_value=10000.0,
+        value=float(st.session_state.auto_amount), step=0.25
+    )
+    st.session_state.auto_limit_cents = st.slider(
+        "Precio límite de entrada (¢)", 1, 99,
+        int(st.session_state.auto_limit_cents)
+    )
+    st.session_state.auto_take_profit = st.slider(
+        "Take profit (%)", 0, 500,
+        int(st.session_state.auto_take_profit), step=5
+    )
+    st.session_state.auto_martingale = st.toggle(
+        "Martingala", value=bool(st.session_state.auto_martingale)
+    )
+    st.session_state.auto_max_levels = st.slider(
+        "Máximo de niveles", 1, 8, int(st.session_state.auto_max_levels)
+    )
+
+    st.caption("Dirección por nivel")
+    for _level in range(1, int(st.session_state.auto_max_levels) + 1):
+        _key = f"auto_level_direction_{_level}"
+        if _key not in st.session_state:
+            st.session_state[_key] = "Seguir señal"
+        st.selectbox(
+            f"Nivel {_level}",
+            ["Seguir señal", "Solo UP", "Solo DOWN"],
+            key=_key,
+        )
+
+    st.session_state.auto_stop_after_win = st.toggle(
+        "Apagar después del próximo WIN",
+        value=bool(st.session_state.auto_stop_after_win)
+    )
+
+    b1, b2 = st.columns(2)
+    with b1:
+        if st.button("↺ Reiniciar progresión", use_container_width=True):
+            st.session_state.auto_level = 1
+            st.session_state.auto_last_status = "PROGRESIÓN REINICIADA"
+    with b2:
+        if st.button("🛑 APAGAR AUTO", use_container_width=True):
+            st.session_state.auto_enabled = False
+            st.session_state.auto_last_status = "AUTO APAGADO"
+
+    _next_amount = _amount_for_level()
+    st.markdown(
+        f"**Estado:** {'🟢 AUTO' if st.session_state.auto_enabled else '⚪ AUTO OFF'}  \n"
+        f"**Nivel:** {st.session_state.auto_level}/{st.session_state.auto_max_levels} · "
+        f"**Próximo monto:** ${_next_amount:.2f}  \n"
+        f"**Último estado:** {st.session_state.auto_last_status}"
+    )
+
+
 @st.fragment(run_every="2s")
 def live_dashboard():
     btc_error = ""
@@ -1970,6 +2369,9 @@ def live_dashboard():
     round_signal = process_round_signal(
         ticker, sig, market, seconds_left
     )
+
+    # Capa de ejecución separada: no altera el cálculo de la señal.
+    auto_trade_tick(ticker, market, round_signal)
 
     # Cinta live de segundos para el Lector de Cierre.
     update_micro_tape(ticker, live_btc_price)
