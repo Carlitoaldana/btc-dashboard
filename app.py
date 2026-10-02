@@ -667,6 +667,7 @@ _AUTO_DEFAULTS = {
     "auto_last_order": None,
     "auto_last_status": "AUTO APAGADO",
     "auto_history": [],
+    "auto_modo_monto": "Automático",
 }
 for _k, _v in _AUTO_DEFAULTS.items():
     if _k not in st.session_state:
@@ -676,7 +677,6 @@ KALSHI_API_BASE = "https://external-api.kalshi.com"
 KALSHI_API_PREFIX = "/trade-api/v2"
 
 def _kalshi_sign(message):
-    """RSA-PSS/SHA256 signature using system OpenSSL; no Python crypto package required."""
     pem = st.session_state.get("kalshi_private_key_input", "")
     if not pem:
         raise ValueError("Falta la Private Key.")
@@ -749,7 +749,6 @@ def kalshi_test_connection():
     return data, dollars
 
 def _market_contract_prices(market):
-    """Returns current YES/NO asks as dollars when Kalshi exposes them."""
     if not market:
         return None, None
     def f(name):
@@ -760,7 +759,6 @@ def _market_contract_prices(market):
             return None
     yes_ask = f("yes_ask_dollars")
     no_ask = f("no_ask_dollars")
-    # Compatibility with older payloads still returned by some endpoints.
     if yes_ask is None:
         y = f("yes_ask")
         yes_ask = y / 100.0 if y and y > 1 else y
@@ -770,9 +768,26 @@ def _market_contract_prices(market):
     return yes_ask, no_ask
 
 def _amount_for_level():
-    base = max(0.01, float(st.session_state.auto_amount))
+    """Calcula el monto real para el nivel actual conectando Manual o Automático correctamente."""
     level = max(1, int(st.session_state.auto_level))
-    return base * (2 ** (level - 1)) if st.session_state.auto_martingale else base
+    max_lvl = int(st.session_state.get("auto_max_levels", 4))
+    lvl_idx = max(0, min(level - 1, max_lvl - 1))
+    
+    modo = st.session_state.get("auto_modo_monto", "Automático")
+    is_martingale = bool(st.session_state.get("auto_martingale", False))
+    monto_total = float(st.session_state.get("auto_amount", 0.50))
+
+    if modo == "Manual":
+        # Devuelve exactamente lo que el usuario escribió en el input manual de este nivel
+        return float(st.session_state.get(f"monto_nivel_{lvl_idx}", 0.50))
+    else:
+        # Automático calcula presupuesto total y progresión
+        if is_martingale:
+            factor_sum = sum(2 ** i for i in range(max_lvl))
+            unit_base = monto_total / factor_sum if factor_sum > 0 else monto_total
+            return unit_base * (2 ** lvl_idx)
+        else:
+            return monto_total / max_lvl
 
 def _direction_for_level(signal_direction):
     level = max(1, int(st.session_state.auto_level))
@@ -786,7 +801,6 @@ def _direction_for_level(signal_direction):
 def _contracts_for_amount(amount, contract_price):
     if contract_price is None or contract_price <= 0:
         return 0.0
-    # Fixed-point quantity; never intentionally exceeds configured premium.
     return math.floor((amount / contract_price) * 100) / 100.0
 
 def kalshi_place_entry(ticker, direction, market):
@@ -802,9 +816,6 @@ def kalshi_place_entry(ticker, direction, market):
     if count < 0.01:
         return {"skipped": True, "reason": "Monto demasiado pequeño para el precio actual."}
 
-    # V2 is a single YES book:
-    # UP = buy YES -> bid at max YES price.
-    # DOWN = buy NO -> economically equivalent to ask YES at 1 - max NO price.
     if direction == "UP":
         side = "bid"
         yes_price = limit
@@ -846,11 +857,9 @@ def kalshi_place_take_profit(entry):
     desired_contract_exit = min(0.99, p * (1.0 + tp))
 
     if direction == "UP":
-        # Close long YES by selling YES.
         side = "ask"
         yes_exit = desired_contract_exit
     else:
-        # Close long NO / short YES by buying YES back at complement.
         side = "bid"
         yes_exit = max(0.01, 1.0 - desired_contract_exit)
 
@@ -926,7 +935,6 @@ def auto_trade_tick(ticker, market, round_signal):
         return
     direction = _direction_for_level(direction)
 
-    # One entry maximum per Kalshi round.
     if st.session_state.get("auto_last_ticker") == ticker:
         return
 
@@ -1009,7 +1017,6 @@ def get_btc_data():
     return df.dropna().sort_values("time").reset_index(drop=True)
 
 def get_coinbase_whale_flow():
-    """FLOW PULSE BTC/USD: varias páginas de trades, aceleración y desequilibrio."""
     now = pd.Timestamp.now(tz="UTC").timestamp()
     tape = st.session_state.setdefault("whale_flow_tape", [])
     seen = st.session_state.setdefault("whale_seen_ids", {})
@@ -1775,16 +1782,12 @@ def process_round_signal(ticker, sig, market, seconds_left):
 
 # =========================================================
 # LECTOR DE CIERRE PRO — MICRO LECTURA ~2 SEGUNDOS
-# Mantiene intacto el motor v4.6.1 y sus señales.
-# No inventa velas REST de 1 segundo: construye una cinta
-# de muestras del BTC live que ya recibe el dashboard.
 # =========================================================
 
 def update_micro_tape(ticker, live_price):
     if not ticker or ticker == "--" or live_price is None:
         return
 
-    # Cada ronda empieza con su propia cinta.
     if st.session_state.micro_ticker != ticker:
         st.session_state.micro_ticker = ticker
         st.session_state.micro_prices = []
@@ -1792,11 +1795,9 @@ def update_micro_tape(ticker, live_price):
     now_ts = datetime.now(timezone.utc).timestamp()
     tape = st.session_state.micro_prices
 
-    # Evita duplicar muestras dentro del mismo refresco.
     if not tape or now_ts - tape[-1]["t"] >= 1.0:
         tape.append({"t": now_ts, "p": float(live_price)})
 
-    # Conserva aproximadamente los últimos 90 segundos.
     cutoff = now_ts - 90
     st.session_state.micro_prices = [
         x for x in tape if x["t"] >= cutoff
@@ -1838,7 +1839,6 @@ def micro_reading():
         if nonzero else 0.5
     )
 
-    # Regresión simple precio/tiempo para medir dirección micro.
     xs = np.array([x["t"] - tape[0]["t"] for x in tape], dtype=float)
     ys = np.array([x["p"] for x in tape], dtype=float)
     slope = float(np.polyfit(xs, ys, 1)[0]) if len(xs) >= 3 and xs[-1] > 0 else 0.0
@@ -1863,13 +1863,6 @@ def micro_reading():
     }
 
 def closing_reader(sig, round_signal, seconds_left, micro):
-    """
-    Lector independiente de cierre.
-    - La señal principal v4.6.1 NO se modifica.
-    - En los últimos segundos, tiempo + distancia al target dominan sobre
-      una pequeña contradicción de momentum/microlectura.
-    - Nunca llama "confirmado" a un resultado antes del cierre.
-    """
     state = round_signal.get("round_state")
     active_direction = state.get("active_direction") if state else None
 
@@ -1889,8 +1882,6 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     terminal_override = False
     terminal_too_close = False
 
-    # En cierre extremo, la posición REAL respecto al target manda.
-    # Umbrales deliberadamente conservadores para no llamar un flip por $2-$10.
     if seconds_left is not None and distance is not None:
         abs_d = abs(distance)
         market_side = "UP" if distance > 0 else "DOWN"
@@ -1944,7 +1935,6 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         micro_score += 4 if slope > 0.45 else (-5 if slope < -0.45 else 0)
         micro_score += 4 if ratio >= 0.62 else (-5 if ratio <= 0.38 else 0)
 
-        # La microlectura pesa menos cuando quedan segundos y la distancia es amplia.
         weight = 1.0
         if seconds_left is not None:
             if seconds_left <= 30:
@@ -1959,7 +1949,6 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         confidence += float(np.clip(micro_score * weight, -28, 20))
         strong_contradiction = (c10 < -5 and c30 < -10)
 
-        # Solo limitar por contradicción si tiempo/distancia NO hacen el cierre dominante.
         if strong_contradiction and not terminal_override:
             confidence = min(confidence, 69)
 
@@ -1972,7 +1961,6 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     if seconds_left is not None and seconds_left <= 180:
         confidence += 2
 
-    # Refuerzo específico de tiempo + distancia.
     if terminal_override and distance is not None:
         abs_d = abs(distance)
         if seconds_left <= 15:
@@ -2031,8 +2019,6 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     }
 
 def render_live_candles(df, live_price, target, active, timeframe="1m"):
-    # Renderiza velas BTC/USD para visualización sin cambiar el motor v4.6.1.
-    # 3m y 5m se construyen agrupando las velas reales de Coinbase de 1 minuto.
     if df is None or len(df) < 5:
         return f'<div class="chartbox"><div class="charttitle">BTC/USD · {timeframe}</div><div class="chartempty">Esperando velas…</div></div>'
 
@@ -2056,7 +2042,6 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         d = source_df[["time", "open", "high", "low", "close", "volume"]].copy()
 
     d = d.tail(42).reset_index(drop=True)
-    # La última vela se mantiene visualmente al precio live recibido por el dashboard.
     if live_price is not None and len(d):
         i = d.index[-1]
         d.loc[i, "close"] = float(live_price)
@@ -2080,17 +2065,14 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     n=len(d); step=pw/max(n,1); body=max(3.2, min(8, step*.58))
 
     svg=[]
-    # horizontal grid + prices
     for k in range(5):
         yy=top+ph*k/4; price=hi-(hi-lo)*k/4
         svg.append(f'<line x1="{left}" y1="{yy:.1f}" x2="{W-right}" y2="{yy:.1f}" stroke="#182536" stroke-width="1"/>')
         svg.append(f'<text x="{W-right+8}" y="{yy+4:.1f}" fill="#8392a7" font-size="12">{price:,.0f}</text>')
-    # vertical grid
     for k in range(5):
         xx=left+pw*k/4
         svg.append(f'<line x1="{xx:.1f}" y1="{top}" x2="{xx:.1f}" y2="{top+ph}" stroke="#121e2d" stroke-width="1"/>')
 
-    # volume scaled into bottom 52 px of plot
     vmax=max(float(d["volume"].max()),1)
     vbase=top+ph
     for i,row in d.iterrows():
@@ -2098,7 +2080,6 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         col='#16b97a' if float(row['close'])>=float(row['open']) else '#c43d59'
         svg.append(f'<rect x="{x-body/2:.1f}" y="{vbase-vh:.1f}" width="{body:.1f}" height="{vh:.1f}" fill="{col}" opacity=".55"/>')
 
-    # candles
     for i,row in d.iterrows():
         x=left+(i+.5)*step
         o,c,h,l=map(float,[row['open'],row['close'],row['high'],row['low']])
@@ -2107,28 +2088,24 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         yy=min(y(o),y(c)); hh=max(2.0,abs(y(o)-y(c)))
         svg.append(f'<rect x="{x-body/2:.1f}" y="{yy:.1f}" width="{body:.1f}" height="{hh:.1f}" rx=".7" fill="{col}"/>')
 
-    # EMA paths
     def path(series,color):
         pts=' '.join(f'{left+(i+.5)*step:.1f},{y(v):.1f}' for i,v in enumerate(series))
         return f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
     svg.append(path(ema9,'#df42e7'))
     svg.append(path(ema21,'#32d7ef'))
 
-    # target line
     if target is not None and lo <= float(target) <= hi:
         ty=y(target)
         svg.append(f'<line x1="{left}" y1="{ty:.1f}" x2="{W-right}" y2="{ty:.1f}" stroke="#23e7c1" stroke-width="1.8" stroke-dasharray="7 6"/>')
-        # La etiqueta queda en el margen derecho, fuera del área de velas.
         svg.append(f'<rect x="{W-right+18}" y="{ty-12:.1f}" width="96" height="23" rx="3" fill="#20e7bd"/>')
         svg.append(f'<text x="{W-right+25}" y="{ty+4:.1f}" fill="#061510" font-size="10" font-weight="800">TARGET</text>')
-    # live price line + label
+
     if live_price is not None and lo <= float(live_price) <= hi:
         ly=y(live_price); lc='#31e889' if active=='UP' else '#ff5367' if active=='DOWN' else '#38bdf8'
         svg.append(f'<line x1="{left}" y1="{ly:.1f}" x2="{W-right}" y2="{ly:.1f}" stroke="{lc}" stroke-width="1.3" stroke-dasharray="3 4"/>')
         svg.append(f'<rect x="{W-right+18}" y="{ly-12:.1f}" width="96" height="23" rx="3" fill="{lc}"/>')
         svg.append(f'<text x="{W-right+25}" y="{ly+4:.1f}" fill="#061510" font-size="11" font-weight="900">{float(live_price):,.0f}</text>')
 
-    # time labels
     picks=[0, max(0,n//3), max(0,2*n//3), n-1]
     for idx in picks:
         tm=d.iloc[idx]['time'].to_pydatetime().astimezone().strftime('%H:%M')
@@ -2149,7 +2126,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     </section>'''
 
 # =========================================================
-# AJUSTES KALSHI + AUTO TRADING
+# AJUSTES KALSHI + AUTO TRADING (CORREGIDO Y LIMPIO)
 # =========================================================
 with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
     st.caption("Las credenciales quedan en esta sesión; no se escriben dentro del archivo ni se muestran en pantalla.")
@@ -2191,27 +2168,59 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
     else:
         st.session_state.auto_enabled = requested_auto
 
-    st.session_state.auto_amount = st.number_input(
-        "Monto inicial ($)", min_value=0.01, max_value=10000.0,
-        value=float(st.session_state.auto_amount), step=0.25
+    # 1. Martingala procesada antes de calcular montos / niveles
+    st.session_state.auto_martingale = st.toggle(
+        "Martingala", value=bool(st.session_state.auto_martingale)
     )
+
+    # 2. Máximo de niveles (hasta 12)
+    st.session_state.auto_max_levels = st.slider(
+        "Máximo de niveles", 1, 12, int(st.session_state.get("auto_max_levels", 4))
+    )
+
+    # 3. Distribución de Monto: Automático / Manual
+    modo_monto = st.radio("Distribución de Monto", ["Automático", "Manual"], horizontal=True, key="auto_modo_monto")
+    
+    max_lvl = int(st.session_state.auto_max_levels)
+    is_martingale = bool(st.session_state.auto_martingale)
+
+    if modo_monto == "Automático":
+        monto_total = st.number_input(
+            "Presupuesto Total / Base ($)", min_value=0.01, max_value=10000.0,
+            value=float(st.session_state.get("auto_amount", 0.50)), step=0.25
+        )
+        st.session_state.auto_amount = monto_total
+
+        if is_martingale:
+            factor_sum = sum(2 ** i for i in range(max_lvl))
+            unit_base = monto_total / factor_sum if factor_sum > 0 else monto_total
+            st.markdown("**Desglose Automático (Martingala):**")
+            for i in range(max_lvl):
+                m_niv = unit_base * (2 ** i)
+                st.caption(f"• Nivel {i+1}: **${m_niv:.2f}**")
+        else:
+            monto_unitario = monto_total / max_lvl
+            st.info(f"Modo Automático: **${monto_unitario:.2f}** por cada uno de los {max_lvl} niveles.")
+    else:
+        st.write("Asigna el monto libremente para cada nivel:")
+        for i in range(max_lvl):
+            default_val = 0.50 if i == 0 else 1.00
+            saved_val = st.session_state.get(f"monto_nivel_{i}", float(default_val))
+            st.number_input(f"Nivel {i+1} ($)", min_value=0.0, value=float(saved_val), key=f"monto_nivel_{i}", step=0.25)
+
     st.session_state.auto_limit_cents = st.slider(
         "Precio límite de entrada (¢)", 1, 99,
         int(st.session_state.auto_limit_cents)
     )
+    
+    # 4. Take Profit: Máximo 100%
     st.session_state.auto_take_profit = st.slider(
-        "Take profit (%)", 0, 500,
-        int(st.session_state.auto_take_profit), step=5
-    )
-    st.session_state.auto_martingale = st.toggle(
-        "Martingala", value=bool(st.session_state.auto_martingale)
-    )
-    st.session_state.auto_max_levels = st.slider(
-        "Máximo de niveles", 1, 8, int(st.session_state.auto_max_levels)
+        "Take profit (%)", 1, 100,
+        int(min(100, st.session_state.auto_take_profit)), step=1
     )
 
     st.caption("Dirección por nivel")
-    for _level in range(1, int(st.session_state.auto_max_levels) + 1):
+    for _level in range(1, max_lvl + 1):
         _key = f"auto_level_direction_{_level}"
         if _key not in st.session_state:
             st.session_state[_key] = "Seguir señal"
@@ -2237,9 +2246,10 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
             st.session_state.auto_last_status = "AUTO APAGADO"
 
     _next_amount = _amount_for_level()
+    
     st.markdown(
         f"**Estado:** {'🟢 AUTO' if st.session_state.auto_enabled else '⚪ AUTO OFF'}  \n"
-        f"**Nivel:** {st.session_state.auto_level}/{st.session_state.auto_max_levels} · "
+        f"**Nivel:** {st.session_state.auto_level}/{max_lvl} · "
         f"**Próximo monto:** ${_next_amount:.2f}  \n"
         f"**Último estado:** {st.session_state.auto_last_status}"
     )
@@ -2335,15 +2345,12 @@ def live_dashboard():
         ticker, sig, market, seconds_left
     )
 
-    # Capa de ejecución separada: no altera el cálculo de la señal.
     auto_trade_tick(ticker, market, round_signal)
 
-    # Cinta live de segundos para el Lector de Cierre.
     update_micro_tape(ticker, live_btc_price)
     micro = micro_reading()
     reader = closing_reader(sig, round_signal, seconds_left, micro)
 
-    # Ballenas: capa visual independiente; NO modifica señales ni probabilidades v4.6.1.
     try:
         whale = get_coinbase_whale_flow()
     except Exception:
@@ -2356,7 +2363,6 @@ def live_dashboard():
         else None
     )
 
-    # Render del panel de ballenas. Solo visual; no altera el motor v4.6.1.
     whale_html = render_whale_panel(whale, active)
 
     if active == "UP":
@@ -2493,7 +2499,6 @@ def live_dashboard():
 <div class="ticker">{ticker} • SCORE {sig["final_score"]:+.2f}</div>
 """, unsafe_allow_html=True)
 
-    # Gráfico real BTC/USD de 1 minuto. No modifica ninguna señal del motor.
     if btc_ok:
         chart_timeframe = st.radio(
             "Temporalidad del gráfico",
