@@ -2337,7 +2337,9 @@ def build_real_line_chart(btc_df, live, target, seconds):
     if len(points)<2: return '<div style="height:300px;display:grid;place-items:center;color:#6f7d77">Esperando datos en vivo…</div>', ["--"]*5
     vals=[p for _,p in points]; scalevals=vals+([float(target)] if target else []); lo,hi=min(scalevals),max(scalevals); pad=max((hi-lo)*.10,15); lo-=pad; hi+=pad; span=max(hi-lo,1)
     def y(v): return top+(hi-v)/span*(H-top-bottom)
-    def x(t): return max(1,min(W-2,1+((t-round_start)/900.0)*(W-3)))
+    def x(t):
+        denom=max(now-round_start, 30.0)
+        return max(1,min(W-2,1+((t-round_start)/denom)*(W-3)))
     xs=[x(t) for t,_ in points]; ys=[y(pr) for _,pr in points]; poly=" ".join(f"{xx:.1f},{yy:.1f}" for xx,yy in zip(xs,ys)); lastx=xs[-1]; area=f"1,{H-bottom} {poly} {lastx:.1f},{H-bottom}"
     up=(live is not None and target is not None and float(live)>=float(target)); color="#31db86" if up else "#ff626b"
     svg=[f'<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="{color}" stop-opacity=".30"/><stop offset="100%" stop-color="{color}" stop-opacity="0"/></linearGradient></defs>']
@@ -2372,8 +2374,8 @@ def bot_page():
             elif not st.session_state.kalshi_auth_ok: st.warning("Conecta Kalshi en Ajustes para activar el trading automático.")
             else: st.session_state.auto_enabled=True; st.rerun()
         st.markdown(f'<div class="auto-state {"on" if auto else ""}">● {"ENCENDIDO" if auto else "APAGADO"}</div>',unsafe_allow_html=True)
-    scale_html="".join(f'<span style="top:{i*24}%">{v}</span>' for i,v in enumerate(labels)); past_html=past_markets_html(); target_text=f"${target:,.2f}" if target else "--"
-    top_html=f'<div class="crit"><div class="market"><div><div class="lab">OBJETIVO</div><div class="price">{target_text}</div><div class="sub">Cierre {close_txt}</div><div class="count">⌛&nbsp; {format_countdown(seconds)}</div></div><div><div class="lab {current_cls}">PRECIO ACTUAL {current_arrow}</div><div class="price {current_cls}">${sig["price"]:,.2f}</div><div class="sub {current_cls}">{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class="live"><i></i>En vivo</div><div class="chartwrap"><div class="sidebar"></div><div class="plot">{chart}</div><div class="scale">{scale_html}</div></div><div class="times"><span>Inicio</span><span>+5 min</span><span>+10 min</span><span>Ahora</span></div><div class="past">MERCADOS ANTERIORES&nbsp;&nbsp;<span class="arr">{past_html}</span></div></div>'
+    scale_html="".join(f'<span style="top:{i*24}%">{v}</span>' for i,v in enumerate(labels)); past_html=past_markets_html(); target_text=f"${target:,.2f}" if target else "--"; now=datetime.now(timezone.utc).timestamp()
+    top_html=f'<div class="crit"><div class="market"><div><div class="lab">OBJETIVO</div><div class="price">{target_text}</div><div class="sub">Cierre {close_txt}</div><div class="count">⌛&nbsp; {format_countdown(seconds)}</div></div><div><div class="lab {current_cls}">PRECIO ACTUAL {current_arrow}</div><div class="price {current_cls}">${sig["price"]:,.2f}</div><div class="sub {current_cls}">{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class="live"><i></i>En vivo</div><div class="chartwrap"><div class="sidebar"></div><div class="plot">{chart}</div><div class="scale">{scale_html}</div></div><div class="times"><span>{datetime.fromtimestamp(now-900, timezone.utc).astimezone().strftime("%H:%M:%S")}</span><span>{datetime.fromtimestamp(now-600, timezone.utc).astimezone().strftime("%H:%M:%S")}</span><span>{datetime.fromtimestamp(now-300, timezone.utc).astimezone().strftime("%H:%M:%S")}</span><span>{datetime.fromtimestamp(now, timezone.utc).astimezone().strftime("%H:%M:%S")}</span></div><div class="past">MERCADOS ANTERIORES&nbsp;&nbsp;<span class="arr">{past_html}</span></div></div>'
     st.markdown(top_html,unsafe_allow_html=True)
     with st.container(border=True):
         mc1,mc2=st.columns([3.25,1],vertical_alignment="center")
@@ -2408,4 +2410,34 @@ st.markdown(r"""<style>
 [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]:last-child div.stButton>button#auto_power_real{border-radius:50%!important}
 /* bottom navigation: the final horizontal row stays fixed */
 div[data-testid="stHorizontalBlock"]:has(button[kind="primary"]):last-of-type{position:fixed!important;left:50%!important;transform:translateX(-50%)!important;bottom:0!important;width:min(430px,100vw)!important;height:72px!important;background:#020705!important;border-top:1px solid #26342e!important;z-index:999!important;padding:5px 8px!important}
+</style>""",unsafe_allow_html=True)
+
+
+st.markdown(r"""<style>
+/* FINAL MOBILE MATCH OVERRIDES */
+.block-container{padding:12px 12px 86px!important}
+/* top-right power: remove the Streamlit rectangle completely */
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:last-child .stButton{display:flex!important;justify-content:center!important}
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:last-child .stButton>button{
+ width:46px!important;height:46px!important;min-height:46px!important;max-width:46px!important;padding:0!important;
+ border-radius:50%!important;border:1.5px solid #7d353c!important;background:#07100c!important;color:#ff626b!important;
+ font-size:24px!important;line-height:1!important;box-shadow:none!important;margin:3px auto 1px!important
+}
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:last-child .stButton>button p{font-size:24px!important;line-height:1!important}
+.auto-label{font-size:8px!important;margin-bottom:0!important}.auto-state{font-size:9px!important}
+/* chart proportions closer to reference */
+.chartwrap{height:310px!important}.plot svg polyline{vector-effect:non-scaling-stroke}.live{margin-top:-3px!important}
+/* signal card: no second outer Streamlit-looking panel */
+[data-testid="stVerticalBlockBorderWrapper"]{padding:10px 11px!important;border:1px solid #18543a!important;background:linear-gradient(180deg,#06140e,#04100b)!important}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"]{align-items:center!important}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stToggle"]{background:transparent!important;border:0!important;padding:0!important}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stToggle"]>label{justify-content:flex-end!important}
+/* bottom nav: flat, fixed, one row like reference */
+div[data-testid="stHorizontalBlock"]:last-of-type{position:fixed!important;left:50%!important;transform:translateX(-50%)!important;bottom:0!important;width:min(430px,100vw)!important;height:70px!important;background:#020705!important;border-top:1px solid #26342e!important;z-index:9999!important;padding:4px 8px!important;gap:0!important}
+div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button{
+ border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;min-height:58px!important;padding:3px 0!important;color:#8d9994!important
+}
+div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button[kind="primary"]{color:#24d77d!important;background:transparent!important}
+div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button p{font-size:9px!important;line-height:1.8!important}
+.nav-spacer{height:58px!important}
 </style>""",unsafe_allow_html=True)
