@@ -716,7 +716,7 @@ def _kalshi_sign(message):
                 pass
 
 def _kalshi_headers(method, path):
-    key_id = st.session_state.get("kalshi_api_key_input", "").strip()
+    key_id = st.session_state.get("kalshi_key_id_input", st.session_state.get("kalshi_api_key_input", "")).strip()
     if not key_id:
         raise ValueError("Falta el API Key ID.")
     ts = str(int(time.time() * 1000))
@@ -2311,7 +2311,7 @@ def _round_times(market):
     if not raw:return '--'
     try:
         dt=pd.to_datetime(raw,utc=True).to_pydatetime().astimezone()
-        return dt.strftime('%-I:%M %p')
+        return dt.strftime('%-I:%M %p').replace('AM','a. m.').replace('PM','p. m.')
     except Exception:return '--'
 
 def _line_chart(df, live, target, seconds_left):
@@ -2458,6 +2458,32 @@ def settings_page():
     if st.button('🔗  Conexión Kalshi     ›',use_container_width=True): _go('Conexion')
     st.markdown('<div class="menurow">✈ &nbsp; Alertas Telegram <span>›</span></div><div class="menurow">▣ &nbsp; Suscripción <span>›</span></div><div class="menurow">▤ &nbsp; Términos y Condiciones <span>›</span></div><div class="menurow">ⓘ &nbsp; Acerca del bot <span>›</span></div>',unsafe_allow_html=True)
     _nav()
+
+st.markdown(r"""<style>
+/* ===== CRITIK2 MOBILE FINAL OVERRIDE ===== */
+html,body,[data-testid="stAppViewContainer"],.stApp{background:#010705!important;color:#eef3f0!important}
+.block-container{max-width:430px!important;padding:18px 12px 112px!important;margin:auto!important}
+div[data-testid="stVerticalBlock"]{gap:.42rem!important}
+.c2top{margin:4px 3px 12px!important}.btcball{width:48px!important;height:48px!important}.pair b{font-size:25px!important}.pair small,.autohead small{font-size:10px!important}
+.stats{margin-top:2px!important}.stat .price{font-size:27px!important;line-height:1.05!important}.count{font-size:21px!important}
+.chartwrap{height:350px!important;margin-top:2px!important}.chartwrap svg{height:315px!important}.times{font-size:9px!important}.past{margin-top:1px!important;margin-bottom:10px!important}
+.signalcard{margin-bottom:18px!important;padding:12px!important}.sigtitle b{font-size:22px!important}.sigword{font-size:24px!important}
+/* compact native buttons so Streamlit does not turn the design into giant cards */
+.stButton>button{min-height:42px!important;padding:7px 10px!important;border-radius:12px!important;font-size:12px!important}
+/* Auto power button */
+div[data-testid="stHorizontalBlock"]:has(button[kind="secondary"]){align-items:center}
+/* toggles */
+[data-testid="stToggle"]{margin:0!important}
+[data-testid="stToggle"] label{font-size:12px!important}
+/* inputs/settings */
+[data-testid="stSelectbox"],[data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stTextArea"]{margin-bottom:8px!important}
+[data-testid="stSelectbox"] label,[data-testid="stNumberInput"] label,[data-testid="stTextInput"] label,[data-testid="stTextArea"] label{font-weight:800!important;color:#eef3f0!important}
+.page-title{font-size:23px!important;margin:14px 0 22px!important}.section-title{font-size:15px!important;margin:24px 0 12px!important}
+/* phone nav: four equal compact cells */
+div[data-testid="stHorizontalBlock"]:has(button[key^="nav_"]){position:sticky!important;bottom:0!important;background:#010705!important;border-top:1px solid #202a27!important;padding:9px 0 5px!important;z-index:20!important}
+/* remove excess Streamlit chrome */
+[data-testid="stHeader"], [data-testid="stToolbar"], #MainMenu, footer{display:none!important}
+</style>""",unsafe_allow_html=True)
 
 p=_page()
 if p=='Bot': bot_page()
