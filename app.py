@@ -2199,8 +2199,11 @@ st.markdown("""
 /* Controles Streamlit reales, compactos y en español */
 [data-testid="stToggle"]{background:#06110c;border:1px solid #173126;border-radius:11px;padding:7px 10px!important;margin:0!important}[data-testid="stToggle"] label{font-size:9px!important;font-weight:900!important;color:#dce7e1!important}
 div.stButton>button{border-radius:10px;border:1px solid #214b38;background:#07110c;color:#edf4f0;font-weight:850;font-size:9px;min-height:39px}
-/* navegación horizontal compacta */
-[data-testid="stHorizontalBlock"]{gap:.35rem!important}.stButton button p{font-size:8px!important;white-space:pre-line!important}
+/* navegación horizontal real */
+[data-testid="stHorizontalBlock"]{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;gap:.35rem!important;align-items:center!important}
+[data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{min-width:0!important;width:auto!important;flex:1 1 0!important}
+.stButton button p{font-size:8px!important;white-space:pre-line!important}
+[data-testid="stVerticalBlockBorderWrapper"]{border-color:#18543a!important;border-radius:14px!important;background:linear-gradient(180deg,#06140e,#04100b)!important}
 </style>
 """,unsafe_allow_html=True)
 
@@ -2314,42 +2317,35 @@ def balance_page():
     st.markdown(f'<div class="card"><div class="balance"><small>SALDO DISPONIBLE</small><b>{amount}</b></div></div><div class="risk"><b>⚠ ADVERTENCIA DE RIESGO</b><br><br>Los mercados de predicciones implican riesgo y pueden ocasionar pérdidas. Las ganancias no están aseguradas.</div>',unsafe_allow_html=True)
 
 def build_real_line_chart(btc_df, live, target, seconds):
-    """Gráfica ligera: datos reales de Coinbase + muestras live de la ronda."""
-    W,H=330,300; top,bottom=8,20
+    """Grafica solo la ronda actual y llena el eje X segun avanza el mercado."""
+    W,H=330,300; top,bottom=8,18
+    now=datetime.now(timezone.utc).timestamp(); elapsed=max(0.0,min(900.0,900.0-float(seconds or 0))); round_start=now-elapsed
     points=[]
     if btc_df is not None and len(btc_df):
-        # Hasta 15 minutos de cierres reales de Coinbase para que no nazca vacía.
-        for _,r in btc_df.tail(16).iterrows():
-            try: points.append((r["time"].timestamp(),float(r["close"])))
+        for _,r in btc_df.iterrows():
+            try:
+                t=r["time"].timestamp(); pr=float(r["close"])
+                if round_start-65 <= t <= now+5: points.append((t,pr))
             except Exception: pass
-    for x in st.session_state.get("micro_prices",[]):
-        try: points.append((float(x["t"]),float(x["p"])))
+    for z in st.session_state.get("micro_prices",[]):
+        try:
+            t=float(z["t"]); pr=float(z["p"])
+            if t>=round_start: points.append((t,pr))
         except Exception: pass
-    if live is not None: points.append((datetime.now(timezone.utc).timestamp(),float(live)))
-    # ordenar y eliminar tiempos repetidos
-    dedup={round(t,2):(t,p) for t,p in points}; points=sorted(dedup.values(),key=lambda z:z[0])
-    if len(points)<2:
-        return '<div style="height:300px;display:grid;place-items:center;color:#6f7d77">Esperando datos en vivo…</div>', ["--"]*5
-    # Mantener una ventana móvil real de ~15 minutos.
-    newest=points[-1][0]; points=[z for z in points if z[0]>=newest-900]
-    vals=[p for _,p in points]; scalevals=vals+([float(target)] if target else [])
-    lo,hi=min(scalevals),max(scalevals); pad=max((hi-lo)*.13,18);lo-=pad;hi+=pad;span=max(hi-lo,1)
+    if live is not None: points.append((now,float(live)))
+    points=sorted({round(t,1):(t,p) for t,p in points}.values())
+    if len(points)<2: return '<div style="height:300px;display:grid;place-items:center;color:#6f7d77">Esperando datos en vivo…</div>', ["--"]*5
+    vals=[p for _,p in points]; scalevals=vals+([float(target)] if target else []); lo,hi=min(scalevals),max(scalevals); pad=max((hi-lo)*.10,15); lo-=pad; hi+=pad; span=max(hi-lo,1)
     def y(v): return top+(hi-v)/span*(H-top-bottom)
-    n=len(points); xs=[i*(W-2)/max(1,n-1)+1 for i in range(n)]; ys=[y(p) for _,p in points]
-    poly=" ".join(f"{x:.1f},{yy:.1f}" for x,yy in zip(xs,ys))
-    area=f"1,{H-bottom} {poly} {W-1},{H-bottom}"
-    svg=[f'<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#25e889" stop-opacity=".22"/><stop offset="100%" stop-color="#25e889" stop-opacity="0"/></linearGradient></defs>']
-    # líneas guía sutiles
-    for k in range(5):
-        yy=top+(H-top-bottom)*k/4;svg.append(f'<line x1="0" y1="{yy:.1f}" x2="{W}" y2="{yy:.1f}" stroke="#0d2118" stroke-width="1"/>')
+    def x(t): return max(1,min(W-2,1+((t-round_start)/900.0)*(W-3)))
+    xs=[x(t) for t,_ in points]; ys=[y(pr) for _,pr in points]; poly=" ".join(f"{xx:.1f},{yy:.1f}" for xx,yy in zip(xs,ys)); lastx=xs[-1]; area=f"1,{H-bottom} {poly} {lastx:.1f},{H-bottom}"
+    up=(live is not None and target is not None and float(live)>=float(target)); color="#31db86" if up else "#ff626b"
+    svg=[f'<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="{color}" stop-opacity=".30"/><stop offset="100%" stop-color="{color}" stop-opacity="0"/></linearGradient></defs>']
     if target is not None:
-        ty=y(float(target));svg.append(f'<line x1="0" y1="{ty:.1f}" x2="{W}" y2="{ty:.1f}" stroke="#88948f" stroke-width="1" stroke-dasharray="3 5"/><rect x="6" y="{ty-15:.1f}" width="46" height="14" rx="2" fill="#07100c"/><text x="10" y="{ty-5:.1f}" fill="#b7c0bc" font-size="7" font-weight="800">OBJETIVO</text>')
-    svg.append(f'<polygon points="{area}" fill="url(#g)"/>')
-    # línea más fina y ágil que el gusano anterior
-    svg.append(f'<polyline points="{poly}" fill="none" stroke="#35e98c" stroke-width="1.55" stroke-linejoin="round" stroke-linecap="round"/>')
-    lx,ly=xs[-1],ys[-1];svg.append(f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="8" fill="none" stroke="#35e98c" stroke-opacity=".18" stroke-width="5"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="3.1" fill="#35e98c" stroke="#d7ffe8" stroke-width="1"/>')
-    labels=[f"${hi-(hi-lo)*k/4:,.0f}" for k in range(5)]
-    return f'<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none">{"".join(svg)}</svg>',labels
+        ty=y(float(target)); svg.append(f'<line x1="0" y1="{ty:.1f}" x2="{W}" y2="{ty:.1f}" stroke="#8a9691" stroke-width="1.15" stroke-dasharray="3 5"/><rect x="132" y="{ty-12:.1f}" width="65" height="18" rx="2" fill="#010604"/><text x="142" y="{ty+1:.1f}" fill="#9aa6a1" font-size="9" font-weight="900">OBJETIVO⌃</text>')
+    svg.append(f'<polygon points="{area}" fill="url(#g)"/>'); svg.append(f'<polyline points="{poly}" fill="none" stroke="{color}" stroke-width="2.15" stroke-linejoin="round" stroke-linecap="round"/>')
+    lx,ly=xs[-1],ys[-1]; svg.append(f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="12" fill="none" stroke="{color}" stroke-opacity=".13" stroke-width="4"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="6" fill="none" stroke="{color}" stroke-opacity=".35" stroke-width="2"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="3.6" fill="{color}"/>')
+    labels=[f"${hi-(hi-lo)*k/4:,.0f}" for k in range(5)]; return f'<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none">{"".join(svg)}</svg>',labels
 
 @st.fragment(run_every="2s")
 def bot_page():
@@ -2361,35 +2357,33 @@ def bot_page():
     except Exception: cb=float(btc_df.iloc[-1]["close"]) if btc_ok else None
     try: kp=get_kalshi_live_btc(market) if market else None
     except Exception: kp=None
-    live=kp if kp is not None else cb
-    ticker=market.get("ticker","--") if market else "--";target=get_target_from_market(market);seconds=get_seconds_remaining(market)
+    live=kp if kp is not None else cb; ticker=market.get("ticker","--") if market else "--"; target=get_target_from_market(market); seconds=get_seconds_remaining(market)
     if btc_ok: sig=build_signal(btc_df,target,seconds,live)
     else: sig={"price":live or 0,"rsi":50,"mom3":0,"mom5":0,"mom15":0,"vol_ratio":0,"ema":"N/A","final_score":0,"distance":None,"distance_pct":None,"up_probability":50,"down_probability":50}
-    rs=process_round_signal(ticker,sig,market,seconds);auto_trade_tick(ticker,market,rs)
-    state=rs.get("round_state");active=state.get("active_direction") if state else None
-    update_micro_tape(ticker,live);reader=closing_reader(sig,rs,seconds,micro_reading())
-    delta=(sig["price"]-target) if target else 0;pct=delta/target*100 if target else 0
-    chart,labels=build_real_line_chart(btc_df,live,target,seconds)
-    auto=bool(st.session_state.auto_enabled);mode_on=bool(st.session_state.signal_mode)
-    sigtext=(active or "ESPERANDO") if mode_on else "DESACTIVADO"
-    sigcolor="#31db86" if active=="UP" else "#ff626b" if active=="DOWN" else "#ffbd39"
-    if not mode_on: sigcolor="#87938e"
-    past_html=past_markets_html(); close_txt=close_clock(market or {})
-    current_cls="green" if delta>=0 else "red"; current_arrow="↑" if delta>=0 else "↓"
-    scale_html="".join(f'<span style="top:{i*24}%">{v}</span>' for i,v in enumerate(labels))
-    html=f'''<div class="crit"><div class="ctop"><div class="asset"><div class="coin">₿</div><div><div class="kicker">BTC · 15 MIN</div><div class="name">BTC/USD⌄</div></div></div><div class="auto">TRADING AUTOMÁTICO<div class="power {"on" if auto else ""}">⏻</div><div class="status {"on" if auto else ""}">● {"ENCENDIDO" if auto else "APAGADO"}</div></div></div><div class="market"><div><div class="lab">OBJETIVO</div><div class="price">{f"${target:,.2f}" if target else "--"}</div><div class="sub">Cierre {close_txt}</div><div class="count">⌛ {format_countdown(seconds)}</div></div><div><div class="lab">PRECIO ACTUAL {current_arrow}</div><div class="price {current_cls}">${sig["price"]:,.2f}</div><div class="sub {current_cls}">{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class="live"><i></i>En vivo</div><div class="chartwrap"><div class="sidebar"></div><div class="plot">{chart}</div><div class="scale">{scale_html}</div></div><div class="times"><span>−15 min</span><span>−10 min</span><span>−5 min</span><span>Ahora</span></div><div class="past">MERCADOS ANTERIORES &nbsp;<span class="arr">{past_html}</span></div><section class="mode"><div class="mhead"><div class="guide"><div class="guideicon">⌁</div><div><small>GUÍA MANUAL</small><div class="mtitle">Modo señales</div></div></div><div style="font-size:8px;color:{'#31db86' if mode_on else '#83918b'}">● {"ACTIVO" if mode_on else "APAGADO"}</div></div><div class="minner"><small>MERCADO ACTUAL · MOTOR v4.6.1</small><div class="msig" style="color:{sigcolor}">{sigtext}</div><div class="mnote">{reader["headline"] + " · " + str(reader["percent"]) + "%" if mode_on else "Activa Modo señales para mostrar la lectura del motor."}</div></div></section></div>'''
-    st.markdown(html,unsafe_allow_html=True)
-
-    # Estos son los controles REALES. Ya no hay switches de adorno.
-    new_mode=st.toggle("Modo señales",value=mode_on,key="real_signal_toggle")
-    if new_mode != st.session_state.signal_mode:
-        st.session_state.signal_mode=new_mode;st.rerun()
-    req=st.toggle("Trading automático",value=auto,key="real_auto_toggle")
-    if req != auto:
-        if req and not st.session_state.kalshi_auth_ok:
-            st.session_state.auto_enabled=False;st.warning("Conecta tu cuenta de Kalshi para activar el trading automático.")
-        else:
-            st.session_state.auto_enabled=req;st.rerun()
+    rs=process_round_signal(ticker,sig,market,seconds); auto_trade_tick(ticker,market,rs); state=rs.get("round_state"); active=state.get("active_direction") if state else None
+    update_micro_tape(ticker,live); reader=closing_reader(sig,rs,seconds,micro_reading()); delta=(sig["price"]-target) if target else 0; pct=delta/target*100 if target else 0
+    chart,labels=build_real_line_chart(btc_df,live,target,seconds); auto=bool(st.session_state.auto_enabled); mode_on=bool(st.session_state.signal_mode); close_txt=close_clock(market or {}); current_cls="green" if delta>=0 else "red"; current_arrow="↑" if delta>=0 else "↓"
+    hc1,hc2=st.columns([3.2,1.05],vertical_alignment="top")
+    with hc1: st.markdown('<div class="crit"><div class="asset"><div class="coin">₿</div><div><div class="kicker">BTC · 15 MIN</div><div class="name">BTC/USD ▼</div></div></div></div>',unsafe_allow_html=True)
+    with hc2:
+        st.markdown('<div class="auto-label">TRADING AUTOMÁTICO</div>',unsafe_allow_html=True)
+        if st.button("⏻",key="auto_power_real",use_container_width=True):
+            if auto: st.session_state.auto_enabled=False; st.rerun()
+            elif not st.session_state.kalshi_auth_ok: st.warning("Conecta Kalshi en Ajustes para activar el trading automático.")
+            else: st.session_state.auto_enabled=True; st.rerun()
+        st.markdown(f'<div class="auto-state {"on" if auto else ""}">● {"ENCENDIDO" if auto else "APAGADO"}</div>',unsafe_allow_html=True)
+    scale_html="".join(f'<span style="top:{i*24}%">{v}</span>' for i,v in enumerate(labels)); past_html=past_markets_html(); target_text=f"${target:,.2f}" if target else "--"
+    top_html=f'<div class="crit"><div class="market"><div><div class="lab">OBJETIVO</div><div class="price">{target_text}</div><div class="sub">Cierre {close_txt}</div><div class="count">⌛&nbsp; {format_countdown(seconds)}</div></div><div><div class="lab {current_cls}">PRECIO ACTUAL {current_arrow}</div><div class="price {current_cls}">${sig["price"]:,.2f}</div><div class="sub {current_cls}">{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class="live"><i></i>En vivo</div><div class="chartwrap"><div class="sidebar"></div><div class="plot">{chart}</div><div class="scale">{scale_html}</div></div><div class="times"><span>Inicio</span><span>+5 min</span><span>+10 min</span><span>Ahora</span></div><div class="past">MERCADOS ANTERIORES&nbsp;&nbsp;<span class="arr">{past_html}</span></div></div>'
+    st.markdown(top_html,unsafe_allow_html=True)
+    with st.container(border=True):
+        mc1,mc2=st.columns([3.25,1],vertical_alignment="center")
+        with mc1: st.markdown('<div class="crit"><div class="guide"><div class="guideicon">⌁</div><div><small class="guide-small">GUÍA MANUAL</small><div class="mtitle">Modo señales</div></div></div></div>',unsafe_allow_html=True)
+        with mc2: new_mode=st.toggle("Modo señales",value=mode_on,key="signal_switch_real",label_visibility="collapsed")
+        if new_mode != st.session_state.signal_mode: st.session_state.signal_mode=new_mode; st.rerun()
+        mode_on=bool(new_mode); sigtext=(active or "ESPERANDO") if mode_on else "DESACTIVADO"; sigcolor="#31db86" if active=="UP" else "#ff626b" if active=="DOWN" else "#ffbd39"
+        if not mode_on: sigcolor="#ffbd39"
+        note=(reader["headline"]+" · "+str(reader["percent"])+"%") if mode_on else "Actívalo para mostrar la señal de tu motor v4.6.1."
+        st.markdown(f'<div class="crit"><div class="minner"><small>MERCADO ACTUAL · MOTOR v4.6.1</small><div class="msig" style="color:{sigcolor}">{sigtext}</div><div class="mnote">{note}</div></div></div>',unsafe_allow_html=True)
 
 page=st.session_state.crit_page
 if page=="Bot": bot_page()
@@ -2397,10 +2391,21 @@ elif page=="Operaciones": operations_page()
 elif page=="Saldo": balance_page()
 elif page=="Ajustes": settings_page()
 
-# Barra inferior funcional
-cols=st.columns(4)
-for col,label,icon in zip(cols,["Bot","Operaciones","Saldo","Ajustes"],["●","↗","▤","⚙"]):
+# Barra inferior fija, una sola fila.
+st.markdown('<div class="nav-spacer"></div>',unsafe_allow_html=True)
+cols=st.columns(4,gap="small")
+for col,label,icon in zip(cols,["Bot","Operaciones","Saldo","Ajustes"],["▣","↗","▤","⚙"]):
     with col:
-        if st.button(f"{icon}\n{label}",key=f"nav_{label}",use_container_width=True):
-            st.session_state.crit_page=label;st.rerun()
+        if st.button(f"{icon}\n{label}",key=f"nav_{label}",use_container_width=True,type="primary" if st.session_state.crit_page==label else "secondary"):
+            st.session_state.crit_page=label; st.rerun()
 
+
+st.markdown(r"""<style>
+.block-container{max-width:430px!important;padding:12px 12px 100px!important}.asset{padding-top:4px}.coin{width:39px!important;height:39px!important}.auto-label{text-align:center;font-size:7px;color:#a0aaa5;font-weight:900;white-space:nowrap;margin-top:3px}.auto-state{text-align:center;color:#ff626b;font-size:8px;font-weight:900}.auto-state.on{color:#31db86}.market{padding-top:13px!important}.live{padding-right:61px!important}.chartwrap{height:300px!important;grid-template-columns:7px 1fr 57px!important;gap:7px!important}.times{padding:2px 58px 6px 13px!important}.past{padding:1px 0 7px 3px!important}.guide-small{color:#2ad67f!important;font-size:7px!important;font-weight:1000!important;letter-spacing:1px}.nav-spacer{height:70px}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stToggle"]{background:transparent!important;border:0!important;padding:0!important;display:flex!important;justify-content:flex-end!important}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stToggle"] label{justify-content:flex-end!important}
+/* top-right real power button */
+[data-testid="stHorizontalBlock"]>[data-testid="stColumn"]:last-child div.stButton>button#auto_power_real{border-radius:50%!important}
+/* bottom navigation: the final horizontal row stays fixed */
+div[data-testid="stHorizontalBlock"]:has(button[kind="primary"]):last-of-type{position:fixed!important;left:50%!important;transform:translateX(-50%)!important;bottom:0!important;width:min(430px,100vw)!important;height:72px!important;background:#020705!important;border-top:1px solid #26342e!important;z-index:999!important;padding:5px 8px!important}
+</style>""",unsafe_allow_html=True)
