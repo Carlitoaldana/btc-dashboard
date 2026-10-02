@@ -347,33 +347,258 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     font-weight:900;
 }
 
-/* ===== REBUILT REFERENCE FRONTEND ===== */
-.block-container{max-width:365px!important;padding:3px 7px 14px!important}
-.refapp{font-family:Arial,sans-serif;color:#eaf2fb}
-.rhead{height:49px!important;padding-top:4px!important;position:relative;text-align:center;}
-.rtitle{font-size:14px!important;font-weight:900;line-height:17px!important}.rver{font-size:8px!important;color:#9badc3;margin-top:2px;line-height:11px!important}
-.gear{position:absolute;right:8px!important;top:7px!important;font-size:18px!important;color:#a9c9ec}
-.rlive{position:absolute;right:8px!important;bottom:3px!important;font-size:8px!important;color:#b9c9db}
-.rlive i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-right:5px;box-shadow:0 0 12px var(--accent)}
-.rhero{text-align:center;padding:1px 0 7px!important}
-.rsignal{display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:61px!important;font-weight:1000;line-height:.80!important;letter-spacing:-4px!important;text-shadow:0 0 12px var(--glow),0 0 25px var(--glow)}
-.rhero.waiting .rsignal{font-size:29px!important;letter-spacing:-1px!important}
-.rconf{display:inline-block;margin-top:9px!important;border:1.5px solid var(--accent);border-radius:18px;padding:4px 14px!important;color:#fff;font-size:9px!important;font-weight:900;box-shadow:0 0 10px var(--soft)}
-.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px!important;margin-top:1px!important}
-.rcard{background:linear-gradient(180deg,#0d1823,#09131c);border:1px solid #203348;border-radius:8px}
-.keycard{height:57px!important;padding:6px 8px!important;display:flex;align-items:center;gap:7px!important}
-.bigicon{font-size:27px!important;font-weight:900;line-height:1}.btcicon{color:#ff9d00}.targeticon{color:#a9cff5}
-.rlabel{font-size:7px!important;color:#b9c9dc;letter-spacing:.4px}.rvalue{font-size:16px!important;font-weight:900;line-height:1.05;margin-top:2px}.rdelta{font-size:8px!important;font-weight:900;margin-top:2px}
-.green{color:#32e981!important}.red{color:#ff4c5d!important}
-.bars{display:flex;align-items:flex-end;gap:3px;width:27px!important;height:26px!important}.bars b{width:7px;background:var(--accent);border-radius:2px}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
-.clock{font-size:27px!important;color:#b9d8f7}.timecontent{flex:1}.timebar{height:5px!important;background:#16324a;border-radius:5px;margin-top:4px!important;overflow:hidden}.timebar b{display:block;height:100%;background:var(--accent);border-radius:5px}
-.probs{margin-top:5px!important;padding:7px!important}.pbar{display:flex;gap:4px;margin-top:5px}.pup,.pdown{height:18px!important;display:flex;align-items:center;justify-content:center;font-size:9px!important;font-weight:900;border-radius:4px}.pup{background:linear-gradient(90deg,#10d76d,#54ed91);color:#06331d}.pdown{background:linear-gradient(90deg,#ff3548,#ff6472);color:#3d0710}.pleg{display:flex;justify-content:space-between;font-size:9px!important;font-weight:900;margin-top:5px!important}
-.reader{margin-top:5px!important;border:1.5px solid var(--rb);background:var(--rbg);border-radius:9px;padding:7px 8px!important;min-height:0!important}
-.readerhead{display:flex;align-items:center;gap:7px;font-size:8px!important;color:var(--rr)}.readerhead .pulse{font-size:15px!important}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#45ec8e}
-.readerbody{display:grid;grid-template-columns:1fr 58px!important;align-items:center;margin-top:5px!important}.readerbody strong{display:block;font-size:13px!important;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:6.3px!important;margin-top:3px!important}
-.rring{width:55px!important;height:55px!important;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:43px!important;height:43px!important;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:13px!important;font-weight:900}
-.tech{margin-top:5px!important;padding:6px 7px!important}.techhead{display:flex;justify-content:space-between;font-size:8px!important;color:#c2d0df;padding-bottom:5px!important}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:5px 1px 1px!important;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:5.3px!important;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:9px!important;margin:3px 0!important}
+/* ===== REFERENCE UI OVERRIDES ===== */
+.block-container{
+    max-width:390px !important;
+    padding:5px 9px 20px !important;
+}
+.topbar{
+    min-height:39px !important;
+    padding:2px 1px 3px !important;
+}
+.brand{font-size:12px !important;}
+.version{font-size:6.5px !important;color:#536174 !important;}
+.live{top:23px !important;font-size:6.8px !important;}
 
+.hero{padding:0 2px 5px !important;}
+.hero-signal{
+    font-size:55px !important;
+    line-height:.90 !important;
+    letter-spacing:-4px !important;
+}
+.confidence{
+    margin-top:8px !important;
+    padding:4px 9px !important;
+    border-radius:6px !important;
+    font-size:8px !important;
+}
+
+.two{
+    gap:6px !important;
+    margin-top:6px !important;
+}
+.mini{
+    min-height:57px !important;
+    padding:7px 8px !important;
+    border-radius:8px !important;
+    background:#0d141d !important;
+    border-color:#172230 !important;
+}
+.mini-label{font-size:6.8px !important;margin-bottom:3px !important;}
+.mini-value{font-size:15px !important;line-height:1.05 !important;}
+.mini-sub{font-size:6.8px !important;margin-top:2px !important;}
+
+.section{
+    padding:8px !important;
+    margin-top:6px !important;
+    border-radius:8px !important;
+    background:#0c131c !important;
+    border-color:#172230 !important;
+}
+.section-title{
+    font-size:7px !important;
+    margin-bottom:6px !important;
+}
+.prob-row{gap:5px !important;}
+.prob-up,.prob-down{height:15px !important;border-radius:3px !important;}
+.prob-labels{margin-top:5px !important;font-size:7.5px !important;}
+
+.close-reader{
+    padding:9px !important;
+    margin-top:6px !important;
+    border-radius:8px !important;
+}
+.reader-top{font-size:7px !important;}
+.reader-active{font-size:6px !important;padding:2px 5px !important;}
+.reader-main{
+    grid-template-columns:1fr 58px !important;
+    margin-top:7px !important;
+}
+.reader-text{font-size:11px !important;line-height:1.08 !important;}
+.reader-note{font-size:6.5px !important;margin-top:4px !important;}
+.ring{width:54px !important;height:54px !important;}
+.ring:after{width:42px !important;height:42px !important;}
+.ring span{font-size:12px !important;}
+
+.tech-grid{gap:0 !important;}
+.tech-grid > div{
+    padding:0 4px !important;
+    border-right:1px solid #1c2734;
+}
+.tech-grid > div:last-child{border-right:none;}
+.tech-label{font-size:5.8px !important;}
+.tech-value{font-size:8.5px !important;margin-top:3px !important;}
+
+.ref-features{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:4px;
+    padding:8px 2px 6px;
+    margin-top:6px;
+    border-top:1px solid #182331;
+}
+.ref-feature{
+    display:grid;
+    grid-template-columns:22px 1fr;
+    gap:5px;
+    align-items:center;
+    color:#66758a;
+    font-size:5.6px;
+    line-height:1.22;
+}
+.ref-feature-icon{
+    width:20px;height:20px;border-radius:50%;
+    display:grid;place-items:center;
+    border:1px solid #28dd79;
+    color:#34e982;
+    font-size:10px;font-weight:1000;
+}
+.ref-feature strong{
+    display:block;color:#cfd7e1;
+    font-size:5.8px;margin-bottom:1px;
+}
+.ref-footer{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    padding:5px 1px 1px;
+    border-top:1px solid #131d29;
+    color:#435064;
+    font-size:5.2px;
+    font-weight:800;
+}
+.footer-nav{
+    padding:7px 2px 1px !important;
+    margin-top:4px !important;
+}
+.nav-item{font-size:6.8px !important;}
+
+
+/* FINAL REFERENCE MATCH */
+.block-container{max-width:430px!important;padding:7px 10px 22px!important}
+.topbar{min-height:48px!important;padding:4px 2px 5px!important;text-align:center!important}
+.brand{font-size:15px!important}.version{font-size:8px!important}
+.live{top:29px!important;right:4px!important;font-size:8px!important}
+.hero{padding:2px 2px 7px!important}
+.hero-signal{font-size:72px!important;line-height:.86!important;letter-spacing:-5px!important;text-shadow:0 0 12px currentColor,0 0 28px currentColor!important}
+.confidence{font-size:10px!important;padding:5px 16px!important;border-radius:18px!important;margin-top:9px!important}
+.two{gap:7px!important;margin-top:7px!important}
+.mini{min-height:72px!important;padding:9px 10px!important;border-radius:9px!important}
+.mini-label{font-size:8px!important}.mini-value{font-size:19px!important}.mini-sub{font-size:8px!important}
+.section{padding:9px!important;margin-top:7px!important;border-radius:9px!important}
+.section-title{font-size:8px!important;margin-bottom:6px!important}
+.prob-up,.prob-down{height:20px!important}.prob-labels{font-size:9px!important}
+.close-reader{padding:10px 11px!important;margin-top:7px!important;border-radius:10px!important}
+.reader-top{font-size:9px!important}.reader-active{font-size:7px!important}
+.reader-main{grid-template-columns:1fr 68px!important;margin-top:8px!important}
+.reader-text{font-size:15px!important;line-height:1.08!important}.reader-note{font-size:7.5px!important}
+.ring{width:64px!important;height:64px!important}.ring:after{width:50px!important;height:50px!important}.ring span{font-size:15px!important}
+.tech-label{font-size:6.5px!important}.tech-value{font-size:10px!important}
+.footer-nav{padding:9px 2px 7px!important}.nav-item{font-size:8px!important}
+.ref-features{padding:9px 3px 7px!important}.ref-feature{font-size:6px!important}
+.ref-feature strong{font-size:6.2px!important}.ref-footer{font-size:5.6px!important}
+.ref-icon{font-size:23px;line-height:1;margin-right:8px;display:inline-block;vertical-align:middle}
+.ref-btc{color:#ff9f0a}.ref-target{color:#a9c9f3}
+.ref-bars{display:inline-flex;gap:2px;align-items:flex-end;height:19px;margin-right:8px;vertical-align:middle}
+.ref-bars i{display:block;width:5px;background:var(--accent);border-radius:1px}
+.ref-bars i:nth-child(1){height:7px}.ref-bars i:nth-child(2){height:12px}.ref-bars i:nth-child(3){height:18px}
+.ref-clock{font-size:23px;color:#b9d5f5;margin-right:8px;vertical-align:middle}
+.ref-timebar{height:5px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}
+.ref-timebar b{display:block;height:100%;width:58%;background:var(--accent);border-radius:5px}
+.tech-head{display:flex;justify-content:space-between;align-items:center}
+.tech-chevron{font-size:13px;color:#b6c6da}
+
+
+/* ===== REBUILT REFERENCE FRONTEND ===== */
+.block-container{max-width:430px!important;padding:4px 9px 18px!important}
+.refapp{font-family:Arial,sans-serif;color:#eaf2fb}
+.rhead{height:54px;position:relative;text-align:center;padding-top:7px}
+.rtitle{font-size:15px;font-weight:900}.rver{font-size:9px;color:#9badc3;margin-top:2px}
+.gear{position:absolute;right:9px;top:7px;font-size:19px;color:#a9c9ec}
+.rlive{position:absolute;right:8px;bottom:1px;font-size:9px;color:#b9c9db}
+.rlive i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-right:5px;box-shadow:0 0 12px var(--accent)}
+.rhero{text-align:center;padding:4px 0 8px}
+.rsignal{display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:72px;font-weight:1000;line-height:.82;letter-spacing:-5px;text-shadow:0 0 12px var(--glow),0 0 25px var(--glow)}
+.rarrow{font-size:79px;margin-right:5px;line-height:.7}.rhero.waiting .rsignal{font-size:39px;letter-spacing:-2px}.rhero.waiting .rarrow{display:none}
+.rconf{display:inline-block;margin-top:11px;border:1.5px solid var(--accent);border-radius:18px;padding:5px 17px;color:#fff;font-size:10px;font-weight:900;box-shadow:0 0 10px var(--soft)}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+.rcard{background:linear-gradient(180deg,#0d1823,#09131c);border:1px solid #203348;border-radius:8px}
+.keycard{height:68px;padding:8px 9px;display:flex;align-items:center;gap:8px}
+.bigicon{font-size:31px;font-weight:900;line-height:1}.btcicon{color:#ff9d00}.targeticon{color:#a9cff5}
+.rlabel{font-size:8px;color:#b9c9dc;letter-spacing:.4px}.rvalue{font-size:19px;font-weight:900;line-height:1.05;margin-top:2px}.rdelta{font-size:9px;font-weight:900;margin-top:2px}
+.green{color:#32e981!important}.red{color:#ff4c5d!important}
+.bars{display:flex;align-items:flex-end;gap:3px;width:31px;height:30px}.bars b{width:7px;background:var(--accent);border-radius:2px}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
+.clock{font-size:30px;color:#b9d8f7}.timecontent{flex:1}.timebar{height:6px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}.timebar b{display:block;height:100%;background:var(--accent);border-radius:5px}
+.probs{margin-top:6px;padding:8px}.pbar{display:flex;gap:4px;margin-top:5px}.pup,.pdown{height:21px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;border-radius:4px}.pup{background:linear-gradient(90deg,#10d76d,#54ed91);color:#06331d}.pdown{background:linear-gradient(90deg,#ff3548,#ff6472);color:#3d0710}.pleg{display:flex;justify-content:space-between;font-size:10px;font-weight:900;margin-top:6px}
+.reader{margin-top:6px;border:1.5px solid var(--rb);background:var(--rbg);border-radius:9px;padding:9px 10px}
+.readerhead{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--rr)}.readerhead .pulse{font-size:18px}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#45ec8e}
+.readerbody{display:grid;grid-template-columns:1fr 65px;align-items:center;margin-top:7px}.readerbody strong{display:block;font-size:15px;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:7px;margin-top:5px}
+.rring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:48px;height:48px;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:15px;font-weight:900}
+.tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
+.rnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #203448;border-bottom:1px solid #203448;margin-top:7px;padding:7px 0}.rnav div{text-align:center;color:#9db0c5;font-size:8px}.rnav b{display:block;font-size:17px;margin-bottom:2px}.rnav .active{color:var(--accent)}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 1px}.features>div{display:flex;gap:5px;align-items:center}.features>div>b{width:25px;height:25px;border:1px solid #28e57f;border-radius:50%;display:grid;place-items:center;color:#35e986;font-size:13px}.features p{margin:0}.features strong{display:block;font-size:5.7px;color:#e1e8f0}.features span{display:block;font-size:5.4px;color:#8c9db0;margin-top:2px}
+.refapp footer{border-top:1px solid #182a3a;padding:5px 1px;display:flex;justify-content:space-between;color:#708197;font-size:5.2px}
+.ticker{text-align:center;color:#53667d;font-size:6px;margin-top:5px}
+
+
+/* ===== FINAL PHONE REFERENCE PROPORTIONS ===== */
+.block-container{max-width:365px!important;padding:3px 7px 14px!important}
+.rhead{height:49px!important;padding-top:4px!important}
+.rtitle{font-size:14px!important}.rver{font-size:8px!important}
+.gear{right:7px!important;top:4px!important;font-size:18px!important}
+.rlive{right:7px!important;bottom:0!important;font-size:8px!important}
+.rhero{padding:1px 0 7px!important}
+.rsignal{font-size:61px!important;line-height:.80!important;letter-spacing:-4px!important}
+.rarrow{font-size:66px!important;margin-right:4px!important}
+.rhero.waiting .rsignal{font-size:29px!important;letter-spacing:-1px!important}
+.rconf{margin-top:9px!important;padding:4px 14px!important;font-size:9px!important}
+.rgrid{gap:5px!important}
+.keycard{height:57px!important;padding:6px 8px!important;gap:7px!important}
+.bigicon{font-size:27px!important}.bars{width:27px!important;height:26px!important}.clock{font-size:27px!important}
+.rlabel{font-size:7px!important}.rvalue{font-size:16px!important}.rdelta{font-size:8px!important}
+.timebar{height:5px!important;margin-top:4px!important}
+.probs{margin-top:5px!important;padding:7px!important}.pup,.pdown{height:18px!important;font-size:9px!important}
+.pleg{font-size:9px!important;margin-top:5px!important}
+.reader{margin-top:5px!important;padding:7px 8px!important}
+.readerhead{font-size:8px!important}.readerhead .pulse{font-size:15px!important}
+.readerbody{grid-template-columns:1fr 58px!important;margin-top:5px!important}
+.readerbody strong{font-size:13px!important}.readerbody small{font-size:6.3px!important;margin-top:3px!important}
+.rring{width:55px!important;height:55px!important}.rring:after{width:43px!important;height:43px!important}.rring span{font-size:13px!important}
+.tech{margin-top:5px!important;padding:6px 7px!important}.techhead{font-size:8px!important;padding-bottom:5px!important}
+.techrow>div{padding:5px 1px 1px!important}.techrow small,.techrow i{font-size:5.3px!important}.techrow b{font-size:9px!important;margin:3px 0!important}
+.rnav{margin-top:6px!important;padding:6px 0!important}.rnav div{font-size:7px!important}.rnav b{font-size:15px!important}
+.features{padding:7px 1px 5px!important;gap:3px!important}.features>div{gap:4px!important}
+.features>div>b{width:22px!important;height:22px!important;font-size:11px!important}
+.features strong{font-size:5px!important}.features span{font-size:4.8px!important}
+.refapp footer{padding:4px 1px!important;font-size:4.7px!important}
+.ticker{font-size:5.3px!important;margin-top:4px!important}
+
+/* Make arrows chunky like the reference rather than thin text arrows */
+.rarrow{font-family:Arial Black,Arial,sans-serif!important;font-weight:1000!important}
+
+
+/* ===== TRUE FINAL: CSS ARROW + VISIBLE HEADER ===== */
+.rhead{
+    display:block!important;
+    visibility:visible!important;
+    height:58px!important;
+    min-height:58px!important;
+    padding-top:7px!important;
+    overflow:visible!important;
+    position:relative!important;
+    z-index:20!important;
+}
+.rtitle,.rver,.gear,.rlive{display:block!important;visibility:visible!important}
+.rtitle{font-size:14px!important;line-height:17px!important}
+.rver{font-size:8px!important;line-height:11px!important}
+.gear{top:7px!important;right:8px!important}
+.rlive{bottom:3px!important;right:8px!important}
+
+.rhero{padding-top:4px!important}
+.rsignal{gap:9px!important}
+.rarrow{display:none!important}
+
+/* Solid arrow matching signal color; no iOS emoji rendering */
 .cssarrow{
     position:relative;
     display:inline-block;
@@ -395,11 +620,19 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     border-bottom:34px solid var(--accent);
     filter:drop-shadow(0 0 7px var(--glow));
 }
+/* DOWN: arrow head below shaft */
 .refapp.dir-down .cssarrow{transform:rotate(180deg);}
+/* Waiting state: no arrow */
 .rhero.waiting .cssarrow{display:none!important}
 
+/* Keep final phone proportions compact */
+.block-container{max-width:365px!important;padding-top:3px!important}
+.rgrid{margin-top:1px!important}
+.reader{min-height:0!important}
+
+
 .chartbox{margin-top:10px;background:linear-gradient(180deg,#08121d,#060c14);border:1px solid #203a51;border-radius:12px;padding:10px 8px 8px;box-shadow:inset 0 0 28px rgba(20,80,110,.08)}
-.charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
+.charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
 </style>
 """,
     unsafe_allow_html=True,
@@ -445,10 +678,13 @@ for _k, _v in _AUTO_DEFAULTS.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
+
+
 KALSHI_API_BASE = "https://external-api.kalshi.com"
 KALSHI_API_PREFIX = "/trade-api/v2"
 
 def _kalshi_sign(message):
+    """RSA-PSS/SHA256 signature using system OpenSSL; no Python crypto package required."""
     pem = st.session_state.get("kalshi_private_key_input", "")
     if not pem:
         raise ValueError("Falta la Private Key.")
@@ -521,6 +757,7 @@ def kalshi_test_connection():
     return data, dollars
 
 def _market_contract_prices(market):
+    """Returns current YES/NO asks as dollars when Kalshi exposes them."""
     if not market:
         return None, None
     def f(name):
@@ -531,6 +768,7 @@ def _market_contract_prices(market):
             return None
     yes_ask = f("yes_ask_dollars")
     no_ask = f("no_ask_dollars")
+    # Compatibility with older payloads still returned by some endpoints.
     if yes_ask is None:
         y = f("yes_ask")
         yes_ask = y / 100.0 if y and y > 1 else y
@@ -556,6 +794,7 @@ def _direction_for_level(signal_direction):
 def _contracts_for_amount(amount, contract_price):
     if contract_price is None or contract_price <= 0:
         return 0.0
+    # Fixed-point quantity; never intentionally exceeds configured premium.
     return math.floor((amount / contract_price) * 100) / 100.0
 
 def kalshi_place_entry(ticker, direction, market):
@@ -571,6 +810,9 @@ def kalshi_place_entry(ticker, direction, market):
     if count < 0.01:
         return {"skipped": True, "reason": "Monto demasiado pequeño para el precio actual."}
 
+    # V2 is a single YES book:
+    # UP = buy YES -> bid at max YES price.
+    # DOWN = buy NO -> economically equivalent to ask YES at 1 - max NO price.
     if direction == "UP":
         side = "bid"
         yes_price = limit
@@ -612,9 +854,11 @@ def kalshi_place_take_profit(entry):
     desired_contract_exit = min(0.99, p * (1.0 + tp))
 
     if direction == "UP":
+        # Close long YES by selling YES.
         side = "ask"
         yes_exit = desired_contract_exit
     else:
+        # Close long NO / short YES by buying YES back at complement.
         side = "bid"
         yes_exit = max(0.01, 1.0 - desired_contract_exit)
 
@@ -690,6 +934,7 @@ def auto_trade_tick(ticker, market, round_signal):
         return
     direction = _direction_for_level(direction)
 
+    # One entry maximum per Kalshi round.
     if st.session_state.get("auto_last_ticker") == ticker:
         return
 
@@ -774,6 +1019,7 @@ def get_btc_data():
 
 
 def get_coinbase_whale_flow():
+    """FLOW PULSE BTC/USD: varias páginas de trades, aceleración y desequilibrio."""
     now = pd.Timestamp.now(tz="UTC").timestamp()
     tape = st.session_state.setdefault("whale_flow_tape", [])
     seen = st.session_state.setdefault("whale_seen_ids", {})
@@ -1557,12 +1803,16 @@ def process_round_signal(ticker, sig, market, seconds_left):
 
 # =========================================================
 # LECTOR DE CIERRE PRO — MICRO LECTURA ~2 SEGUNDOS
+# Mantiene intacto el motor v4.6.1 y sus señales.
+# No inventa velas REST de 1 segundo: construye una cinta
+# de muestras del BTC live que ya recibe el dashboard.
 # =========================================================
 
 def update_micro_tape(ticker, live_price):
     if not ticker or ticker == "--" or live_price is None:
         return
 
+    # Cada ronda empieza con su propia cinta.
     if st.session_state.micro_ticker != ticker:
         st.session_state.micro_ticker = ticker
         st.session_state.micro_prices = []
@@ -1570,9 +1820,11 @@ def update_micro_tape(ticker, live_price):
     now_ts = datetime.now(timezone.utc).timestamp()
     tape = st.session_state.micro_prices
 
+    # Evita duplicar muestras dentro del mismo refresco.
     if not tape or now_ts - tape[-1]["t"] >= 1.0:
         tape.append({"t": now_ts, "p": float(live_price)})
 
+    # Conserva aproximadamente los últimos 90 segundos.
     cutoff = now_ts - 90
     st.session_state.micro_prices = [
         x for x in tape if x["t"] >= cutoff
@@ -1615,6 +1867,7 @@ def micro_reading():
         if nonzero else 0.5
     )
 
+    # Regresión simple precio/tiempo para medir dirección micro.
     xs = np.array([x["t"] - tape[0]["t"] for x in tape], dtype=float)
     ys = np.array([x["p"] for x in tape], dtype=float)
     slope = float(np.polyfit(xs, ys, 1)[0]) if len(xs) >= 3 and xs[-1] > 0 else 0.0
@@ -1640,6 +1893,13 @@ def micro_reading():
 
 
 def closing_reader(sig, round_signal, seconds_left, micro):
+    """
+    Lector independiente de cierre.
+    - La señal principal v4.6.1 NO se modifica.
+    - En los últimos segundos, tiempo + distancia al target dominan sobre
+      una pequeña contradicción de momentum/microlectura.
+    - Nunca llama "confirmado" a un resultado antes del cierre.
+    """
     state = round_signal.get("round_state")
     active_direction = state.get("active_direction") if state else None
 
@@ -1659,6 +1919,8 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     terminal_override = False
     terminal_too_close = False
 
+    # En cierre extremo, la posición REAL respecto al target manda.
+    # Umbrales deliberadamente conservadores para no llamar un flip por $2-$10.
     if seconds_left is not None and distance is not None:
         abs_d = abs(distance)
         market_side = "UP" if distance > 0 else "DOWN"
@@ -1712,6 +1974,7 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         micro_score += 4 if slope > 0.45 else (-5 if slope < -0.45 else 0)
         micro_score += 4 if ratio >= 0.62 else (-5 if ratio <= 0.38 else 0)
 
+        # La microlectura pesa menos cuando quedan segundos y la distancia es amplia.
         weight = 1.0
         if seconds_left is not None:
             if seconds_left <= 30:
@@ -1726,6 +1989,7 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         confidence += float(np.clip(micro_score * weight, -28, 20))
         strong_contradiction = (c10 < -5 and c30 < -10)
 
+        # Solo limitar por contradicción si tiempo/distancia NO hacen el cierre dominante.
         if strong_contradiction and not terminal_override:
             confidence = min(confidence, 69)
 
@@ -1738,6 +2002,7 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     if seconds_left is not None and seconds_left <= 180:
         confidence += 2
 
+    # Refuerzo específico de tiempo + distancia.
     if terminal_override and distance is not None:
         abs_d = abs(distance)
         if seconds_left <= 15:
@@ -1796,7 +2061,11 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     }
 
 
+
+
 def render_live_candles(df, live_price, target, active, timeframe="1m"):
+    # Renderiza velas BTC/USD para visualización sin cambiar el motor v4.6.1.
+    # 3m y 5m se construyen agrupando las velas reales de Coinbase de 1 minuto.
     if df is None or len(df) < 5:
         return f'<div class="chartbox"><div class="charttitle">BTC/USD · {timeframe}</div><div class="chartempty">Esperando velas…</div></div>'
 
@@ -1820,6 +2089,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         d = source_df[["time", "open", "high", "low", "close", "volume"]].copy()
 
     d = d.tail(42).reset_index(drop=True)
+    # La última vela se mantiene visualmente al precio live recibido por el dashboard.
     if live_price is not None and len(d):
         i = d.index[-1]
         d.loc[i, "close"] = float(live_price)
@@ -1843,15 +2113,17 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     n=len(d); step=pw/max(n,1); body=max(3.2, min(8, step*.58))
 
     svg=[]
+    # horizontal grid + prices
     for k in range(5):
         yy=top+ph*k/4; price=hi-(hi-lo)*k/4
         svg.append(f'<line x1="{left}" y1="{yy:.1f}" x2="{W-right}" y2="{yy:.1f}" stroke="#182536" stroke-width="1"/>')
         svg.append(f'<text x="{W-right+8}" y="{yy+4:.1f}" fill="#8392a7" font-size="12">{price:,.0f}</text>')
-
+    # vertical grid
     for k in range(5):
         xx=left+pw*k/4
         svg.append(f'<line x1="{xx:.1f}" y1="{top}" x2="{xx:.1f}" y2="{top+ph}" stroke="#121e2d" stroke-width="1"/>')
 
+    # volume scaled into bottom 52 px of plot
     vmax=max(float(d["volume"].max()),1)
     vbase=top+ph
     for i,row in d.iterrows():
@@ -1859,465 +2131,173 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         col='#16b97a' if float(row['close'])>=float(row['open']) else '#c43d59'
         svg.append(f'<rect x="{x-body/2:.1f}" y="{vbase-vh:.1f}" width="{body:.1f}" height="{vh:.1f}" fill="{col}" opacity=".55"/>')
 
+    # candles
     for i,row in d.iterrows():
         x=left+(i+.5)*step
         o,c,h,l=map(float,[row['open'],row['close'],row['high'],row['low']])
         col='#19e6a2' if c>=o else '#ff4e6a'
         svg.append(f'<line x1="{x:.1f}" y1="{y(h):.1f}" x2="{x:.1f}" y2="{y(l):.1f}" stroke="{col}" stroke-width="1.4"/>')
         yy=min(y(o),y(c)); hh=max(2.0,abs(y(o)-y(c)))
-        svg.append(f'<rect x="{x-body/2:.1f}" y="{yy:.1f}" width="{body:.1f}" height="{hh:.1f}" fill="{col}" rx="1"/>')
+        svg.append(f'<rect x="{x-body/2:.1f}" y="{yy:.1f}" width="{body:.1f}" height="{hh:.1f}" rx=".7" fill="{col}"/>')
 
-    def pts(series):
-        return " ".join([f"{left+(i+.5)*step:.1f},{y(v):.1f}" for i,v in enumerate(series)])
-    svg.append(f'<polyline points="{pts(ema9)}" fill="none" stroke="#df42e7" stroke-width="2"/>')
-    svg.append(f'<polyline points="{pts(ema21)}" fill="none" stroke="#32d7ef" stroke-width="2"/>')
+    # EMA paths
+    def path(series,color):
+        pts=' '.join(f'{left+(i+.5)*step:.1f},{y(v):.1f}' for i,v in enumerate(series))
+        return f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    svg.append(path(ema9,'#df42e7'))
+    svg.append(path(ema21,'#32d7ef'))
 
-    if target is not None:
-        yt=y(target)
-        svg.append(f'<line x1="{left}" y1="{yt:.1f}" x2="{W-right}" y2="{yt:.1f}" stroke="#23e7c1" stroke-dasharray="6,4" stroke-width="1.8"/>')
-        svg.append(f'<rect x="{W-right+4}" y="{yt-10:.1f}" width="105" height="20" fill="#0d2c31" rx="4" stroke="#23e7c1" stroke-width="1"/>')
-        svg.append(f'<text x="{W-right+10}" y="{yt+4:.1f}" fill="#23e7c1" font-size="11" font-weight="bold">TARGET {target:,.0f}</text>')
+    # target line
+    if target is not None and lo <= float(target) <= hi:
+        ty=y(target)
+        svg.append(f'<line x1="{left}" y1="{ty:.1f}" x2="{W-right}" y2="{ty:.1f}" stroke="#23e7c1" stroke-width="1.8" stroke-dasharray="7 6"/>')
+        # La etiqueta queda en el margen derecho, fuera del área de velas.
+        svg.append(f'<rect x="{W-right+18}" y="{ty-12:.1f}" width="96" height="23" rx="3" fill="#20e7bd"/>')
+        svg.append(f'<text x="{W-right+25}" y="{ty+4:.1f}" fill="#061510" font-size="10" font-weight="800">TARGET</text>')
+    # live price line + label
+    if live_price is not None and lo <= float(live_price) <= hi:
+        ly=y(live_price); lc='#31e889' if active=='UP' else '#ff5367' if active=='DOWN' else '#38bdf8'
+        svg.append(f'<line x1="{left}" y1="{ly:.1f}" x2="{W-right}" y2="{ly:.1f}" stroke="{lc}" stroke-width="1.3" stroke-dasharray="3 4"/>')
+        svg.append(f'<rect x="{W-right+18}" y="{ly-12:.1f}" width="96" height="23" rx="3" fill="{lc}"/>')
+        svg.append(f'<text x="{W-right+25}" y="{ly+4:.1f}" fill="#061510" font-size="11" font-weight="900">{float(live_price):,.0f}</text>')
 
-    if live_price is not None:
-        yl=y(live_price)
-        svg.append(f'<line x1="{left}" y1="{yl:.1f}" x2="{W-right}" y2="{yl:.1f}" stroke="#ffd15c" stroke-width="1.8"/>')
-        svg.append(f'<rect x="{W-right+4}" y="{yl-10:.1f}" width="105" height="20" fill="#312607" rx="4" stroke="#ffd15c" stroke-width="1"/>')
-        svg.append(f'<text x="{W-right+10}" y="{yl+4:.1f}" fill="#ffd15c" font-size="11" font-weight="bold">LIVE {live_price:,.0f}</text>')
+    # time labels
+    picks=[0, max(0,n//3), max(0,2*n//3), n-1]
+    for idx in picks:
+        tm=d.iloc[idx]['time'].to_pydatetime().astimezone().strftime('%H:%M')
+        xx=left+(idx+.5)*step
+        svg.append(f'<text x="{xx:.1f}" y="{H-52}" text-anchor="middle" fill="#8392a7" font-size="11">{tm}</text>')
 
-    last_r = d.iloc[-1]
-    ohlc_txt = f"O: {float(last_r['open']):,.1f}  H: {float(last_r['high']):,.1f}  L: {float(last_r['low']):,.1f}  C: {float(last_r['close']):,.1f}"
+    last=d.iloc[-1]
+    change=float(last['close'])-float(last['open'])
+    pct=(change/float(last['open'])*100) if float(last['open']) else 0
+    direction_color='#31e889' if change>=0 else '#ff5367'
+    target_label=f'${float(target):,.0f}' if target is not None else '--'
+    return f'''<section class="chartbox">
+      <div class="charttop"><div><b>BTC/USD · {timeframe}</b><span class="chartlive">● LIVE</span></div><div class="charttf">{timeframe}</div></div>
+      <div class="ohlc">O {float(last['open']):,.0f} &nbsp; H {float(last['high']):,.0f} &nbsp; L {float(last['low']):,.0f} &nbsp; C {float(last['close']):,.0f} &nbsp; <strong style="color:{direction_color}">{change:+,.0f} ({pct:+.2f}%)</strong></div>
+      <div class="indicators"><span class="ema9dot">●</span> EMA9 {float(ema9.iloc[-1]):,.0f} &nbsp;&nbsp; <span class="ema21dot">●</span> EMA21 {float(ema21.iloc[-1]):,.0f} &nbsp;&nbsp; <span class="targetdot">━</span> TARGET {target_label}</div>
+      <svg class="candlesvg" viewBox="0 0 {W} {H}" preserveAspectRatio="none">{''.join(svg)}</svg>
+      <div class="chartfoot"><span class="selected">{timeframe}</span><span>VELAS REALES COINBASE</span><span>ACTUALIZACIÓN LIVE</span></div>
+    </section>'''
 
-    svg_content = "".join(svg)
-    return f'''
-    <div class="chartbox">
-      <div class="charttop">
-        <div><b>GRÁFICO EN VIVO BTC/USD</b><span class="chartlive">● COINBASE FEED</span></div>
-        <div class="charttf">TF {timeframe}</div>
-      </div>
-      <div class="ohlc">{ohlc_txt}</div>
-      <div class="indicators">
-        <span class="ema9dot">● EMA 9 ({ema9.iloc[-1]:,.0f})</span> &nbsp;
-        <span class="ema21dot">● EMA 21 ({ema21.iloc[-1]:,.0f})</span> &nbsp;
-        <span class="targetdot">-- TARGET KALSHI</span>
-      </div>
-      <svg class="candlesvg" viewBox="0 0 {W} {H}">{svg_content}</svg>
-    </div>
-    '''
-
-
-# =========================================================
-# FLUJO PRINCIPAL Y EJECUCIÓN
-# =========================================================
-
-market = None
-market_error = None
-try:
-    market = get_kalshi_btc_market()
-except Exception as e:
-    market_error = str(e)
-
-target = get_target_from_market(market)
-seconds_left = get_seconds_remaining(market)
-ticker = market.get("ticker") if market else "--"
-
-live_price = None
-price_source = "COINBASE"
-try:
-    if market:
-        live_price = get_kalshi_live_btc(market)
-        price_source = "KALSHI"
-except Exception:
-    pass
-
-if live_price is None:
-    try:
-        live_price = get_btc_live_price()
-        price_source = "COINBASE"
-    except Exception:
-        pass
-
-df_raw = None
-df = None
-data_error = None
-try:
-    df_raw = get_btc_data()
-    df = add_indicators(df_raw)
-except Exception as e:
-    data_error = str(e)
-
-whale_flow = None
-try:
-    whale_flow = get_coinbase_whale_flow()
-except Exception:
-    pass
-
-if live_price is not None:
-    update_micro_tape(ticker, live_price)
-
-sig = None
-round_sig = None
-reader_res = None
-
-if df is not None:
-    sig = build_signal(df, target, seconds_left, live_price)
-    round_sig = process_round_signal(ticker, sig, market, seconds_left)
-    micro = micro_reading()
-    reader_res = closing_reader(sig, round_sig, seconds_left, micro)
-    auto_trade_tick(ticker, market, round_sig)
 
 # =========================================================
-# RENDERIZADO DE INTERFAZ GRÁFICA (MOBILE PRO UI)
+
+# =========================================================
+# CRITIK2-STYLE MOBILE FRONTEND
 # =========================================================
 
-if round_sig:
-    decision = round_sig["decision"]
-    if decision == "UP":
-        accent = "#34e982"
-        glow = "rgba(52,233,130,.4)"
-        soft = "rgba(52,233,130,.12)"
-        dir_class = "dir-up"
-    elif decision == "DOWN":
-        accent = "#ff4e5f"
-        glow = "rgba(255,78,95,.4)"
-        soft = "rgba(255,78,95,.12)"
-        dir_class = "dir-down"
-    else:
-        accent = "#38bdf8"
-        glow = "rgba(56,189,248,.3)"
-        soft = "rgba(56,189,248,.12)"
-        dir_class = "waiting"
-else:
-    accent = "#38bdf8"
-    glow = "rgba(56,189,248,.3)"
-    soft = "rgba(56,189,248,.12)"
-    dir_class = "waiting"
+st.markdown("""
+<style>
+.stApp{background:#020504!important;color:#f2f6f3}.block-container{max-width:430px!important;padding:6px 11px 86px!important}
+[data-testid="stExpander"]{background:#07100c;border:1px solid #173126;border-radius:12px}
+div.stButton>button{border-radius:10px;border:1px solid #214b38;background:#08130e;color:#edf4f0;font-weight:800}
+.crit{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.ctop{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 2px 5px}.asset{display:flex;gap:10px;align-items:center}.coin{width:44px;height:44px;border-radius:50%;background:#ff9418;color:#111;display:grid;place-items:center;font-size:27px;font-weight:1000}.kicker{font-size:9px;color:#84918b;font-weight:900;letter-spacing:.7px}.name{font-size:20px;font-weight:1000;margin-top:2px}.auto{text-align:right;font-size:8px;font-weight:900}.power{width:38px;height:38px;border-radius:50%;border:1px solid #79373d;color:#ff626b;display:grid;place-items:center;font-size:22px;margin:5px 0 2px auto}.power.on{border-color:#238c5b;color:#31db86}.status{font-size:8px;color:#ff626b}.status.on{color:#31db86}
+.market{display:grid;grid-template-columns:1fr 1fr;gap:15px;padding:9px 2px}.lab{font-size:9px;color:#89968f;font-weight:900}.price{font-size:27px;font-weight:1000;margin-top:5px}.green{color:#31db86}.red{color:#ff626b}.sub{font-size:10px;font-weight:850;margin-top:3px}.count{font-size:18px;font-weight:1000;margin-top:11px}.live{text-align:right;font-size:9px;font-weight:900}.live i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#31db86;margin-right:5px}.wormbox{height:238px;border-left:5px solid #31db86;padding-left:7px;margin:4px 0 5px}.worm{display:block;width:100%;height:230px}.past{font-size:8px;color:#87948e;font-weight:900;padding:3px 0 8px}.past b{color:#31db86;letter-spacing:3px;font-size:14px}.mode{border:1px solid #174c36;background:linear-gradient(180deg,#07130e,#050b08);border-radius:13px;padding:11px;margin:7px 0}.mhead{display:flex;justify-content:space-between}.mhead span{font-size:8px;color:#31db86;font-weight:900;letter-spacing:1px}.mtitle{font-size:20px;font-weight:1000;margin-top:5px}.minner{border:1px solid #26372f;border-radius:10px;padding:11px;margin-top:9px}.minner small{display:block;color:#85928c;font-size:7px;font-weight:900}.msig{font-size:21px;font-weight:1000;margin-top:4px}.reader{border:1px solid #26372f;background:#07100c;border-radius:12px;padding:11px;margin-top:8px}.reader small{color:#84918b;font-size:8px}.reader strong{display:block;font-size:15px;margin-top:4px}.ptitle{font-size:23px;font-weight:1000;padding:15px 2px 3px}.psub{font-size:9px;color:#84918b;padding:0 2px 12px}.card{border:1px solid #173126;background:#07100c;border-radius:13px;padding:12px;margin-bottom:9px}.card h4{margin:0 0 4px}.card p{margin:0;color:#829089;font-size:9px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{border:1px solid #173126;background:#07100c;border-radius:12px;padding:12px}.stat small{color:#819089;font-size:8px}.stat b{display:block;font-size:20px;margin-top:5px}.op{border-bottom:1px solid #14261e;padding:10px 2px;display:grid;grid-template-columns:1fr auto}.op small{color:#839088}.kalogo{text-align:center;font-size:45px;font-weight:1000;padding-top:15px}.kabrand{text-align:center;font-size:25px;font-weight:1000}.kabrand span{color:#ff684f}.kastatus{text-align:center;color:#ff626b;font-size:10px;font-weight:900;margin:7px 0 16px}.balance{text-align:center;padding:25px 0}.balance small{color:#839089}.balance b{display:block;font-size:34px;margin-top:6px}.risk{border:1px solid #69540d;background:#171305;border-radius:12px;padding:12px;color:#dfc35c;font-size:9px;margin-top:10px}
+</style>
+""", unsafe_allow_html=True)
 
-reader_border = reader_res["border"] if reader_res else "rgba(56,189,248,.3)"
-reader_bg = reader_res["bg"] if reader_res else "transparent"
-reader_ring = reader_res["color"] if reader_res else "#38bdf8"
-reader_pct = reader_res['percent'] if reader_res else 50
+if "crit_page" not in st.session_state: st.session_state.crit_page="Bot"
+if "signal_mode" not in st.session_state: st.session_state.signal_mode=False
 
-st.markdown(
-    f"""
-    <style>
-    :root {{
-        --accent: {accent};
-        --glow: {glow};
-        --soft: {soft};
-        --reader-border: {reader_border};
-        --reader-bg: {reader_bg};
-        --rr: {reader_ring};
-        --rb: {reader_border};
-        --rbg: {reader_bg};
-        --p: {reader_pct};
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+def page_header(title, sub=""):
+    st.markdown(f'<div class="ptitle">{title}</div><div class="psub">{sub}</div>',unsafe_allow_html=True)
 
-# PREPARACIÓN DE VARIABLES PREVIAS A LA PLANTILLA (EVITA SYNTAX ERROR)
-decision_text = round_sig['decision'] if round_sig else 'ESPERANDO'
-conf_text = f"CONFIA {reader_res['percent']}%" if reader_res else "ANALIZANDO"
+def connection_page():
+    page_header("Conexión Kalshi","CONECTA TU CUENTA")
+    st.markdown(f'<div class="kalogo">K</div><div class="kabrand"><span>Kalshi</span> Account</div><div class="kastatus">● {"CONECTADO" if st.session_state.kalshi_auth_ok else "NO CONECTADO"}</div>',unsafe_allow_html=True)
+    st.caption("Conecta tu cuenta para que el modo automático pueda enviar operaciones.")
+    st.text_input("API Key ID",key="kalshi_api_key_input",placeholder="Pega tu API Key ID")
+    st.text_area("Private Key",key="kalshi_private_key_input",placeholder="-----BEGIN PRIVATE KEY-----",height=135)
+    if st.button("Conectar cuenta",use_container_width=True):
+        try:
+            _,bal=kalshi_test_connection();st.session_state.kalshi_auth_ok=True;st.session_state.kalshi_auth_message=f"Conectado · ${bal}";st.rerun()
+        except Exception as e:
+            st.session_state.kalshi_auth_ok=False;st.session_state.auto_enabled=False;st.session_state.kalshi_auth_message="Error: "+str(e)[:150]
+    if st.session_state.kalshi_auth_ok and st.button("Desconectar",use_container_width=True):
+        st.session_state.kalshi_auth_ok=False;st.session_state.auto_enabled=False;st.rerun()
+    st.caption(st.session_state.kalshi_auth_message)
 
-price_display = f"${sig['price']:,.2f}" if (sig and sig.get('price')) else "$0.00"
-if sig and sig.get('distance') is not None:
-    distance_display = f"{sig['distance']:+.1f} vs Target"
-else:
-    distance_display = "En espera"
+def bot_settings():
+    page_header("Ajustes del bot","INDICADORES")
+    st.markdown('<div class="card"><h4>Generación de señal</h4><p>Motor Macaly + Alpha v4.6.1 · BTC 15 MIN.</p></div>',unsafe_allow_html=True)
+    st.selectbox("Administración de la operación",["Martingala","Monto fijo"],index=0 if st.session_state.auto_martingale else 1)
+    st.session_state.auto_amount=st.number_input("Monto inicial manual ($)",min_value=.01,value=float(st.session_state.auto_amount),step=.25)
+    st.session_state.auto_martingale=st.toggle("Martingala",value=bool(st.session_state.auto_martingale))
+    st.session_state.auto_limit_cents=st.select_slider("Precio de orden límite",options=list(range(1,100)),value=int(st.session_state.auto_limit_cents),format_func=lambda x:f"{x}¢")
+    st.session_state.auto_take_profit=st.select_slider("Tomar profit",options=list(range(0,201,5)),value=int(st.session_state.auto_take_profit),format_func=lambda x:f"+{x}%")
+    st.session_state.auto_max_levels=st.select_slider("Máximo de niveles",options=list(range(1,9)),value=int(st.session_state.auto_max_levels))
+    st.markdown(f'<div class="card"><h4>Saldo disponible</h4><p>Nivel actual {st.session_state.auto_level}/{st.session_state.auto_max_levels} · Próximo monto ${_amount_for_level():.2f}</p></div>',unsafe_allow_html=True)
+    st.markdown('<div class="psub">ELIGE LA DIRECCIÓN</div>',unsafe_allow_html=True)
+    for level in range(1,int(st.session_state.auto_max_levels)+1):
+        key=f"auto_level_direction_{level}"
+        if key not in st.session_state:st.session_state[key]="Seguir señal"
+        st.selectbox(f"Nivel {level} · ${float(st.session_state.auto_amount)*(2**(level-1) if st.session_state.auto_martingale else 1):.2f}",["Seguir señal","Solo UP","Solo DOWN"],key=key)
+    st.markdown('<div class="psub">FINALIZACIÓN</div>',unsafe_allow_html=True)
+    st.session_state.auto_stop_after_win=st.toggle("Apagar bot en la próxima operación ganadora",value=bool(st.session_state.auto_stop_after_win))
+    if st.button("RESTAURAR PROGRESIÓN",use_container_width=True):st.session_state.auto_level=1;st.session_state.auto_last_status="PROGRESIÓN REINICIADA"
+    st.caption(st.session_state.auto_last_status)
 
-target_display = f"${target:,.0f}" if target else "N/A"
-score_display = f"{sig['final_score']:+.1f}" if sig else "0.0"
-momentum_display = sig['momentum'] if sig else "NEUTRAL"
-countdown_display = format_countdown(seconds_left)
+def settings_page():
+    page_header("Ajustes")
+    st.markdown('<div class="card"><h4>CA &nbsp; Carlitoaldana</h4><p>Editar perfil</p></div>',unsafe_allow_html=True)
+    choice=st.radio("Menú",["Ajustes del bot","Conexión Kalshi","Top Traders","Alertas Telegram","Suscripción","Términos y Condiciones","Acerca del bot"],label_visibility="collapsed")
+    if choice=="Ajustes del bot":bot_settings()
+    elif choice=="Conexión Kalshi":connection_page()
+    else:st.info(f"{choice}: sección visual preparada; no hay backend configurado para esta opción.")
 
-if seconds_left is not None:
-    time_percent = min(100, max(0, int((seconds_left / 900) * 100)))
-else:
-    time_percent = 0
+def operations_page():
+    page_header("Operaciones")
+    hist=list(reversed(st.session_state.get("auto_history",[])));wins=sum(1 for x in hist if x.get("_won") is True);loss=sum(1 for x in hist if x.get("_won") is False);res=wins+loss;wr=wins/res*100 if res else 0
+    st.markdown(f'<div class="stats"><div class="stat"><small>PNL DEL DÍA</small><b>$0.00</b></div><div class="stat"><small>WIN RATE GENERAL</small><b>{wr:.0f}%</b></div><div class="stat"><small>GANADAS</small><b class="green">{wins}</b></div><div class="stat"><small>PERDIDAS</small><b class="red">{loss}</b></div></div>',unsafe_allow_html=True)
+    if not hist:st.info("Todavía no hay operaciones registradas hoy.")
+    for x in hist[:40]:st.markdown(f'<div class="op"><div><b>{x.get("direction","--")}</b><br><small>{x.get("ticker","--")}</small></div><div><b>Nivel {x.get("level","--")}</b><br><small>{str(x.get("time",""))[:19]}</small></div></div>',unsafe_allow_html=True)
 
-up_prob = sig['up_probability'] if sig else 50
-down_prob = sig['down_probability'] if sig else 50
+def balance_page():
+    page_header("Saldo en Kalshi")
+    if st.session_state.kalshi_auth_ok:
+        try:_,bal=kalshi_test_connection();amount=f"${bal}"
+        except:amount="--"
+    else:amount="--"
+    st.markdown(f'<div class="card"><div class="balance"><small>SALDO DISPONIBLE</small><b>{amount}</b><span class="green">+$0.00 (+0.00%)</span></div></div><div class="risk"><b>⚠ ADVERTENCIA DE RIESGO</b><br><br>Los mercados de predicciones implican riesgo y pueden ocasionar pérdidas. Las ganancias no están aseguradas. Opera de forma consciente y utiliza únicamente fondos que puedas permitirte perder.</div>',unsafe_allow_html=True)
 
-reader_micro = reader_res['micro'] if reader_res else 'MICRO'
-reader_headline = reader_res['headline'] if reader_res else 'ANALIZANDO'
-reader_note = reader_res['note'] if reader_res else 'Esperando datos para proyeccion.'
-reader_percent = reader_res['percent'] if reader_res else 50
+@st.fragment(run_every="2s")
+def bot_page():
+    try:btc_df=add_indicators(get_btc_data());btc_ok=True
+    except:btc_df=None;btc_ok=False
+    try:market=get_kalshi_btc_market()
+    except:market=None
+    try:cb=get_btc_live_price()
+    except:cb=float(btc_df.iloc[-1]["close"]) if btc_ok else None
+    try:kp=get_kalshi_live_btc(market) if market else None
+    except:kp=None
+    live=kp if kp is not None else cb;ticker=market.get("ticker","--") if market else "--";target=get_target_from_market(market);seconds=get_seconds_remaining(market)
+    if btc_ok:sig=build_signal(btc_df,target,seconds,live)
+    else:sig={"price":live or 0,"rsi":50,"mom3":0,"mom5":0,"mom15":0,"vol_ratio":0,"ema":"N/A","final_score":0,"distance":None,"distance_pct":None,"up_probability":50,"down_probability":50}
+    rs=process_round_signal(ticker,sig,market,seconds);auto_trade_tick(ticker,market,rs);state=rs.get("round_state");active=state.get("active_direction") if state else None
+    update_micro_tape(ticker,live);reader=closing_reader(sig,rs,seconds,micro_reading());delta=(sig["price"]-target) if target else 0;pct=delta/target*100 if target else 0
+    tape=st.session_state.micro_prices[-90:]
+    if len(tape)>=2:
+        vals=[x["p"] for x in tape];allv=vals+([target] if target else []);lo,hi=min(allv),max(allv);span=max(hi-lo,1);pts=" ".join(f'{8+i*(336/max(1,len(vals)-1)):.1f},{211-(v-lo)/span*174:.1f}' for i,v in enumerate(vals));tl=f'<line x1="8" y1="{211-(target-lo)/span*174:.1f}" x2="344" y2="{211-(target-lo)/span*174:.1f}" stroke="#8b9791" stroke-dasharray="3 5"/>' if target else ""
+    else:pts="";tl=""
+    auto=bool(st.session_state.auto_enabled);sigtext=active or "ESPERANDO";sigcolor="#31db86" if active=="UP" else "#ff626b" if active=="DOWN" else "#ffbd39"
+    st.markdown(f'<div class="crit"><div class="ctop"><div class="asset"><div class="coin">₿</div><div><div class="kicker">BTC · 15 MIN</div><div class="name">BTC/USD⌄</div></div></div><div class="auto">TRADING AUTOMÁTICO<div class="power {"on" if auto else ""}">⏻</div><div class="status {"on" if auto else ""}">● {"ON" if auto else "OFF"}</div></div></div><div class="market"><div><div class="lab">TARGET</div><div class="price">{f"${target:,.2f}" if target else "--"}</div><div class="sub">Cierre de ronda</div><div class="count">⌛ {format_countdown(seconds)}</div></div><div><div class="lab">CURRENT {"↑" if delta>=0 else "↓"}</div><div class="price green">${sig["price"]:,.2f}</div><div class="sub {"green" if delta>=0 else "red"}">{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class="live"><i></i>En vivo</div><div class="wormbox"><svg class="worm" viewBox="0 0 352 220" preserveAspectRatio="none">{tl}<polyline points="{pts}" fill="none" stroke="#31db86" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg></div><div class="past">PAST MARKETS &nbsp;<b>▲ ▲ ▼ ▼ ▲ ▲ ▼ ▼ ▲ ▼</b></div><section class="mode"><div class="mhead"><span>⚡ GUÍA MANUAL</span><span>{"● ACTIVO" if st.session_state.signal_mode else "○ OFF"}</span></div><div class="mtitle">Modo Señales</div><div class="minner"><small>MERCADO ACTUAL · MOTOR v4.6.1</small><div class="msig" style="color:{sigcolor}">{sigtext}</div><small>{reader["headline"]} · {reader["percent"]}%</small></div></section><section class="reader"><small>SCORE {sig["final_score"]:+.2f}</small><strong>{rs.get("signal","--")}</strong><small>{rs.get("entry_quality","")}</small></section></div>',unsafe_allow_html=True)
+    c1,c2=st.columns(2)
+    with c1:st.session_state.signal_mode=st.toggle("Modo Señales",value=bool(st.session_state.signal_mode))
+    with c2:
+        req=st.toggle("Trading Automático",value=bool(st.session_state.auto_enabled))
+        if req and not st.session_state.kalshi_auth_ok:st.session_state.auto_enabled=False;st.warning("Conecta Kalshi para activar automático.")
+        else:st.session_state.auto_enabled=req
 
-ema_display = sig['ema'] if sig else '--'
-rsi_display = f"{sig['rsi']:.0f}" if sig else '--'
-mom3_display = f"{sig['mom3']:+.2f}%" if sig else '--'
-mom5_display = f"{sig['mom5']:+.2f}%" if sig else '--'
-vol_display = f"{sig['vol_ratio']:.2f}x" if sig else '--'
+page=st.session_state.crit_page
+if page=="Bot":bot_page()
+elif page=="Operaciones":operations_page()
+elif page=="Saldo":balance_page()
+elif page=="Ajustes":settings_page()
 
-st.markdown(
-    f"""
-    <div class="refapp {dir_class}">
-      <header class="rhead">
-        <div class="rtitle">MACALY + ALPHA BOT</div>
-        <div class="rver">v4.6.1 • MOBILE PRO</div>
-        <div class="gear">⚙</div>
-        <div class="rlive"><i></i>EN VIVO</div>
-      </header>
-
-      <section class="rhero {'waiting' if dir_class=='waiting' else ''}">
-        <div class="rsignal">
-          <span class="cssarrow"></span>
-          <span>{decision_text}</span>
-        </div>
-        <div style="text-align:center">
-          <span class="rconf">
-            {conf_text}
-          </span>
-        </div>
-      </section>
-
-      <section class="rgrid">
-        <div class="rcard keycard">
-          <span class="bigicon btcicon">₿</span>
-          <div>
-            <div class="rlabel">BTC REAL ({price_source})</div>
-            <div class="rvalue">{price_display}</div>
-            <div class="rdelta green">
-              {distance_display}
-            </div>
-          </div>
-        </div>
-
-        <div class="rcard keycard">
-          <span class="bigicon targeticon">🎯</span>
-          <div>
-            <div class="rlabel">TARGET STRIKE</div>
-            <div class="rvalue">{target_display}</div>
-            <div class="rdelta blue">KXBTC15M</div>
-          </div>
-        </div>
-
-        <div class="rcard keycard">
-          <div class="bars"><b></b><b></b><b></b></div>
-          <div>
-            <div class="rlabel">SCORE TÉCNICO</div>
-            <div class="rvalue">{score_display}</div>
-            <div class="rdelta amber">{momentum_display}</div>
-          </div>
-        </div>
-
-        <div class="rcard keycard">
-          <span class="clock">⏱</span>
-          <div class="timecontent">
-            <div class="rlabel">TIEMPO RESTANTE</div>
-            <div class="rvalue">{countdown_display}</div>
-            <div class="timebar">
-              <b style="width: {time_percent}%;"></b>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="rcard probs">
-        <div class="pbar">
-          <div class="pup" style="width:{up_prob}%">
-            UP {up_prob}%
-          </div>
-          <div class="pdown" style="width:{down_prob}%">
-            DOWN {down_prob}%
-          </div>
-        </div>
-        <div class="pleg">
-          <span class="green">PROBABILIDAD ALCISTA</span>
-          <span class="red">PROBABILIDAD BAJISTA</span>
-        </div>
-      </section>
-
-      <section class="reader">
-        <div class="readerhead">
-          <span class="pulse">⚡</span>
-          <span>LECTOR DE CIERRE DE RONDA</span>
-          <em>{reader_micro}</em>
-        </div>
-        <div class="readerbody">
-          <div>
-            <strong>{reader_headline}</strong>
-            <small>{reader_note}</small>
-          </div>
-          <div class="rring">
-            <span>{reader_percent}%</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="rcard tech">
-        <div class="techhead">
-          <span>DESGLOSE TÉCNICO V4.6.1</span>
-          <span>SISTEMA ALFA</span>
-        </div>
-        <div class="techrow">
-          <div>
-            <small>EMA</small>
-            <b>{ema_display}</b>
-            <i>9/21</i>
-          </div>
-          <div>
-            <small>RSI</small>
-            <b>{rsi_display}</b>
-            <i>14p</i>
-          </div>
-          <div>
-            <small>MOM3</small>
-            <b>{mom3_display}</b>
-            <i>3m</i>
-          </div>
-          <div>
-            <small>MOM5</small>
-            <b>{mom5_display}</b>
-            <i>5m</i>
-          </div>
-          <div>
-            <small>VOL</small>
-            <b>{vol_display}</b>
-            <i>Rel</i>
-          </div>
-        </div>
-      </section>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-if whale_flow:
-    st.markdown(
-        render_whale_panel(
-            whale_flow,
-            round_sig["decision"] if round_sig else None,
-        ),
-        unsafe_allow_html=True,
-    )
-
-tf_col1, tf_col2 = st.columns([3, 1])
-with tf_col2:
-    selected_tf = st.selectbox(
-        "TF", ["1m", "3m", "5m"], index=0, label_visibility="collapsed"
-    )
-
-if df_raw is not None:
-    st.markdown(
-        render_live_candles(
-            df_raw,
-            live_price,
-            target,
-            round_sig["decision"] if round_sig else "WAIT",
-            timeframe=selected_tf,
-        ),
-        unsafe_allow_html=True,
-    )
-
-st.markdown(
-    f"""
-    <div class="ticker">RONDA ACTIVA: {ticker} • ULTIMA ACTUALIZACION: {datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC</div>
-    """,
-    unsafe_allow_html=True,
-)
-
-with st.sidebar:
-    st.header("⚡ Kalshi Auto Trading")
-    st.caption("Capa automática de órdenes sobre el motor v4.6.1")
-
-    with st.expander("🔑 Credenciales Kalshi API v2", expanded=not st.session_state.get("kalshi_auth_ok")):
-        st.session_state.kalshi_api_key_input = st.text_input(
-            "API Key ID (Key ID)",
-            value=st.session_state.get("kalshi_api_key_input", ""),
-            type="password",
-        )
-        st.session_state.kalshi_private_key_input = st.text_area(
-            "Private Key (PEM format)",
-            value=st.session_state.get("kalshi_private_key_input", ""),
-            height=120,
-        )
-
-        if st.button("🔌 Probar Conexión Kalshi"):
-            try:
-                data, dollars = kalshi_test_connection()
-                st.session_state.kalshi_auth_ok = True
-                st.session_state.kalshi_auth_message = f"Conectado • Balance: ${dollars}"
-                st.success(st.session_state.kalshi_auth_message)
-            except Exception as e:
-                st.session_state.kalshi_auth_ok = False
-                st.session_state.kalshi_auth_message = f"Error: {str(e)}"
-                st.error(st.session_state.kalshi_auth_message)
-
-    st.info(f"Estado Auth: {st.session_state.get('kalshi_auth_message', 'No probado')}")
-
-    st.subheader("⚙️ Configuración del Bot")
-
-    st.session_state.auto_enabled = st.checkbox(
-        "🟢 ACTIVAR AUTO TRADING",
-        value=st.session_state.get("auto_enabled", False),
-    )
-
-    st.session_state.auto_amount = st.number_input(
-        "Monto Base por Entrada ($)",
-        min_value=0.10,
-        max_value=500.0,
-        value=float(st.session_state.get("auto_amount", 0.50)),
-        step=0.10,
-    )
-
-    st.session_state.auto_limit_cents = st.slider(
-        "Límite Máximo Precio Contrato (¢)",
-        min_value=1,
-        max_value=99,
-        value=int(st.session_state.get("auto_limit_cents", 50)),
-    )
-
-    st.session_state.auto_take_profit = st.number_input(
-        "Take Profit / Ganancia Objetivo (%)",
-        min_value=0,
-        max_value=500,
-        value=int(st.session_state.get("auto_take_profit", 90)),
-        step=5,
-    )
-
-    st.session_state.auto_martingale = st.checkbox(
-        "📈 Activar Martingala (Duplicar en Loss)",
-        value=st.session_state.get("auto_martingale", False),
-    )
-
-    if st.session_state.auto_martingale:
-        st.session_state.auto_max_levels = st.number_input(
-            "Niveles Máximos Martingala",
-            min_value=1,
-            max_value=10,
-            value=int(st.session_state.get("auto_max_levels", 4)),
-        )
-
-        st.caption("Filtro por Nivel de Martingala:")
-        for lvl in range(1, int(st.session_state.auto_max_levels) + 1):
-            key = f"auto_level_direction_{lvl}"
-            st.session_state[key] = st.selectbox(
-                f"Nivel {lvl}",
-                ["Seguir señal", "Solo UP", "Solo DOWN"],
-                index=["Seguir señal", "Solo UP", "Solo DOWN"].index(
-                    st.session_state.get(key, "Seguir señal")
-                ),
-                key=f"sb_lvl_{lvl}",
-            )
-
-    st.session_state.auto_stop_after_win = st.checkbox(
-        "🛑 Apagar Bot Después de 1 Win",
-        value=st.session_state.get("auto_stop_after_win", False),
-    )
-
-    st.divider()
-    st.subheader("📊 Estado de Ejecución Auto")
-    st.write(f"**Estado:** `{st.session_state.get('auto_last_status')}`")
-    st.write(f"**Nivel Actual:** `{st.session_state.get('auto_level')}`")
-
-    if st.session_state.get("auto_history"):
-        st.caption("Historial Reciente de Órdenes:")
-        st.dataframe(
-            pd.DataFrame(st.session_state.get("auto_history")).tail(10),
-            use_container_width=True,
-        )
-
-time.sleep(2)
-st.rerun()
+st.markdown('<div style="height:6px"></div>',unsafe_allow_html=True)
+cols=st.columns(4)
+for col,label,icon in zip(cols,["Bot","Operaciones","Saldo","Ajustes"],["⚙","↗","▣","⚙"]):
+    with col:
+        if st.button(f"{icon}\n{label}",key=f"nav_{label}",use_container_width=True):st.session_state.crit_page=label;st.rerun()
