@@ -62,10 +62,10 @@ _AUTO_DEFAULTS = {
     "kalshi_auth_message": "No conectado",
     "auto_enabled": False,
     "auto_amount": 0.50,
-    "auto_limit_cents": 50,
+    "auto_limit_cents": 45,
     "auto_take_profit": 90,
-    "auto_martingale": False,
-    "auto_max_levels": 4,
+    "auto_martingale": True,
+    "auto_max_levels": 3,
     "auto_level": 1,
     "auto_stop_after_win": False,
     "auto_last_ticker": None,
@@ -187,8 +187,22 @@ def _market_contract_prices(market):
         no_ask = n / 100.0 if n and n > 1 else n
     return yes_ask, no_ask
 
+def _automatic_base_amount():
+    """90% of available Kalshi cash distributed across selected martingale levels."""
+    try:
+        _, dollars = kalshi_test_connection()
+        balance = max(0.0, float(dollars or 0.0))
+    except Exception:
+        return 0.0
+    levels = max(1, int(st.session_state.auto_max_levels))
+    weights = sum(2 ** i for i in range(levels)) if st.session_state.auto_martingale else levels
+    return math.floor(((balance * 0.90) / max(weights, 1)) * 100) / 100.0
+
 def _amount_for_level():
-    base = max(0.01, float(st.session_state.auto_amount))
+    if st.session_state.get("amount_mode") == "Automático":
+        base = _automatic_base_amount()
+    else:
+        base = max(0.01, float(st.session_state.auto_amount))
     level = max(1, int(st.session_state.auto_level))
     return base * (2 ** (level - 1)) if st.session_state.auto_martingale else base
 
@@ -1103,9 +1117,8 @@ def _line_chart(df, live, target, seconds_left):
     allv=vals+([float(target)] if target else [])
     lo,hi=min(allv),max(allv); pad=max((hi-lo)*.12,8); lo-=pad; hi+=pad
     W,H=720,430; L,R,T,B=18,94,24,34; cw=W-L-R; ch=H-T-B
-    elapsed=max(0,min(900,900-int(seconds_left or 0)))
-    # use only elapsed fraction of width, like reference
-    frac=max(.04,min(1,elapsed/900))
+    # Critik-style chart: samples always fill the plot width.
+    frac=1.0
     n=len(vals); pts=[]
     for i,v in enumerate(vals):
         x=L+(cw*frac)*(i/max(1,n-1)); y=T+(hi-v)/(hi-lo)*ch; pts.append((x,y))
@@ -1154,6 +1167,21 @@ html,body,[data-testid="stAppViewContainer"],.stApp{background:#020806!important
 *{box-sizing:border-box}.c2{font-family:Arial,sans-serif}.c2top{display:flex;justify-content:space-between;align-items:flex-start;margin:8px 2px 20px}.coin{display:flex;gap:12px;align-items:center}.btcball{width:48px;height:48px;border-radius:50%;background:#ff9418;color:#080b09;display:grid;place-items:center;font-size:31px;font-weight:900}.pair small,.autohead small{display:block;color:#8c9a94;font-weight:800;letter-spacing:.7px;font-size:10px}.pair b{font-size:25px}.autohead{text-align:center}.autostat{font-size:10px;color:#ff626b;font-weight:900;margin-top:4px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:0 2px 8px}.stat:first-child{border-right:1px solid #52605b}.stat label{display:block;color:#8c9a94;font-weight:900;font-size:11px;letter-spacing:.5px}.stat .price{font-size:28px;font-weight:900;margin:10px 0 7px}.stat .sub{font-size:12px;font-weight:800}.red{color:#ff626b}.green{color:#32d995}.count{font-size:22px;font-weight:900;margin-top:15px}.live-dot{float:right;color:#dce5e1;font-size:11px}.live-dot i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#24c987;margin-right:6px}.chartwrap{height:315px;margin-top:0}.chartwrap svg{width:100%;height:282px;overflow:visible}.axis text{fill:#81908a;font-size:13px;font-weight:700}.targetline{stroke:#91a09b;stroke-width:2;stroke-dasharray:5 7}.targetbg{fill:#020806}.targettxt{fill:#91a09b;font-size:14px;font-weight:900}.times{display:flex;justify-content:space-between;color:#78867f;font-size:9px;padding:0 12px}.past{display:flex;align-items:center;gap:7px;margin:4px 2px 12px;color:#89968f;font-size:10px;font-weight:900}.tri.up{color:#31d995}.tri.down{color:#ff626b}.signalcard{border:1px solid #075c3c;border-radius:14px;background:#03130e;padding:14px 12px;margin:0 2px 16px}.sighead{display:flex;align-items:center;gap:10px}.sigicon{width:42px;height:42px;border:1px solid #00a967;border-radius:11px;display:grid;place-items:center;color:#26d98e}.sigtitle small{color:#28d894;font-size:9px;font-weight:900;letter-spacing:1.4px}.sigtitle b{display:block;font-size:23px}.sigbody{border:1px solid #34453f;border-radius:12px;padding:13px;margin-top:10px}.sigbody small{color:#8b9892;font-size:9px;font-weight:900}.sigword{font-size:25px;font-weight:900;margin:12px 0 8px}.sigdesc{color:#aab5b0;font-size:10px;font-weight:700}.page-title{font-size:22px;font-weight:900;margin:12px 0 28px}.section-title{font-size:16px;font-weight:900;letter-spacing:1px;margin:26px 0 14px}.settingrow{display:grid;grid-template-columns:1.5fr .8fr;gap:14px;align-items:center;margin:15px 0}.settingrow b{font-size:13px}.settingrow p{font-size:9px;color:#84928c;margin:4px 0}.profile{display:flex;align-items:center;gap:16px;margin:30px 0 55px}.avatar{width:66px;height:66px;border-radius:50%;border:1px solid #9ba6a2;display:grid;place-items:center;color:#2ed18b;font-size:20px;font-weight:900}.menurow{font-size:17px;font-weight:800;padding:21px 5px;border-bottom:0}.menurow span{float:right;color:#2ed18b;font-size:26px}.balancebox{border:1px solid #39433f;border-radius:16px;padding:22px 16px;height:410px;background:#070d0b}.balancebig{font-size:42px;font-weight:900}.risk{border:1px solid #665100;border-radius:10px;padding:12px;color:#c9b55a;font-size:9px;margin-top:14px}.connbox{border:1px solid #34433d;border-radius:14px;padding:18px;margin-bottom:12px}.connected{color:#2bd18b;font-weight:900}.latency{border:1px solid #08754a;border-radius:12px;padding:18px;height:160px;background:linear-gradient(#062018,#06110d)}
 /* native controls: dark Critik look */
 .stButton>button{background:transparent!important;border:0!important;color:#dfe8e4!important;border-radius:10px!important;min-height:40px!important;font-weight:800!important}.stButton>button:hover{color:#2bd18b!important;border:0!important}.st-key-auto_power{position:absolute!important;top:42px!important;right:38px!important;width:58px!important;z-index:30}.st-key-auto_power button{width:58px!important;height:58px!important;min-height:58px!important;border-radius:50%!important;border:1.5px solid #8d3f43!important;background:#0b1110!important;color:#ff626b!important;font-size:28px!important;padding:0!important}.st-key-auto_power button:hover{border:1.5px solid #ff626b!important;color:#ff626b!important}.st-key-nav_Bot,.st-key-nav_Operaciones,.st-key-nav_Saldo,.st-key-nav_Ajustes{position:fixed!important;bottom:16px!important;z-index:9999!important;width:24%!important;background:#020806!important;border-top:1px solid #26312d!important;padding-top:8px!important}.st-key-nav_Bot{left:2%!important}.st-key-nav_Operaciones{left:26%!important}.st-key-nav_Saldo{left:50%!important}.st-key-nav_Ajustes{left:74%!important}.st-key-nav_Bot button,.st-key-nav_Operaciones button,.st-key-nav_Saldo button,.st-key-nav_Ajustes button{font-size:11px!important;line-height:1.25!important;color:#87928e!important;min-height:54px!important}.st-key-nav_Bot button{color:#27d991!important}.stSelectbox>div>div,.stNumberInput>div>div>input,.stTextInput input,.stTextArea textarea{background:#070b0a!important;color:#eef3f0!important;border-color:#343d39!important}.stToggle label{color:#eef3f0!important}.st-key-signal_mode{position:relative!important;z-index:20!important;height:0!important}.st-key-signal_mode>div{position:absolute!important;right:18px!important;top:22px!important;width:54px!important}.navfix{height:1px}
+
+/* mobile corrections */
+.block-container{max-width:430px!important;padding:10px 12px 132px!important;overflow-x:hidden!important}
+.chartwrap{height:328px!important;margin-top:2px!important}.chartwrap svg{height:294px!important}
+.signalcard{position:relative!important;margin:8px 2px 22px!important;padding:12px!important;background:#03130e!important;border:1px solid #0a6446!important;border-radius:14px!important}
+.st-key-signal_card_real{border:1px solid #075c3c!important;border-radius:14px!important;background:#03130e!important;padding:13px 12px 14px!important;margin:0 2px 16px!important;overflow:visible!important}
+.st-key-signal_card_real [data-testid="stHorizontalBlock"]{align-items:center!important;gap:8px!important}
+.st-key-signal_card_real .stToggle{display:flex!important;justify-content:flex-end!important;margin:0!important}
+.st-key-signal_card_real .stToggle>label{margin:0!important}
+.signal-title-real{display:flex;align-items:center;gap:10px;min-height:48px}.signal-title-real small{display:block;color:#28d894;font-size:9px;font-weight:900;letter-spacing:1.4px}.signal-title-real b{display:block;font-size:23px;line-height:1.05}.sigicon-real{width:42px;height:42px;flex:0 0 42px;border:1px solid #00a967;border-radius:11px;display:grid;place-items:center;color:#26d98e;font-size:20px}.sigbody-real{background:#020a08;border:1px solid #33453f;border-radius:12px;padding:13px 12px;margin-top:9px}.sigbody-real small{color:#8b9892;font-size:9px;font-weight:900}
+.st-key-nav_Bot,.st-key-nav_Operaciones,.st-key-nav_Saldo,.st-key-nav_Ajustes{position:fixed!important;bottom:0!important;z-index:9999!important;width:25%!important;height:78px!important;background:#020806!important;border-top:1px solid #26312d!important;padding:7px 2px 10px!important;margin:0!important}
+.st-key-nav_Bot{left:0!important}.st-key-nav_Operaciones{left:25%!important}.st-key-nav_Saldo{left:50%!important}.st-key-nav_Ajustes{left:75%!important}
+.st-key-nav_Bot button,.st-key-nav_Operaciones button,.st-key-nav_Saldo button,.st-key-nav_Ajustes button{width:100%!important;min-width:0!important;height:58px!important;min-height:58px!important;padding:3px 0!important;font-size:9px!important;line-height:1.10!important;white-space:pre-line!important;word-break:normal!important;overflow:visible!important;text-overflow:clip!important;border:0!important;background:transparent!important}
+.st-key-auto_power{top:38px!important;right:40px!important;width:54px!important}.st-key-auto_power button{width:54px!important;height:54px!important;min-height:54px!important;font-size:24px!important}
+
 </style>''',unsafe_allow_html=True)
 
 @st.fragment(run_every='2s')
@@ -1173,13 +1201,29 @@ def bot_page():
     st.markdown(f'''<div style="text-align:right;margin-top:-7px;margin-bottom:2px" class="autostat">● {'ENCENDIDO' if auto else 'OFF'}</div><div class="stats"><div class="stat"><label>TARGET</label><div class="price">{('$'+format(target,',.2f')) if target else '--'}</div><div class="sub">Cierre {_round_times(market)}</div><div class="count">⌛ {format_countdown(sec)}</div></div><div class="stat"><label class="{'red' if delta<0 else 'green'}">CURRENT {'↓' if delta<0 else '↑'}</label><div class="price {'red' if delta<0 else 'green'}">{('$'+format(live,',.2f')) if live else '--'}</div><div class="sub {'red' if delta<0 else 'green'}">{delta:+,.2f} ({pct:+.3f}%)</div><div class="live-dot"><i></i>En vivo</div></div></div>{_line_chart(btc_df,live,target,sec)}''',unsafe_allow_html=True)
     hist=_closed_markets_real(); tris=''.join(f'<span class="tri {"up" if x=="UP" else "down"}">{"▲" if x=="UP" else "▼"}</span>' for x in hist) or '<span style="color:#66736e">Esperando resultados reales…</span>'
     st.markdown(f'<div class="past">PAST MARKETS {tris}</div>',unsafe_allow_html=True)
-    st.markdown('<div class="signalcard"><div class="sighead"><div class="sigicon">⌁</div><div class="sigtitle"><small>GUÍA MANUAL</small><b>Modo Señales</b></div></div></div>',unsafe_allow_html=True)
-    enabled=st.toggle('Activar modo señales',value=enabled,key='signal_mode',label_visibility='collapsed')
-    if enabled and active in ('UP','DOWN'):
-        prob=int(sig['up_probability'] if active=='UP' else sig['down_probability']); word=active; desc=f'PROBABILIDAD DEL MOTOR v4.6.1 · {prob}%'; col='green' if active=='UP' else 'red'
-    elif enabled: word='ESPERANDO'; desc='El motor v4.6.1 está analizando la ronda.'; col=''
-    else: word='DESACTIVADO'; desc='Actívalo para mostrar la señal de tu motor v4.6.1.'; col=''
-    st.markdown(f'<div class="sigbody"><small>MERCADO ACTUAL · SEÑAL 2 VELAS</small><div class="sigword {col}">{word}</div><div class="sigdesc">{desc}</div></div>',unsafe_allow_html=True)
+    # Modo Señales: componente REAL. El switch vive dentro del mismo contenedor,
+    # no se posiciona encima de HTML separado (eso era lo que desaparecía en iPhone).
+    with st.container(border=True, key='signal_card_real'):
+        left, right = st.columns([4.6, 1.15], vertical_alignment='center')
+        with left:
+            st.markdown('<div class="signal-title-real"><div class="sigicon-real">⌁</div><div><small>GUÍA MANUAL</small><b>Modo Señales</b></div></div>', unsafe_allow_html=True)
+        with right:
+            enabled = st.toggle('Modo Señales', key='signal_mode', label_visibility='collapsed')
+
+        if enabled and active in ('UP','DOWN'):
+            prob=int(sig['up_probability'] if active=='UP' else sig['down_probability'])
+            word=active
+            desc=f'PROBABILIDAD DEL MOTOR v4.6.1 · {prob}%'
+            col='green' if active=='UP' else 'red'
+        elif enabled:
+            word='ESPERANDO'
+            desc='El motor v4.6.1 está analizando la ronda.'
+            col=''
+        else:
+            word='DESACTIVADO'
+            desc='Actívalo para mostrar la señal de tu motor v4.6.1.'
+            col=''
+        st.markdown(f'<div class="sigbody-real"><small>MERCADO ACTUAL · SEÑAL 2 VELAS</small><div class="sigword {col}">{word}</div><div class="sigdesc">{desc}</div></div>', unsafe_allow_html=True)
     _nav()
 
 def operations_page():
@@ -1215,21 +1259,74 @@ def connection_page():
 
 def bot_settings_page():
     st.markdown('<div class="page-title">Ajustes del bot</div><div class="section-title">INDICADORES</div>',unsafe_allow_html=True)
-    st.selectbox('Generación de señal',['Motor v4.6.1'],disabled=True)
+    st.selectbox('Generación de señal',['Motor v4.6.1'],disabled=True, help='Conserva el cerebro original v4.6.1.')
     st.markdown('<div class="section-title">SELECCIONAR ESTRATEGIA</div>',unsafe_allow_html=True)
     st.selectbox('Administración de la operación',['Motor v4.6.1 + Martingala'],disabled=True)
+
     st.markdown('<div class="section-title">MONTO POR OPERACIÓN</div>',unsafe_allow_html=True)
-    st.session_state.auto_amount=st.number_input('Monto inicial manual ($)',min_value=.01,value=float(st.session_state.auto_amount),step=.25)
+    st.session_state.amount_mode = st.selectbox('Cálculo del monto',['Manual','Automático'], index=0 if st.session_state.amount_mode=='Manual' else 1)
+    if st.session_state.amount_mode == 'Manual':
+        st.session_state.auto_amount=st.number_input('Monto inicial manual ($)',min_value=.01,value=float(st.session_state.auto_amount),step=.25)
+    else:
+        auto_base=_automatic_base_amount() if st.session_state.kalshi_auth_ok else 0.0
+        st.caption(f'Monto inicial automático (90% / niveles): ${auto_base:.2f}')
+
     st.session_state.auto_martingale=st.toggle('Martingala',value=bool(st.session_state.auto_martingale))
-    st.session_state.auto_limit_cents=st.selectbox('Precio de orden límite',[35,40,45,50,55,60],index=2)
-    st.session_state.auto_take_profit=st.selectbox('Tomar profit (%)',[50,70,90,100],index=2)
-    st.session_state.auto_max_levels=st.selectbox('Máximo de niveles',[1,2,3,4,5],index=2)
+    limit_opts=[35,40,45,50,55,60]
+    current_limit=int(st.session_state.auto_limit_cents)
+    st.session_state.auto_limit_cents=st.selectbox('Precio de orden límite (¢)',limit_opts,index=limit_opts.index(current_limit) if current_limit in limit_opts else 2)
+    tp_opts=[50,70,90,100]
+    current_tp=int(st.session_state.auto_take_profit)
+    st.session_state.auto_take_profit=st.selectbox('Tomar profit (%)',tp_opts,index=tp_opts.index(current_tp) if current_tp in tp_opts else 2)
+    level_opts=[1,2,3,4,5]
+    current_levels=int(st.session_state.auto_max_levels)
+    st.session_state.auto_max_levels=st.selectbox('Máximo de niveles',level_opts,index=level_opts.index(current_levels) if current_levels in level_opts else 2)
+
+    if st.session_state.kalshi_auth_ok:
+        try:
+            _,bal=kalshi_test_connection(); balf=float(bal or 0)
+        except Exception:
+            balf=0.0
+    else:
+        balf=0.0
+    auto_base=_automatic_base_amount() if st.session_state.amount_mode=='Automático' and st.session_state.kalshi_auth_ok else 0.0
+    st.info(f'Saldo disponible: ${balf:.2f} · Monto inicial automático (90% / {st.session_state.auto_max_levels} niveles): ${auto_base:.2f}')
+
     st.markdown('<div class="section-title">ELIGE LA DIRECCIÓN</div>',unsafe_allow_html=True)
     for i in range(1,int(st.session_state.auto_max_levels)+1):
-        k=f'auto_level_direction_{i}'; st.session_state.setdefault(k,'Seguir señal'); st.selectbox('Entrada inicial' if i==1 else f'Martingala {i-1}',['Seguir señal','Solo UP','Solo DOWN'],key=k)
+        k=f'auto_level_direction_{i}'
+        st.session_state.setdefault(k,'Seguir señal')
+        amount = (_automatic_base_amount() if st.session_state.amount_mode=='Automático' else float(st.session_state.auto_amount)) * (2 ** (i-1) if st.session_state.auto_martingale else 1)
+        st.selectbox(('Entrada inicial' if i==1 else f'Martingala {i-1}') + f' · Nivel {i} · ${amount:.2f}',['Seguir señal','Solo UP','Solo DOWN'],key=k)
+
+    st.markdown('<div class="section-title">CONTINUIDAD</div>',unsafe_allow_html=True)
+    st.session_state.restart_martingale=st.toggle('Reiniciar martingala',value=bool(st.session_state.restart_martingale),help='Al guardar, vuelve al nivel 1 y se desactiva automáticamente.')
+    st.markdown('<div class="section-title">FINALIZACIÓN</div>',unsafe_allow_html=True)
     st.session_state.auto_stop_after_win=st.toggle('Apagar bot en la próxima operación ganadora',value=bool(st.session_state.auto_stop_after_win))
-    if st.button('GUARDAR CAMBIOS',use_container_width=True): st.success('Cambios guardados')
-    if st.button('✕ Cerrar',use_container_width=True): _go('Ajustes')
+    st.markdown('<div class="section-title">SONIDOS Y ALERTAS</div>',unsafe_allow_html=True)
+    st.session_state.sound_power=st.toggle('Sonido al encender el bot',value=bool(st.session_state.sound_power))
+    st.session_state.sound_order=st.toggle('Sonido al abrir una operación',value=bool(st.session_state.sound_order))
+
+    c1,c2,c3=st.columns([1.25,.75,1])
+    with c1:
+        if st.button('RESTAURAR CONFIGURACIÓN ORIGINAL',use_container_width=True):
+            st.session_state.amount_mode='Manual'; st.session_state.auto_amount=.50; st.session_state.auto_martingale=True
+            st.session_state.auto_limit_cents=45; st.session_state.auto_take_profit=90; st.session_state.auto_max_levels=3
+            st.session_state.auto_stop_after_win=False; st.session_state.restart_martingale=False
+            st.session_state.sound_power=True; st.session_state.sound_order=True
+            for i in range(1,6): st.session_state[f'auto_level_direction_{i}']='Seguir señal'
+            st.session_state.auto_level=1
+            st.rerun()
+    with c2:
+        if st.button('CANCELAR',use_container_width=True): _go('Ajustes')
+    with c3:
+        if st.button('GUARDAR CAMBIOS',use_container_width=True):
+            if st.session_state.restart_martingale:
+                st.session_state.auto_level=1
+                st.session_state.restart_martingale=False
+                st.session_state.auto_last_status='PROGRESIÓN REINICIADA'
+            st.success('Cambios guardados')
+
 
 def settings_page():
     st.markdown('<div class="page-title">Ajustes</div><div class="profile"><div class="avatar">CA</div><div><span class="green"><b>Mi perfil</b></span><h2 style="margin:4px 0">Mi perfil</h2><span style="color:#83908a">Editar perfil</span></div></div>',unsafe_allow_html=True)
