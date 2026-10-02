@@ -1173,9 +1173,12 @@ html,body,[data-testid="stAppViewContainer"],.stApp{background:#020806!important
 .chartwrap{height:328px!important;margin-top:2px!important}.chartwrap svg{height:294px!important}
 .signalcard{position:relative!important;margin:8px 2px 22px!important;padding:12px!important;background:#03130e!important;border:1px solid #0a6446!important;border-radius:14px!important}
 .st-key-signal_card_real{border:1px solid #075c3c!important;border-radius:14px!important;background:#03130e!important;padding:13px 12px 14px!important;margin:0 2px 16px!important;overflow:visible!important}
-.st-key-signal_card_real [data-testid="stHorizontalBlock"]{align-items:center!important;gap:8px!important}
-.st-key-signal_card_real .stToggle{display:flex!important;justify-content:flex-end!important;margin:0!important}
-.st-key-signal_card_real .stToggle>label{margin:0!important}
+.st-key-signal_card_real [data-testid="stHorizontalBlock"]{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;width:100%!important}
+.st-key-signal_card_real [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child{width:auto!important;flex:1 1 auto!important;min-width:0!important}
+.st-key-signal_card_real [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child{width:58px!important;flex:0 0 58px!important;min-width:58px!important}
+.st-key-signal_card_real .stToggle{display:flex!important;justify-content:flex-end!important;align-items:center!important;margin:0!important;width:58px!important}
+.st-key-signal_card_real .stToggle>label{margin:0!important;width:auto!important}
+.st-key-signal_card_real .stToggle [data-testid="stWidgetLabel"]{display:none!important}
 .signal-title-real{display:flex;align-items:center;gap:10px;min-height:48px}.signal-title-real small{display:block;color:#28d894;font-size:9px;font-weight:900;letter-spacing:1.4px}.signal-title-real b{display:block;font-size:23px;line-height:1.05}.sigicon-real{width:42px;height:42px;flex:0 0 42px;border:1px solid #00a967;border-radius:11px;display:grid;place-items:center;color:#26d98e;font-size:20px}.sigbody-real{background:#020a08;border:1px solid #33453f;border-radius:12px;padding:13px 12px;margin-top:9px}.sigbody-real small{color:#8b9892;font-size:9px;font-weight:900}
 .st-key-nav_Bot,.st-key-nav_Operaciones,.st-key-nav_Saldo,.st-key-nav_Ajustes{position:fixed!important;bottom:0!important;z-index:9999!important;width:25%!important;height:78px!important;background:#020806!important;border-top:1px solid #26312d!important;padding:7px 2px 10px!important;margin:0!important}
 .st-key-nav_Bot{left:0!important}.st-key-nav_Operaciones{left:25%!important}.st-key-nav_Saldo{left:50%!important}.st-key-nav_Ajustes{left:75%!important}
@@ -1183,11 +1186,12 @@ html,body,[data-testid="stAppViewContainer"],.stApp{background:#020806!important
 .st-key-auto_power{top:38px!important;right:40px!important;width:54px!important}.st-key-auto_power button{width:54px!important;height:54px!important;min-height:54px!important;font-size:24px!important}
 
 
-/* screenshot-verified fixes */
-.st-key-signal_card_real .st-key-signal_mode{height:auto!important;min-height:44px!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;position:static!important;overflow:visible!important}
-.st-key-signal_card_real .st-key-signal_mode>div{position:static!important;width:auto!important;display:flex!important;justify-content:flex-end!important}
-.st-key-signal_card_real [data-testid="stToggle"]{visibility:visible!important;opacity:1!important;display:flex!important;justify-content:flex-end!important}
-.sigbody-top{display:flex;align-items:center;justify-content:space-between}.minusbtn{width:28px;height:28px;border:1px solid #33453f;border-radius:9px;display:grid;place-items:center;color:#89968f;font-size:18px}.sigdesc{line-height:1.35!important}
+@media (max-width:640px){
+  .st-key-signal_card_real [data-testid="stHorizontalBlock"]{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important}
+  .st-key-signal_card_real [data-testid="stColumn"]{display:block!important}
+  .st-key-signal_card_real [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child{flex:1 1 auto!important;width:calc(100% - 66px)!important}
+  .st-key-signal_card_real [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child{flex:0 0 58px!important;width:58px!important}
+}
 </style>''',unsafe_allow_html=True)
 
 @st.fragment(run_every='2s')
@@ -1229,7 +1233,7 @@ def bot_page():
             word='DESACTIVADO'
             desc='Actívalo con el bot y Copy Trading apagados. La señal se confirma al iniciar el minuto 3, después de cerrar las dos primeras velas.'
             col=''
-        st.markdown(f'<div class="sigbody-real"><div class="sigbody-top"><small>MERCADO ACTUAL · SEÑAL 2 VELAS</small><span class="minusbtn">−</span></div><div class="sigword {col}">{word}</div><div class="sigdesc">{desc}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sigbody-real"><div style="display:flex;justify-content:space-between;align-items:center"><small>MERCADO ACTUAL · SEÑAL 2 VELAS</small><span style="width:28px;height:28px;border:1px solid #40514b;border-radius:8px;display:grid;place-items:center;color:#8b9892;font-size:18px">−</span></div><div class="sigword {col}">{word}</div><div class="sigdesc">{desc}</div></div>', unsafe_allow_html=True)
     _nav()
 
 def operations_page():
