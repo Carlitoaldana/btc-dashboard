@@ -347,258 +347,33 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     font-weight:900;
 }
 
-/* ===== REFERENCE UI OVERRIDES ===== */
-.block-container{
-    max-width:390px !important;
-    padding:5px 9px 20px !important;
-}
-.topbar{
-    min-height:39px !important;
-    padding:2px 1px 3px !important;
-}
-.brand{font-size:12px !important;}
-.version{font-size:6.5px !important;color:#536174 !important;}
-.live{top:23px !important;font-size:6.8px !important;}
-
-.hero{padding:0 2px 5px !important;}
-.hero-signal{
-    font-size:55px !important;
-    line-height:.90 !important;
-    letter-spacing:-4px !important;
-}
-.confidence{
-    margin-top:8px !important;
-    padding:4px 9px !important;
-    border-radius:6px !important;
-    font-size:8px !important;
-}
-
-.two{
-    gap:6px !important;
-    margin-top:6px !important;
-}
-.mini{
-    min-height:57px !important;
-    padding:7px 8px !important;
-    border-radius:8px !important;
-    background:#0d141d !important;
-    border-color:#172230 !important;
-}
-.mini-label{font-size:6.8px !important;margin-bottom:3px !important;}
-.mini-value{font-size:15px !important;line-height:1.05 !important;}
-.mini-sub{font-size:6.8px !important;margin-top:2px !important;}
-
-.section{
-    padding:8px !important;
-    margin-top:6px !important;
-    border-radius:8px !important;
-    background:#0c131c !important;
-    border-color:#172230 !important;
-}
-.section-title{
-    font-size:7px !important;
-    margin-bottom:6px !important;
-}
-.prob-row{gap:5px !important;}
-.prob-up,.prob-down{height:15px !important;border-radius:3px !important;}
-.prob-labels{margin-top:5px !important;font-size:7.5px !important;}
-
-.close-reader{
-    padding:9px !important;
-    margin-top:6px !important;
-    border-radius:8px !important;
-}
-.reader-top{font-size:7px !important;}
-.reader-active{font-size:6px !important;padding:2px 5px !important;}
-.reader-main{
-    grid-template-columns:1fr 58px !important;
-    margin-top:7px !important;
-}
-.reader-text{font-size:11px !important;line-height:1.08 !important;}
-.reader-note{font-size:6.5px !important;margin-top:4px !important;}
-.ring{width:54px !important;height:54px !important;}
-.ring:after{width:42px !important;height:42px !important;}
-.ring span{font-size:12px !important;}
-
-.tech-grid{gap:0 !important;}
-.tech-grid > div{
-    padding:0 4px !important;
-    border-right:1px solid #1c2734;
-}
-.tech-grid > div:last-child{border-right:none;}
-.tech-label{font-size:5.8px !important;}
-.tech-value{font-size:8.5px !important;margin-top:3px !important;}
-
-.ref-features{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:4px;
-    padding:8px 2px 6px;
-    margin-top:6px;
-    border-top:1px solid #182331;
-}
-.ref-feature{
-    display:grid;
-    grid-template-columns:22px 1fr;
-    gap:5px;
-    align-items:center;
-    color:#66758a;
-    font-size:5.6px;
-    line-height:1.22;
-}
-.ref-feature-icon{
-    width:20px;height:20px;border-radius:50%;
-    display:grid;place-items:center;
-    border:1px solid #28dd79;
-    color:#34e982;
-    font-size:10px;font-weight:1000;
-}
-.ref-feature strong{
-    display:block;color:#cfd7e1;
-    font-size:5.8px;margin-bottom:1px;
-}
-.ref-footer{
-    display:flex;
-    justify-content:space-between;
-    gap:8px;
-    padding:5px 1px 1px;
-    border-top:1px solid #131d29;
-    color:#435064;
-    font-size:5.2px;
-    font-weight:800;
-}
-.footer-nav{
-    padding:7px 2px 1px !important;
-    margin-top:4px !important;
-}
-.nav-item{font-size:6.8px !important;}
-
-
-/* FINAL REFERENCE MATCH */
-.block-container{max-width:430px!important;padding:7px 10px 22px!important}
-.topbar{min-height:48px!important;padding:4px 2px 5px!important;text-align:center!important}
-.brand{font-size:15px!important}.version{font-size:8px!important}
-.live{top:29px!important;right:4px!important;font-size:8px!important}
-.hero{padding:2px 2px 7px!important}
-.hero-signal{font-size:72px!important;line-height:.86!important;letter-spacing:-5px!important;text-shadow:0 0 12px currentColor,0 0 28px currentColor!important}
-.confidence{font-size:10px!important;padding:5px 16px!important;border-radius:18px!important;margin-top:9px!important}
-.two{gap:7px!important;margin-top:7px!important}
-.mini{min-height:72px!important;padding:9px 10px!important;border-radius:9px!important}
-.mini-label{font-size:8px!important}.mini-value{font-size:19px!important}.mini-sub{font-size:8px!important}
-.section{padding:9px!important;margin-top:7px!important;border-radius:9px!important}
-.section-title{font-size:8px!important;margin-bottom:6px!important}
-.prob-up,.prob-down{height:20px!important}.prob-labels{font-size:9px!important}
-.close-reader{padding:10px 11px!important;margin-top:7px!important;border-radius:10px!important}
-.reader-top{font-size:9px!important}.reader-active{font-size:7px!important}
-.reader-main{grid-template-columns:1fr 68px!important;margin-top:8px!important}
-.reader-text{font-size:15px!important;line-height:1.08!important}.reader-note{font-size:7.5px!important}
-.ring{width:64px!important;height:64px!important}.ring:after{width:50px!important;height:50px!important}.ring span{font-size:15px!important}
-.tech-label{font-size:6.5px!important}.tech-value{font-size:10px!important}
-.footer-nav{padding:9px 2px 7px!important}.nav-item{font-size:8px!important}
-.ref-features{padding:9px 3px 7px!important}.ref-feature{font-size:6px!important}
-.ref-feature strong{font-size:6.2px!important}.ref-footer{font-size:5.6px!important}
-.ref-icon{font-size:23px;line-height:1;margin-right:8px;display:inline-block;vertical-align:middle}
-.ref-btc{color:#ff9f0a}.ref-target{color:#a9c9f3}
-.ref-bars{display:inline-flex;gap:2px;align-items:flex-end;height:19px;margin-right:8px;vertical-align:middle}
-.ref-bars i{display:block;width:5px;background:var(--accent);border-radius:1px}
-.ref-bars i:nth-child(1){height:7px}.ref-bars i:nth-child(2){height:12px}.ref-bars i:nth-child(3){height:18px}
-.ref-clock{font-size:23px;color:#b9d5f5;margin-right:8px;vertical-align:middle}
-.ref-timebar{height:5px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}
-.ref-timebar b{display:block;height:100%;width:58%;background:var(--accent);border-radius:5px}
-.tech-head{display:flex;justify-content:space-between;align-items:center}
-.tech-chevron{font-size:13px;color:#b6c6da}
-
-
 /* ===== REBUILT REFERENCE FRONTEND ===== */
-.block-container{max-width:430px!important;padding:4px 9px 18px!important}
-.refapp{font-family:Arial,sans-serif;color:#eaf2fb}
-.rhead{height:54px;position:relative;text-align:center;padding-top:7px}
-.rtitle{font-size:15px;font-weight:900}.rver{font-size:9px;color:#9badc3;margin-top:2px}
-.gear{position:absolute;right:9px;top:7px;font-size:19px;color:#a9c9ec}
-.rlive{position:absolute;right:8px;bottom:1px;font-size:9px;color:#b9c9db}
-.rlive i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-right:5px;box-shadow:0 0 12px var(--accent)}
-.rhero{text-align:center;padding:4px 0 8px}
-.rsignal{display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:72px;font-weight:1000;line-height:.82;letter-spacing:-5px;text-shadow:0 0 12px var(--glow),0 0 25px var(--glow)}
-.rarrow{font-size:79px;margin-right:5px;line-height:.7}.rhero.waiting .rsignal{font-size:39px;letter-spacing:-2px}.rhero.waiting .rarrow{display:none}
-.rconf{display:inline-block;margin-top:11px;border:1.5px solid var(--accent);border-radius:18px;padding:5px 17px;color:#fff;font-size:10px;font-weight:900;box-shadow:0 0 10px var(--soft)}
-.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
-.rcard{background:linear-gradient(180deg,#0d1823,#09131c);border:1px solid #203348;border-radius:8px}
-.keycard{height:68px;padding:8px 9px;display:flex;align-items:center;gap:8px}
-.bigicon{font-size:31px;font-weight:900;line-height:1}.btcicon{color:#ff9d00}.targeticon{color:#a9cff5}
-.rlabel{font-size:8px;color:#b9c9dc;letter-spacing:.4px}.rvalue{font-size:19px;font-weight:900;line-height:1.05;margin-top:2px}.rdelta{font-size:9px;font-weight:900;margin-top:2px}
-.green{color:#32e981!important}.red{color:#ff4c5d!important}
-.bars{display:flex;align-items:flex-end;gap:3px;width:31px;height:30px}.bars b{width:7px;background:var(--accent);border-radius:2px}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
-.clock{font-size:30px;color:#b9d8f7}.timecontent{flex:1}.timebar{height:6px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}.timebar b{display:block;height:100%;background:var(--accent);border-radius:5px}
-.probs{margin-top:6px;padding:8px}.pbar{display:flex;gap:4px;margin-top:5px}.pup,.pdown{height:21px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;border-radius:4px}.pup{background:linear-gradient(90deg,#10d76d,#54ed91);color:#06331d}.pdown{background:linear-gradient(90deg,#ff3548,#ff6472);color:#3d0710}.pleg{display:flex;justify-content:space-between;font-size:10px;font-weight:900;margin-top:6px}
-.reader{margin-top:6px;border:1.5px solid var(--rb);background:var(--rbg);border-radius:9px;padding:9px 10px}
-.readerhead{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--rr)}.readerhead .pulse{font-size:18px}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#45ec8e}
-.readerbody{display:grid;grid-template-columns:1fr 65px;align-items:center;margin-top:7px}.readerbody strong{display:block;font-size:15px;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:7px;margin-top:5px}
-.rring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:48px;height:48px;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:15px;font-weight:900}
-.tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
-.rnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #203448;border-bottom:1px solid #203448;margin-top:7px;padding:7px 0}.rnav div{text-align:center;color:#9db0c5;font-size:8px}.rnav b{display:block;font-size:17px;margin-bottom:2px}.rnav .active{color:var(--accent)}
-.features{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 1px}.features>div{display:flex;gap:5px;align-items:center}.features>div>b{width:25px;height:25px;border:1px solid #28e57f;border-radius:50%;display:grid;place-items:center;color:#35e986;font-size:13px}.features p{margin:0}.features strong{display:block;font-size:5.7px;color:#e1e8f0}.features span{display:block;font-size:5.4px;color:#8c9db0;margin-top:2px}
-.refapp footer{border-top:1px solid #182a3a;padding:5px 1px;display:flex;justify-content:space-between;color:#708197;font-size:5.2px}
-.ticker{text-align:center;color:#53667d;font-size:6px;margin-top:5px}
-
-
-/* ===== FINAL PHONE REFERENCE PROPORTIONS ===== */
 .block-container{max-width:365px!important;padding:3px 7px 14px!important}
-.rhead{height:49px!important;padding-top:4px!important}
-.rtitle{font-size:14px!important}.rver{font-size:8px!important}
-.gear{right:7px!important;top:4px!important;font-size:18px!important}
-.rlive{right:7px!important;bottom:0!important;font-size:8px!important}
-.rhero{padding:1px 0 7px!important}
-.rsignal{font-size:61px!important;line-height:.80!important;letter-spacing:-4px!important}
-.rarrow{font-size:66px!important;margin-right:4px!important}
+.refapp{font-family:Arial,sans-serif;color:#eaf2fb}
+.rhead{height:49px!important;padding-top:4px!important;position:relative;text-align:center;}
+.rtitle{font-size:14px!important;font-weight:900;line-height:17px!important}.rver{font-size:8px!important;color:#9badc3;margin-top:2px;line-height:11px!important}
+.gear{position:absolute;right:8px!important;top:7px!important;font-size:18px!important;color:#a9c9ec}
+.rlive{position:absolute;right:8px!important;bottom:3px!important;font-size:8px!important;color:#b9c9db}
+.rlive i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-right:5px;box-shadow:0 0 12px var(--accent)}
+.rhero{text-align:center;padding:1px 0 7px!important}
+.rsignal{display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:61px!important;font-weight:1000;line-height:.80!important;letter-spacing:-4px!important;text-shadow:0 0 12px var(--glow),0 0 25px var(--glow)}
 .rhero.waiting .rsignal{font-size:29px!important;letter-spacing:-1px!important}
-.rconf{margin-top:9px!important;padding:4px 14px!important;font-size:9px!important}
-.rgrid{gap:5px!important}
-.keycard{height:57px!important;padding:6px 8px!important;gap:7px!important}
-.bigicon{font-size:27px!important}.bars{width:27px!important;height:26px!important}.clock{font-size:27px!important}
-.rlabel{font-size:7px!important}.rvalue{font-size:16px!important}.rdelta{font-size:8px!important}
-.timebar{height:5px!important;margin-top:4px!important}
-.probs{margin-top:5px!important;padding:7px!important}.pup,.pdown{height:18px!important;font-size:9px!important}
-.pleg{font-size:9px!important;margin-top:5px!important}
-.reader{margin-top:5px!important;padding:7px 8px!important}
-.readerhead{font-size:8px!important}.readerhead .pulse{font-size:15px!important}
-.readerbody{grid-template-columns:1fr 58px!important;margin-top:5px!important}
-.readerbody strong{font-size:13px!important}.readerbody small{font-size:6.3px!important;margin-top:3px!important}
-.rring{width:55px!important;height:55px!important}.rring:after{width:43px!important;height:43px!important}.rring span{font-size:13px!important}
-.tech{margin-top:5px!important;padding:6px 7px!important}.techhead{font-size:8px!important;padding-bottom:5px!important}
-.techrow>div{padding:5px 1px 1px!important}.techrow small,.techrow i{font-size:5.3px!important}.techrow b{font-size:9px!important;margin:3px 0!important}
-.rnav{margin-top:6px!important;padding:6px 0!important}.rnav div{font-size:7px!important}.rnav b{font-size:15px!important}
-.features{padding:7px 1px 5px!important;gap:3px!important}.features>div{gap:4px!important}
-.features>div>b{width:22px!important;height:22px!important;font-size:11px!important}
-.features strong{font-size:5px!important}.features span{font-size:4.8px!important}
-.refapp footer{padding:4px 1px!important;font-size:4.7px!important}
-.ticker{font-size:5.3px!important;margin-top:4px!important}
+.rconf{display:inline-block;margin-top:9px!important;border:1.5px solid var(--accent);border-radius:18px;padding:4px 14px!important;color:#fff;font-size:9px!important;font-weight:900;box-shadow:0 0 10px var(--soft)}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px!important;margin-top:1px!important}
+.rcard{background:linear-gradient(180deg,#0d1823,#09131c);border:1px solid #203348;border-radius:8px}
+.keycard{height:57px!important;padding:6px 8px!important;display:flex;align-items:center;gap:7px!important}
+.bigicon{font-size:27px!important;font-weight:900;line-height:1}.btcicon{color:#ff9d00}.targeticon{color:#a9cff5}
+.rlabel{font-size:7px!important;color:#b9c9dc;letter-spacing:.4px}.rvalue{font-size:16px!important;font-weight:900;line-height:1.05;margin-top:2px}.rdelta{font-size:8px!important;font-weight:900;margin-top:2px}
+.green{color:#32e981!important}.red{color:#ff4c5d!important}
+.bars{display:flex;align-items:flex-end;gap:3px;width:27px!important;height:26px!important}.bars b{width:7px;background:var(--accent);border-radius:2px}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
+.clock{font-size:27px!important;color:#b9d8f7}.timecontent{flex:1}.timebar{height:5px!important;background:#16324a;border-radius:5px;margin-top:4px!important;overflow:hidden}.timebar b{display:block;height:100%;background:var(--accent);border-radius:5px}
+.probs{margin-top:5px!important;padding:7px!important}.pbar{display:flex;gap:4px;margin-top:5px}.pup,.pdown{height:18px!important;display:flex;align-items:center;justify-content:center;font-size:9px!important;font-weight:900;border-radius:4px}.pup{background:linear-gradient(90deg,#10d76d,#54ed91);color:#06331d}.pdown{background:linear-gradient(90deg,#ff3548,#ff6472);color:#3d0710}.pleg{display:flex;justify-content:space-between;font-size:9px!important;font-weight:900;margin-top:5px!important}
+.reader{margin-top:5px!important;border:1.5px solid var(--rb);background:var(--rbg);border-radius:9px;padding:7px 8px!important;min-height:0!important}
+.readerhead{display:flex;align-items:center;gap:7px;font-size:8px!important;color:var(--rr)}.readerhead .pulse{font-size:15px!important}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#45ec8e}
+.readerbody{display:grid;grid-template-columns:1fr 58px!important;align-items:center;margin-top:5px!important}.readerbody strong{display:block;font-size:13px!important;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:6.3px!important;margin-top:3px!important}
+.rring{width:55px!important;height:55px!important;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:43px!important;height:43px!important;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:13px!important;font-weight:900}
+.tech{margin-top:5px!important;padding:6px 7px!important}.techhead{display:flex;justify-content:space-between;font-size:8px!important;color:#c2d0df;padding-bottom:5px!important}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:5px 1px 1px!important;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:5.3px!important;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:9px!important;margin:3px 0!important}
 
-/* Make arrows chunky like the reference rather than thin text arrows */
-.rarrow{font-family:Arial Black,Arial,sans-serif!important;font-weight:1000!important}
-
-
-/* ===== TRUE FINAL: CSS ARROW + VISIBLE HEADER ===== */
-.rhead{
-    display:block!important;
-    visibility:visible!important;
-    height:58px!important;
-    min-height:58px!important;
-    padding-top:7px!important;
-    overflow:visible!important;
-    position:relative!important;
-    z-index:20!important;
-}
-.rtitle,.rver,.gear,.rlive{display:block!important;visibility:visible!important}
-.rtitle{font-size:14px!important;line-height:17px!important}
-.rver{font-size:8px!important;line-height:11px!important}
-.gear{top:7px!important;right:8px!important}
-.rlive{bottom:3px!important;right:8px!important}
-
-.rhero{padding-top:4px!important}
-.rsignal{gap:9px!important}
-.rarrow{display:none!important}
-
-/* Solid arrow matching signal color; no iOS emoji rendering */
 .cssarrow{
     position:relative;
     display:inline-block;
@@ -620,19 +395,11 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     border-bottom:34px solid var(--accent);
     filter:drop-shadow(0 0 7px var(--glow));
 }
-/* DOWN: arrow head below shaft */
 .refapp.dir-down .cssarrow{transform:rotate(180deg);}
-/* Waiting state: no arrow */
 .rhero.waiting .cssarrow{display:none!important}
 
-/* Keep final phone proportions compact */
-.block-container{max-width:365px!important;padding-top:3px!important}
-.rgrid{margin-top:1px!important}
-.reader{min-height:0!important}
-
-
 .chartbox{margin-top:10px;background:linear-gradient(180deg,#08121d,#060c14);border:1px solid #203a51;border-radius:12px;padding:10px 8px 8px;box-shadow:inset 0 0 28px rgba(20,80,110,.08)}
-.charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
+.charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
 </style>
 """,
     unsafe_allow_html=True,
@@ -678,13 +445,10 @@ for _k, _v in _AUTO_DEFAULTS.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
-
-
 KALSHI_API_BASE = "https://external-api.kalshi.com"
 KALSHI_API_PREFIX = "/trade-api/v2"
 
 def _kalshi_sign(message):
-    """RSA-PSS/SHA256 signature using system OpenSSL; no Python crypto package required."""
     pem = st.session_state.get("kalshi_private_key_input", "")
     if not pem:
         raise ValueError("Falta la Private Key.")
@@ -757,7 +521,6 @@ def kalshi_test_connection():
     return data, dollars
 
 def _market_contract_prices(market):
-    """Returns current YES/NO asks as dollars when Kalshi exposes them."""
     if not market:
         return None, None
     def f(name):
@@ -1011,7 +774,6 @@ def get_btc_data():
 
 
 def get_coinbase_whale_flow():
-    """FLOW PULSE BTC/USD: varias páginas de trades, aceleración y desequilibrio."""
     now = pd.Timestamp.now(tz="UTC").timestamp()
     tape = st.session_state.setdefault("whale_flow_tape", [])
     seen = st.session_state.setdefault("whale_seen_ids", {})
@@ -2233,6 +1995,7 @@ else:
 reader_border = reader_res["border"] if reader_res else "rgba(56,189,248,.3)"
 reader_bg = reader_res["bg"] if reader_res else "transparent"
 reader_ring = reader_res["color"] if reader_res else "#38bdf8"
+reader_pct = reader_res['percent'] if reader_res else 50
 
 st.markdown(
     f"""
@@ -2246,12 +2009,46 @@ st.markdown(
         --rr: {reader_ring};
         --rb: {reader_border};
         --rbg: {reader_bg};
-        --p: {reader_res['percent'] if reader_res else 50};
+        --p: {reader_pct};
     }}
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+# PREPARACIÓN DE VARIABLES PREVIAS A LA PLANTILLA (EVITA SYNTAX ERROR)
+decision_text = round_sig['decision'] if round_sig else 'ESPERANDO'
+conf_text = f"CONFIA {reader_res['percent']}%" if reader_res else "ANALIZANDO"
+
+price_display = f"${sig['price']:,.2f}" if (sig and sig.get('price')) else "$0.00"
+if sig and sig.get('distance') is not None:
+    distance_display = f"{sig['distance']:+.1f} vs Target"
+else:
+    distance_display = "En espera"
+
+target_display = f"${target:,.0f}" if target else "N/A"
+score_display = f"{sig['final_score']:+.1f}" if sig else "0.0"
+momentum_display = sig['momentum'] if sig else "NEUTRAL"
+countdown_display = format_countdown(seconds_left)
+
+if seconds_left is not None:
+    time_percent = min(100, max(0, int((seconds_left / 900) * 100)))
+else:
+    time_percent = 0
+
+up_prob = sig['up_probability'] if sig else 50
+down_prob = sig['down_probability'] if sig else 50
+
+reader_micro = reader_res['micro'] if reader_res else 'MICRO'
+reader_headline = reader_res['headline'] if reader_res else 'ANALIZANDO'
+reader_note = reader_res['note'] if reader_res else 'Esperando datos para proyeccion.'
+reader_percent = reader_res['percent'] if reader_res else 50
+
+ema_display = sig['ema'] if sig else '--'
+rsi_display = f"{sig['rsi']:.0f}" if sig else '--'
+mom3_display = f"{sig['mom3']:+.2f}%" if sig else '--'
+mom5_display = f"{sig['mom5']:+.2f}%" if sig else '--'
+vol_display = f"{sig['vol_ratio']:.2f}x" if sig else '--'
 
 st.markdown(
     f"""
@@ -2266,11 +2063,11 @@ st.markdown(
       <section class="rhero {'waiting' if dir_class=='waiting' else ''}">
         <div class="rsignal">
           <span class="cssarrow"></span>
-          <span>{round_sig['decision'] if round_sig else 'ESPERANDO'}</span>
+          <span>{decision_text}</span>
         </div>
         <div style="text-align:center">
           <span class="rconf">
-            {f"CONFIA {reader_res['percent']}%" if reader_res else "ANALIZANDO"}
+            {conf_text}
           </span>
         </div>
       </section>
@@ -2280,9 +2077,9 @@ st.markdown(
           <span class="bigicon btcicon">₿</span>
           <div>
             <div class="rlabel">BTC REAL ({price_source})</div>
-            <div class="rvalue">${sig['price']:,.2f} if sig else '$0.00'</div>
+            <div class="rvalue">{price_display}</div>
             <div class="rdelta green">
-              {f"{sig['distance']:+.1f} vs Target" if sig and sig['distance'] is not None else "En espera"}
+              {distance_display}
             </div>
           </div>
         </div>
@@ -2291,7 +2088,7 @@ st.markdown(
           <span class="bigicon targeticon">🎯</span>
           <div>
             <div class="rlabel">TARGET STRIKE</div>
-            <div class="rvalue">${target:,.0f} if target else 'N/A'</div>
+            <div class="rvalue">{target_display}</div>
             <div class="rdelta blue">KXBTC15M</div>
           </div>
         </div>
@@ -2300,8 +2097,8 @@ st.markdown(
           <div class="bars"><b></b><b></b><b></b></div>
           <div>
             <div class="rlabel">SCORE TÉCNICO</div>
-            <div class="rvalue">{sig['final_score']:+.1f} if sig else '0.0'}</div>
-            <div class="rdelta amber">{sig['momentum'] if sig else 'NEUTRAL'}</div>
+            <div class="rvalue">{score_display}</div>
+            <div class="rdelta amber">{momentum_display}</div>
           </div>
         </div>
 
@@ -2309,9 +2106,9 @@ st.markdown(
           <span class="clock">⏱</span>
           <div class="timecontent">
             <div class="rlabel">TIEMPO RESTANTE</div>
-            <div class="rvalue">{format_countdown(seconds_left)}</div>
+            <div class="rvalue">{countdown_display}</div>
             <div class="timebar">
-              <b style="width: {min(100, max(0, int((seconds_left or 0)/900 * 100)))}%;"></b>
+              <b style="width: {time_percent}%;"></b>
             </div>
           </div>
         </div>
@@ -2319,11 +2116,11 @@ st.markdown(
 
       <section class="rcard probs">
         <div class="pbar">
-          <div class="pup" style="width:{sig['up_probability'] if sig else 50}%">
-            UP {sig['up_probability'] if sig else 50}%
+          <div class="pup" style="width:{up_prob}%">
+            UP {up_prob}%
           </div>
-          <div class="pdown" style="width:{sig['down_probability'] if sig else 50}%">
-            DOWN {sig['down_probability'] if sig else 50}%
+          <div class="pdown" style="width:{down_prob}%">
+            DOWN {down_prob}%
           </div>
         </div>
         <div class="pleg">
@@ -2336,15 +2133,15 @@ st.markdown(
         <div class="readerhead">
           <span class="pulse">⚡</span>
           <span>LECTOR DE CIERRE DE RONDA</span>
-          <em>{reader_res['micro'] if reader_res else 'MICRO'}</em>
+          <em>{reader_micro}</em>
         </div>
         <div class="readerbody">
           <div>
-            <strong>{reader_res['headline'] if reader_res else 'ANALIZANDO'}</strong>
-            <small>{reader_res['note'] if reader_res else 'Esperando datos para proyeccion.'}</small>
+            <strong>{reader_headline}</strong>
+            <small>{reader_note}</small>
           </div>
           <div class="rring">
-            <span>{reader_res['percent'] if reader_res else 50}%</span>
+            <span>{reader_percent}%</span>
           </div>
         </div>
       </section>
@@ -2357,27 +2154,27 @@ st.markdown(
         <div class="techrow">
           <div>
             <small>EMA</small>
-            <b>{sig['ema'] if sig else '--'}</b>
+            <b>{ema_display}</b>
             <i>9/21</i>
           </div>
           <div>
             <small>RSI</small>
-            <b>{sig['rsi']:.0f} if sig else '--'}</b>
+            <b>{rsi_display}</b>
             <i>14p</i>
           </div>
           <div>
             <small>MOM3</small>
-            <b>{sig['mom3']:+.2f}% if sig else '--'}</b>
+            <b>{mom3_display}</b>
             <i>3m</i>
           </div>
           <div>
             <small>MOM5</small>
-            <b>{sig['mom5']:+.2f}% if sig else '--'}</b>
+            <b>{mom5_display}</b>
             <i>5m</i>
           </div>
           <div>
             <small>VOL</small>
-            <b>{sig['vol_ratio']:.2f}x if sig else '--'}</b>
+            <b>{vol_display}</b>
             <i>Rel</i>
           </div>
         </div>
