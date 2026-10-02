@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 import base64
 import time
@@ -2183,31 +2184,31 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
 
 
 # =========================================================
-
-# =========================================================
-# CRITIK2-STYLE MOBILE FRONTEND
+# CRITIK2-STYLE MOBILE FRONTEND — REFERENCE MATCH
 # =========================================================
 
 st.markdown("""
 <style>
-.stApp{background:#020504!important;color:#f2f6f3}.block-container{max-width:430px!important;padding:6px 11px 86px!important}
-[data-testid="stExpander"]{background:#07100c;border:1px solid #173126;border-radius:12px}
-div.stButton>button{border-radius:10px;border:1px solid #214b38;background:#08130e;color:#edf4f0;font-weight:800}
-.crit{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.ctop{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 2px 5px}.asset{display:flex;gap:10px;align-items:center}.coin{width:44px;height:44px;border-radius:50%;background:#ff9418;color:#111;display:grid;place-items:center;font-size:27px;font-weight:1000}.kicker{font-size:9px;color:#84918b;font-weight:900;letter-spacing:.7px}.name{font-size:20px;font-weight:1000;margin-top:2px}.auto{text-align:right;font-size:8px;font-weight:900}.power{width:38px;height:38px;border-radius:50%;border:1px solid #79373d;color:#ff626b;display:grid;place-items:center;font-size:22px;margin:5px 0 2px auto}.power.on{border-color:#238c5b;color:#31db86}.status{font-size:8px;color:#ff626b}.status.on{color:#31db86}
-.market{display:grid;grid-template-columns:1fr 1fr;gap:15px;padding:9px 2px}.lab{font-size:9px;color:#89968f;font-weight:900}.price{font-size:27px;font-weight:1000;margin-top:5px}.green{color:#31db86}.red{color:#ff626b}.sub{font-size:10px;font-weight:850;margin-top:3px}.count{font-size:18px;font-weight:1000;margin-top:11px}.live{text-align:right;font-size:9px;font-weight:900}.live i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#31db86;margin-right:5px}.wormbox{height:238px;border-left:5px solid #31db86;padding-left:7px;margin:4px 0 5px}.worm{display:block;width:100%;height:230px}.past{font-size:8px;color:#87948e;font-weight:900;padding:3px 0 8px}.past b{color:#31db86;letter-spacing:3px;font-size:14px}.mode{border:1px solid #174c36;background:linear-gradient(180deg,#07130e,#050b08);border-radius:13px;padding:11px;margin:7px 0}.mhead{display:flex;justify-content:space-between}.mhead span{font-size:8px;color:#31db86;font-weight:900;letter-spacing:1px}.mtitle{font-size:20px;font-weight:1000;margin-top:5px}.minner{border:1px solid #26372f;border-radius:10px;padding:11px;margin-top:9px}.minner small{display:block;color:#85928c;font-size:7px;font-weight:900}.msig{font-size:21px;font-weight:1000;margin-top:4px}.reader{border:1px solid #26372f;background:#07100c;border-radius:12px;padding:11px;margin-top:8px}.reader small{color:#84918b;font-size:8px}.reader strong{display:block;font-size:15px;margin-top:4px}.ptitle{font-size:23px;font-weight:1000;padding:15px 2px 3px}.psub{font-size:9px;color:#84918b;padding:0 2px 12px}.card{border:1px solid #173126;background:#07100c;border-radius:13px;padding:12px;margin-bottom:9px}.card h4{margin:0 0 4px}.card p{margin:0;color:#829089;font-size:9px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{border:1px solid #173126;background:#07100c;border-radius:12px;padding:12px}.stat small{color:#819089;font-size:8px}.stat b{display:block;font-size:20px;margin-top:5px}.op{border-bottom:1px solid #14261e;padding:10px 2px;display:grid;grid-template-columns:1fr auto}.op small{color:#839088}.kalogo{text-align:center;font-size:45px;font-weight:1000;padding-top:15px}.kabrand{text-align:center;font-size:25px;font-weight:1000}.kabrand span{color:#ff684f}.kastatus{text-align:center;color:#ff626b;font-size:10px;font-weight:900;margin:7px 0 16px}.balance{text-align:center;padding:25px 0}.balance small{color:#839089}.balance b{display:block;font-size:34px;margin-top:6px}.risk{border:1px solid #69540d;background:#171305;border-radius:12px;padding:12px;color:#dfc35c;font-size:9px;margin-top:10px}
+#MainMenu,footer,header,[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"]{display:none!important}
+.stApp{background:#010604!important;color:#edf4f0!important}.block-container{max-width:430px!important;padding:7px 10px 92px!important}div[data-testid="stVerticalBlock"]{gap:.45rem!important}
+.crit{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.ctop{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 2px}.asset{display:flex;gap:9px;align-items:center}.coin{width:40px;height:40px;border-radius:50%;background:#f7931a;color:#111;display:grid;place-items:center;font-size:25px;font-weight:1000}.kicker{font-size:9px;color:#84918b;font-weight:900}.name{font-size:20px;font-weight:1000;margin-top:3px}.auto{text-align:right;font-size:7px;color:#8b9791;font-weight:900}.power{width:37px;height:37px;border-radius:50%;border:1px solid #653139;color:#e65b65;display:grid;place-items:center;font-size:21px;margin:4px 0 2px auto}.power.on{border-color:#218c59;color:#31db86}.status{font-size:8px;color:#e65b65}.status.on{color:#31db86}
+.market{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 2px 2px}.market>div+div{border-left:1px solid #53605a;padding-left:10px}.lab{font-size:9px;color:#89958f;font-weight:1000}.price{font-size:25px;font-weight:1000;margin-top:5px}.green{color:#31db86!important}.red{color:#ff626b!important}.sub{font-size:10px;font-weight:850;margin-top:3px}.count{font-size:18px;font-weight:1000;margin-top:10px}.live{text-align:right;font-size:9px;font-weight:900;padding:0 3px}.live i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#31db86;margin-right:5px;box-shadow:0 0 10px #31db86}
+.chartwrap{display:grid;grid-template-columns:7px 1fr 62px;gap:6px;height:330px;margin-top:2px}.sidebar{border-radius:6px;background:linear-gradient(to bottom,#ff626b 0 70%,#0fd47a 70% 100%)}.plot svg{width:100%;height:100%;display:block}.scale{position:relative;color:#81908a;font-size:8px;font-weight:800}.scale span{position:absolute;right:0}.past{font-size:8px;color:#83918b;font-weight:900;padding:2px 0 5px}.past .arr{font-size:15px;letter-spacing:2px}.times{display:flex;justify-content:space-between;color:#7d8b85;font-size:7px;padding:0 61px 5px 14px}
+.mode{border:1px solid #18543a;background:linear-gradient(180deg,#06140e,#04100b);border-radius:14px;padding:11px;margin:4px 0}.mhead{display:flex;justify-content:space-between;align-items:center}.guide{display:flex;gap:9px;align-items:center}.guideicon{width:34px;height:34px;border:1px solid #16945b;border-radius:10px;display:grid;place-items:center;color:#29d77f;font-weight:1000}.mhead small{display:block;color:#2ad67f;font-size:7px;font-weight:1000;letter-spacing:1px}.mtitle{font-size:20px;font-weight:1000;margin-top:2px}.pill{width:45px;height:25px;border:1px solid #43514c;border-radius:18px;padding:3px}.pill i{display:block;width:19px;height:19px;border-radius:50%;background:#7b8883}.pill.on{border-color:#218c59}.pill.on i{margin-left:20px;background:#31d887}.minner{border:1px solid #293b34;border-radius:11px;padding:11px;margin-top:9px;min-height:83px}.minner small{display:block;color:#84918c;font-size:7px;font-weight:900}.msig{font-size:22px;font-weight:1000;margin:6px 0}.mnote{color:#aeb8b4;font-size:8px;font-weight:750;line-height:1.35}.reader{border:1px solid #1e382e;background:#06110c;border-radius:11px;padding:10px;margin-top:6px}.reader small{color:#83918b;font-size:7px}.reader strong{display:block;font-size:14px;margin:3px 0}
+.ptitle{font-size:23px;font-weight:1000;padding:14px 2px 3px}.psub{font-size:9px;color:#84918b;padding:0 2px 10px}.card{border:1px solid #173126;background:#07100c;border-radius:13px;padding:12px;margin-bottom:9px}.card h4{margin:0 0 4px}.card p{margin:0;color:#829089;font-size:9px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{border:1px solid #173126;background:#07100c;border-radius:12px;padding:12px}.stat small{color:#819089;font-size:8px}.stat b{display:block;font-size:20px;margin-top:5px}.op{border-bottom:1px solid #14261e;padding:10px 2px;display:grid;grid-template-columns:1fr auto}.op small{color:#839088}.balance{text-align:center;padding:25px 0}.balance small{color:#839089}.balance b{display:block;font-size:34px;margin-top:6px}.risk{border:1px solid #69540d;background:#171305;border-radius:12px;padding:12px;color:#dfc35c;font-size:9px;margin-top:10px}.kalogo{text-align:center;font-size:45px;font-weight:1000;padding-top:15px}.kabrand{text-align:center;font-size:25px;font-weight:1000}.kabrand span{color:#ff684f}.kastatus{text-align:center;color:#ff626b;font-size:10px;font-weight:900;margin:7px 0 16px}
+div.stButton>button{border-radius:10px;border:1px solid #214b38;background:#07110c;color:#edf4f0;font-weight:850;font-size:9px;min-height:39px}
 </style>
-""", unsafe_allow_html=True)
+""",unsafe_allow_html=True)
 
 if "crit_page" not in st.session_state: st.session_state.crit_page="Bot"
 if "signal_mode" not in st.session_state: st.session_state.signal_mode=False
 
-def page_header(title, sub=""):
+def page_header(title,sub=""):
     st.markdown(f'<div class="ptitle">{title}</div><div class="psub">{sub}</div>',unsafe_allow_html=True)
 
 def connection_page():
     page_header("Conexión Kalshi","CONECTA TU CUENTA")
     st.markdown(f'<div class="kalogo">K</div><div class="kabrand"><span>Kalshi</span> Account</div><div class="kastatus">● {"CONECTADO" if st.session_state.kalshi_auth_ok else "NO CONECTADO"}</div>',unsafe_allow_html=True)
-    st.caption("Conecta tu cuenta para que el modo automático pueda enviar operaciones.")
     st.text_input("API Key ID",key="kalshi_api_key_input",placeholder="Pega tu API Key ID")
     st.text_area("Private Key",key="kalshi_private_key_input",placeholder="-----BEGIN PRIVATE KEY-----",height=135)
     if st.button("Conectar cuenta",use_container_width=True):
@@ -2220,82 +2221,80 @@ def connection_page():
     st.caption(st.session_state.kalshi_auth_message)
 
 def bot_settings():
-    page_header("Ajustes del bot","INDICADORES")
-    st.markdown('<div class="card"><h4>Generación de señal</h4><p>K2 Señal · Motor Macaly + Alpha v4.6.1 · BTC 15 MIN.</p></div>',unsafe_allow_html=True)
-    calc_mode=st.selectbox("Cálculo del monto",["Manual","Automático"],index=0)
-    st.caption("Automático distribuye el 90% del saldo para cubrir todos los niveles seleccionados.")
-    st.selectbox("Administración de la operación",["Martingala","Monto fijo"],index=0 if st.session_state.auto_martingale else 1)
-    st.session_state.auto_amount=st.number_input("Monto inicial manual ($)",min_value=.01,value=float(st.session_state.auto_amount),step=.25)
+    page_header("Ajustes del bot","MOTOR v4.6.1")
+    st.markdown('<div class="card"><h4>Generación de señal</h4><p>Macaly + Alpha v4.6.1 · BTC 15 MIN.</p></div>',unsafe_allow_html=True)
+    st.session_state.auto_amount=st.number_input("Monto inicial ($)",min_value=.01,value=float(st.session_state.auto_amount),step=.25)
     st.session_state.auto_martingale=st.toggle("Martingala",value=bool(st.session_state.auto_martingale))
-    st.session_state.auto_limit_cents=st.select_slider("Precio de orden límite",options=list(range(1,100)),value=int(st.session_state.auto_limit_cents),format_func=lambda x:f"{x}¢")
+    st.session_state.auto_limit_cents=st.select_slider("Precio límite",options=list(range(1,100)),value=int(st.session_state.auto_limit_cents),format_func=lambda x:f"{x}¢")
     st.session_state.auto_take_profit=st.select_slider("Tomar profit",options=list(range(0,201,5)),value=int(st.session_state.auto_take_profit),format_func=lambda x:f"+{x}%")
     st.session_state.auto_max_levels=st.select_slider("Máximo de niveles",options=list(range(1,9)),value=int(st.session_state.auto_max_levels))
-    st.markdown(f'<div class="card"><h4>Saldo disponible</h4><p>Nivel actual {st.session_state.auto_level}/{st.session_state.auto_max_levels} · Próximo monto ${_amount_for_level():.2f}</p></div>',unsafe_allow_html=True)
-    st.markdown('<div class="psub">ELIGE LA DIRECCIÓN</div>',unsafe_allow_html=True)
     for level in range(1,int(st.session_state.auto_max_levels)+1):
         key=f"auto_level_direction_{level}"
         if key not in st.session_state:st.session_state[key]="Seguir señal"
-        st.selectbox(f"Nivel {level} · ${float(st.session_state.auto_amount)*(2**(level-1) if st.session_state.auto_martingale else 1):.2f}",["Seguir señal","Solo UP","Solo DOWN"],key=key)
-    st.markdown('<div class="psub">CONTINUIDAD</div>',unsafe_allow_html=True)
-    if "crit_continuity" not in st.session_state: st.session_state.crit_continuity=True
-    st.session_state.crit_continuity=st.toggle("Continuar operando después de cada resultado",value=bool(st.session_state.crit_continuity))
-    st.markdown('<div class="psub">FINALIZACIÓN</div>',unsafe_allow_html=True)
-    st.session_state.auto_stop_after_win=st.toggle("Apagar bot en la próxima operación ganadora",value=bool(st.session_state.auto_stop_after_win))
-    if "crit_sounds" not in st.session_state: st.session_state.crit_sounds=True
-    st.session_state.crit_sounds=st.toggle("Sonidos del bot",value=bool(st.session_state.crit_sounds))
-    if st.button("RESTAURAR PROGRESIÓN",use_container_width=True):st.session_state.auto_level=1;st.session_state.auto_last_status="PROGRESIÓN REINICIADA"
+        st.selectbox(f"Nivel {level}",["Seguir señal","Solo UP","Solo DOWN"],key=key)
+    st.session_state.auto_stop_after_win=st.toggle("Apagar en el próximo WIN",value=bool(st.session_state.auto_stop_after_win))
+    if st.button("RESTAURAR PROGRESIÓN",use_container_width=True):st.session_state.auto_level=1
     st.caption(st.session_state.auto_last_status)
 
 def settings_page():
     page_header("Ajustes")
-    st.markdown('<div class="card"><h4>CA &nbsp; Carlitoaldana</h4><p>Editar perfil</p></div>',unsafe_allow_html=True)
-    choice=st.radio("Menú",["Ajustes del bot","Conexión Kalshi","Top Traders","Alertas Telegram","Suscripción","Términos y Condiciones","Acerca del bot"],label_visibility="collapsed")
+    choice=st.radio("Menú",["Ajustes del bot","Conexión Kalshi"],label_visibility="collapsed")
     if choice=="Ajustes del bot":bot_settings()
-    elif choice=="Conexión Kalshi":connection_page()
-    else:st.info(f"{choice}: sección visual preparada; no hay backend configurado para esta opción.")
+    else:connection_page()
 
 def operations_page():
     page_header("Operaciones")
     hist=list(reversed(st.session_state.get("auto_history",[])));wins=sum(1 for x in hist if x.get("_won") is True);loss=sum(1 for x in hist if x.get("_won") is False);res=wins+loss;wr=wins/res*100 if res else 0
-    st.markdown(f'<div class="stats"><div class="stat"><small>PNL DEL DÍA</small><b>$0.00</b></div><div class="stat"><small>WIN RATE GENERAL</small><b>{wr:.0f}%</b></div><div class="stat"><small>GANADAS</small><b class="green">{wins}</b></div><div class="stat"><small>PERDIDAS</small><b class="red">{loss}</b></div></div>',unsafe_allow_html=True)
-    if not hist:st.info("Todavía no hay operaciones registradas hoy.")
+    st.markdown(f'<div class="stats"><div class="stat"><small>WIN RATE</small><b>{wr:.0f}%</b></div><div class="stat"><small>NIVEL ACTUAL</small><b>{st.session_state.auto_level}</b></div><div class="stat"><small>GANADAS</small><b class="green">{wins}</b></div><div class="stat"><small>PERDIDAS</small><b class="red">{loss}</b></div></div>',unsafe_allow_html=True)
+    if not hist:st.info("Todavía no hay operaciones registradas.")
     for x in hist[:40]:st.markdown(f'<div class="op"><div><b>{x.get("direction","--")}</b><br><small>{x.get("ticker","--")}</small></div><div><b>Nivel {x.get("level","--")}</b><br><small>{str(x.get("time",""))[:19]}</small></div></div>',unsafe_allow_html=True)
 
 def balance_page():
     page_header("Saldo en Kalshi")
     if st.session_state.kalshi_auth_ok:
         try:_,bal=kalshi_test_connection();amount=f"${bal}"
-        except:amount="--"
+        except Exception:amount="--"
     else:amount="--"
-    st.markdown(f'<div class="card"><div class="balance"><small>SALDO DISPONIBLE</small><b>{amount}</b><span class="green">+$0.00 (+0.00%)</span></div></div><div class="risk"><b>⚠ ADVERTENCIA DE RIESGO</b><br><br>Los mercados de predicciones implican riesgo y pueden ocasionar pérdidas. Las ganancias no están aseguradas. Opera de forma consciente y utiliza únicamente fondos que puedas permitirte perder.</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="card"><div class="balance"><small>SALDO DISPONIBLE</small><b>{amount}</b></div></div><div class="risk"><b>⚠ ADVERTENCIA DE RIESGO</b><br><br>Los mercados de predicción implican riesgo y pueden ocasionar pérdidas.</div>',unsafe_allow_html=True)
+
+def _close_clock(market):
+    if not market or not market.get("close_time"):return "--"
+    try:
+        dt=datetime.fromisoformat(str(market["close_time"]).replace("Z","+00:00")).astimezone(ZoneInfo("America/New_York"));h=dt.strftime("%I:%M").lstrip("0");ap="a. m." if dt.hour<12 else "p. m.";return f"{h} {ap}"
+    except Exception:return "--"
+
+def _reference_chart(tape,target,live,active):
+    vals=[float(x["p"]) for x in tape[-100:]] if tape else []
+    if len(vals)<2 and live is not None:vals=[float(live),float(live)]
+    if len(vals)<2:return '<div style="height:315px;display:grid;place-items:center;color:#68756f">Esperando precio live…</div>'
+    allv=vals+([float(target)] if target else []);lo=min(allv);hi=max(allv);span=max(hi-lo,1.0);lo-=span*.12;hi+=span*.12;span=hi-lo;W,H=300,315
+    def y(v):return 18+(hi-float(v))/span*(H-42)
+    pts=[(8+j*((W-18)/max(1,len(vals)-1)),y(v)) for j,v in enumerate(vals)];line=' '.join(f'{x:.1f},{yy:.1f}' for x,yy in pts);base=H-18;area=f'M {pts[0][0]:.1f},{base} L '+' L '.join(f'{x:.1f},{yy:.1f}' for x,yy in pts)+f' L {pts[-1][0]:.1f},{base} Z';color='#31d887' if (active=='UP' or vals[-1]>=vals[0]) else '#ff626b';grad='gup' if color=='#31d887' else 'gdn';target_svg=''
+    if target:
+        ty=y(target);target_svg=f'<line x1="8" y1="{ty:.1f}" x2="292" y2="{ty:.1f}" stroke="#87938e" stroke-width="1.3" stroke-dasharray="2 4"/><rect x="128" y="{ty-11:.1f}" width="73" height="20" rx="2" fill="#030806"/><text x="138" y="{ty+3:.1f}" fill="#87938e" font-size="9" font-weight="900">TARGET ︽</text>'
+    lx,ly=pts[-1];rings=f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="15" fill="none" stroke="{color}" opacity=".18" stroke-width="2"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="8" fill="none" stroke="{color}" opacity=".45" stroke-width="2"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="4.5" fill="{color}"/>';ticks=[hi,hi-span/3,hi-2*span/3,lo];scale=''.join(f'<span style="top:{4+j*31}%">${v:,.2f}</span>' for j,v in enumerate(ticks))
+    return f'<div class="chartwrap"><div class="sidebar"></div><div class="plot"><svg viewBox="0 0 {W} {H}" preserveAspectRatio="none"><defs><linearGradient id="gup" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#31d887" stop-opacity=".38"/><stop offset="1" stop-color="#31d887" stop-opacity="0"/></linearGradient><linearGradient id="gdn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff626b" stop-opacity=".38"/><stop offset="1" stop-color="#ff626b" stop-opacity="0"/></linearGradient></defs><path d="{area}" fill="url(#{grad})"/>{target_svg}<polyline points="{line}" fill="none" stroke="{color}" stroke-width="2.7" stroke-linejoin="round" stroke-linecap="round"/>{rings}</svg></div><div class="scale">{scale}</div></div>'
 
 @st.fragment(run_every="2s")
 def bot_page():
     try:btc_df=add_indicators(get_btc_data());btc_ok=True
-    except:btc_df=None;btc_ok=False
+    except Exception:btc_df=None;btc_ok=False
     try:market=get_kalshi_btc_market()
-    except:market=None
+    except Exception:market=None
     try:cb=get_btc_live_price()
-    except:cb=float(btc_df.iloc[-1]["close"]) if btc_ok else None
+    except Exception:cb=float(btc_df.iloc[-1]["close"]) if btc_ok else None
     try:kp=get_kalshi_live_btc(market) if market else None
-    except:kp=None
+    except Exception:kp=None
     live=kp if kp is not None else cb;ticker=market.get("ticker","--") if market else "--";target=get_target_from_market(market);seconds=get_seconds_remaining(market)
     if btc_ok:sig=build_signal(btc_df,target,seconds,live)
     else:sig={"price":live or 0,"rsi":50,"mom3":0,"mom5":0,"mom15":0,"vol_ratio":0,"ema":"N/A","final_score":0,"distance":None,"distance_pct":None,"up_probability":50,"down_probability":50}
-    rs=process_round_signal(ticker,sig,market,seconds);auto_trade_tick(ticker,market,rs);state=rs.get("round_state");active=state.get("active_direction") if state else None
-    update_micro_tape(ticker,live);reader=closing_reader(sig,rs,seconds,micro_reading());delta=(sig["price"]-target) if target else 0;pct=delta/target*100 if target else 0
-    tape=st.session_state.micro_prices[-90:]
-    if len(tape)>=2:
-        vals=[x["p"] for x in tape];allv=vals+([target] if target else []);lo,hi=min(allv),max(allv);span=max(hi-lo,1);pts=" ".join(f'{8+i*(336/max(1,len(vals)-1)):.1f},{211-(v-lo)/span*174:.1f}' for i,v in enumerate(vals));tl=f'<line x1="8" y1="{211-(target-lo)/span*174:.1f}" x2="344" y2="{211-(target-lo)/span*174:.1f}" stroke="#8b9791" stroke-dasharray="3 5"/>' if target else ""
-    else:pts="";tl=""
-    auto=bool(st.session_state.auto_enabled);sigtext=active or "ESPERANDO";sigcolor="#31db86" if active=="UP" else "#ff626b" if active=="DOWN" else "#ffbd39"
-    resolved=[x for x in st.session_state.get("auto_history",[]) if x.get("_won") is not None][-10:]
-    past_html=" ".join(("<span style=\"color:#31db86\">▲</span>" if x.get("_won") else "<span style=\"color:#ff626b\">▼</span>") for x in resolved) or '<span style="color:#66736d">— — — — —</span>'
-    st.markdown(f'<div class="crit"><div class="ctop"><div class="asset"><div class="coin">₿</div><div><div class="kicker">BTC · 15 MIN</div><div class="name">BTC/USD⌄</div></div></div><div class="auto">TRADING AUTOMÁTICO<div class="power {"on" if auto else ""}">⏻</div><div class="status {"on" if auto else ""}">● {"ON" if auto else "OFF"}</div></div></div><div class="market"><div><div class="lab">TARGET</div><div class="price">{f"${target:,.2f}" if target else "--"}</div><div class="sub">Cierre de ronda</div><div class="count">⌛ {format_countdown(seconds)}</div></div><div><div class="lab">CURRENT {"↑" if delta>=0 else "↓"}</div><div class="price green">${sig["price"]:,.2f}</div><div class="sub {"green" if delta>=0 else "red"}">{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class="live"><i></i>En vivo</div><div class="wormbox"><svg class="worm" viewBox="0 0 352 220" preserveAspectRatio="none">{tl}<polyline points="{pts}" fill="none" stroke="#31db86" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg></div><div class="past">PAST MARKETS &nbsp;<b>{past_html}</b></div><section class="mode"><div class="mhead"><span>⚡ GUÍA MANUAL</span><span>{"● ACTIVO" if st.session_state.signal_mode else "○ OFF"}</span></div><div class="mtitle">Modo Señales</div><div class="minner"><small>MERCADO ACTUAL · MOTOR v4.6.1</small><div class="msig" style="color:{sigcolor}">{sigtext}</div><small>{reader["headline"]} · {reader["percent"]}%</small></div></section><section class="reader"><small>SCORE {sig["final_score"]:+.2f}</small><strong>{rs.get("signal","--")}</strong><small>{rs.get("entry_quality","")}</small></section></div>',unsafe_allow_html=True)
+    rs=process_round_signal(ticker,sig,market,seconds);auto_trade_tick(ticker,market,rs);state=rs.get("round_state");active=state.get("active_direction") if state else None;update_micro_tape(ticker,live);reader=closing_reader(sig,rs,seconds,micro_reading());delta=(sig["price"]-target) if target else 0;pct=delta/target*100 if target else 0;auto=bool(st.session_state.auto_enabled);sigtext=active or "DESACTIVADO";sigcolor="#31db86" if active=="UP" else "#ff626b" if active=="DOWN" else "#ffbd39";resolved=[x for x in st.session_state.get("auto_history",[]) if x.get("_won") is not None][-10:];past_html=" ".join(("<span style='color:#31db86'>▲</span>" if x.get("_won") else "<span style='color:#ff626b'>▼</span>") for x in resolved) or '<span style="color:#66736d">— &nbsp; — &nbsp; — &nbsp; — &nbsp; —</span>';chart=_reference_chart(st.session_state.micro_prices,target,live,active);now=datetime.now(ZoneInfo("America/New_York"));times=[(now-pd.Timedelta(seconds=x)).strftime("%H:%M:%S") for x in (60,35,10,0)];current_class="green" if delta>=0 else "red";arrow="↑" if delta>=0 else "↓";mode_on=bool(st.session_state.signal_mode)
+    html=f"""<div class='crit'><div class='ctop'><div class='asset'><div class='coin'>₿</div><div><div class='kicker'>BTC · 15 MIN</div><div class='name'>BTC/USD⌄</div></div></div><div class='auto'>TRADING AUTOMÁTICO<div class='power {'on' if auto else ''}'>⏻</div><div class='status {'on' if auto else ''}'>● {'ON' if auto else 'OFF'}</div></div></div><div class='market'><div><div class='lab'>TARGET</div><div class='price'>{f'${target:,.2f}' if target else '--'}</div><div class='sub'>Cierre {_close_clock(market)}</div><div class='count'>⌛ {format_countdown(seconds)}</div></div><div><div class='lab'>CURRENT {arrow}</div><div class='price {current_class}'>${sig['price']:,.2f}</div><div class='sub {current_class}'>{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class='live'><i></i>En vivo</div>{chart}<div class='past'>PAST MARKETS &nbsp;<span class='arr'>{past_html}</span></div><div class='times'><span>{times[0]}</span><span>{times[1]}</span><span>{times[2]}</span><span>{times[3]}</span></div><section class='mode'><div class='mhead'><div class='guide'><div class='guideicon'>⌁</div><div><small>GUÍA MANUAL</small><div class='mtitle'>Modo Señales</div></div></div><div class='pill {'on' if mode_on else ''}'><i></i></div></div><div class='minner'><small>MERCADO ACTUAL · MOTOR v4.6.1</small><div class='msig' style='color:{sigcolor}'>{sigtext}</div><div class='mnote'>{reader['headline']} · {reader['percent']}%. Usa la señal de tu motor v4.6.1; no se añadió lógica de 2 velas.</div></div></section><section class='reader'><small>SCORE {sig['final_score']:+.2f}</small><strong>{rs.get('signal','--')}</strong><small>{rs.get('entry_quality','')}</small></section></div>"""
+    st.markdown(html,unsafe_allow_html=True)
     c1,c2=st.columns(2)
-    with c1:st.session_state.signal_mode=st.toggle("Modo Señales",value=bool(st.session_state.signal_mode))
+    with c1:st.session_state.signal_mode=st.toggle("Modo Señales",value=mode_on)
     with c2:
-        req=st.toggle("Trading Automático",value=bool(st.session_state.auto_enabled))
+        req=st.toggle("Trading Automático",value=auto)
         if req and not st.session_state.kalshi_auth_ok:st.session_state.auto_enabled=False;st.warning("Conecta Kalshi para activar automático.")
         else:st.session_state.auto_enabled=req
 
@@ -2305,8 +2304,7 @@ elif page=="Operaciones":operations_page()
 elif page=="Saldo":balance_page()
 elif page=="Ajustes":settings_page()
 
-st.markdown('<div style="height:6px"></div>',unsafe_allow_html=True)
 cols=st.columns(4)
-for col,label,icon in zip(cols,["Bot","Operaciones","Saldo","Ajustes"],["⚙","↗","▣","⚙"]):
+for col,label,icon in zip(cols,["Bot","Operaciones","Saldo","Ajustes"],["▣","↗","▤","⚙"]):
     with col:
         if st.button(f"{icon}\n{label}",key=f"nav_{label}",use_container_width=True):st.session_state.crit_page=label;st.rerun()
