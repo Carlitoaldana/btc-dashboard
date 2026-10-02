@@ -1192,6 +1192,23 @@ html,body,[data-testid="stAppViewContainer"],.stApp{background:#020806!important
   .st-key-signal_card_real [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child{flex:1 1 auto!important;width:calc(100% - 66px)!important}
   .st-key-signal_card_real [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child{flex:0 0 58px!important;width:58px!important}
 }
+
+/* FINAL iPHONE SIGNAL CARD OVERRIDES — no Streamlit columns */
+.st-key-signal_card_real{position:relative!important;padding:13px 12px 14px!important;margin:0 2px 105px!important;min-height:0!important;overflow:visible!important}
+.st-key-signal_card_real [data-testid="stVerticalBlock"]{gap:0!important}
+.st-key-signal_card_real .signal-title-real{padding-right:82px!important;min-height:58px!important}
+.st-key-signal_card_real .st-key-signal_mode{position:absolute!important;top:23px!important;right:18px!important;width:64px!important;height:34px!important;z-index:50!important;margin:0!important;padding:0!important}
+.st-key-signal_card_real .st-key-signal_mode>div{position:static!important;width:64px!important;height:34px!important;margin:0!important;padding:0!important}
+.st-key-signal_card_real .st-key-signal_mode [data-testid="stWidgetLabel"]{display:none!important}
+.st-key-signal_card_real .st-key-signal_mode label{margin:0!important;padding:0!important;width:64px!important;min-height:34px!important}
+.st-key-signal_card_real .st-key-signal_mode [data-baseweb="checkbox"]{width:64px!important;min-width:64px!important}
+.st-key-signal_card_real .sigbody-real{margin-top:8px!important;padding:13px 12px!important;min-height:148px!important}
+.st-key-signal_card_real .sigword{font-size:25px!important;margin:12px 0 8px!important}
+.st-key-signal_card_real .sigdesc{font-size:10px!important;line-height:1.35!important;padding-right:4px!important}
+@media(max-width:640px){
+ .st-key-signal_card_real{margin-bottom:105px!important}
+ .st-key-signal_card_real .signal-title-real{padding-right:82px!important}
+}
 </style>''',unsafe_allow_html=True)
 
 @st.fragment(run_every='2s')
@@ -1214,11 +1231,10 @@ def bot_page():
     # Modo Señales: componente REAL. El switch vive dentro del mismo contenedor,
     # no se posiciona encima de HTML separado (eso era lo que desaparecía en iPhone).
     with st.container(border=True, key='signal_card_real'):
-        left, right = st.columns([4.6, 1.15], vertical_alignment='center')
-        with left:
-            st.markdown('<div class="signal-title-real"><div class="sigicon-real">⌁</div><div><small>GUÍA MANUAL</small><b>Modo Señales</b></div></div>', unsafe_allow_html=True)
-        with right:
-            enabled = st.toggle('Modo Señales', key='signal_mode', label_visibility='collapsed')
+        # Header and toggle are deliberately NOT st.columns(): iPhone stacks Streamlit columns.
+        # The real Streamlit toggle is anchored absolutely inside this one card.
+        st.markdown('<div class="signal-title-real"><div class="sigicon-real">⌁</div><div><small>GUÍA MANUAL</small><b>Modo Señales</b></div></div>', unsafe_allow_html=True)
+        enabled = st.toggle('Modo Señales', key='signal_mode', label_visibility='collapsed')
 
         if enabled and active in ('UP','DOWN'):
             prob=int(sig['up_probability'] if active=='UP' else sig['down_probability'])
