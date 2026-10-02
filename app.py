@@ -1,251 +1,1353 @@
 import streamlit as st
-import requests, pandas as pd, numpy as np, sqlite3, json, os, uuid, time, base64
+import requests
+import pandas as pd
+import numpy as np
 from datetime import datetime, timezone
 from pathlib import Path
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import padding
+import base64
+import time
+import uuid
+import math
+import subprocess
+import tempfile
 
-st.set_page_config(page_title="Alpha Autónomo", page_icon="⚡", layout="centered", initial_sidebar_state="collapsed")
-NEW_ROUND_WAIT=30
-NEW_ENTRY_LOCK=75
-UP_THRESHOLD=4.0
-DOWN_THRESHOLD=-4.0
-EARLY_UP_THRESHOLD=3.50
-EARLY_DOWN_THRESHOLD=-3.50
-EARLY_CONFIRMATIONS=2
-FLIP_UP_THRESHOLD=4.75
-FLIP_DOWN_THRESHOLD=-4.75
-FLIP_CONFIRMATIONS=2
-DB_PATH="alpha_autonomo.db"
+# =========================================================
+# MACALY + ALPHA BOT v4.6.1 • MOBILE PRO UI
+# BTC 15 MIN • SAME v4.6.1 SIGNAL ENGINE
+# =========================================================
 
-def utc_now():
-    return datetime.now(timezone.utc)
+st.set_page_config(
+    page_title="BTC Signal v4.6.1",
+    page_icon="⚡",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+
+# =========================================================
+# CONFIGURACIÓN ORIGINAL
+# =========================================================
+
+NEW_ROUND_WAIT = 30
+NEW_ENTRY_LOCK = 75
+
+UP_THRESHOLD = 4.0
+DOWN_THRESHOLD = -4.0
+
+FLIP_UP_THRESHOLD = 4.75
+FLIP_DOWN_THRESHOLD = -4.75
+FLIP_CONFIRMATIONS = 2
+
+# =========================================================
+# DISEÑO MOBILE — BASADO EN LA REFERENCIA APROBADA
+# =========================================================
+
+st.markdown(
+    """
+<style>
+#MainMenu, footer, header {visibility:hidden;}
+[data-testid="stToolbar"] {display:none;}
+[data-testid="stDecoration"] {display:none;}
+[data-testid="stStatusWidget"] {display:none;}
+
+html, body, [class*="css"] {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.stApp {
+    background:
+      radial-gradient(circle at 50% -12%, rgba(31,65,104,.24), transparent 30%),
+      #070b11;
+    color:#f4f7fb;
+}
+
+.block-container {
+    max-width:410px !important;
+    padding:8px 10px 24px !important;
+}
+
+div[data-testid="stVerticalBlock"] {gap:.55rem;}
+
+.topbar {
+    position:relative;
+    min-height:45px;
+    padding:3px 2px 4px;
+    text-align:center;
+}
+.brand {
+    color:#f8fafc;
+    font-size:13px;
+    line-height:1.05;
+    font-weight:950;
+    letter-spacing:.15px;
+}
+.version {
+    color:#647184;
+    font-size:7px;
+    font-weight:800;
+    margin-top:2px;
+}
+.live {
+    position:absolute;
+    right:3px;
+    top:27px;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    color:#91a0b3;
+    font-size:7.5px;
+    font-weight:800;
+}
+.live-dot {
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:#2ee67b;
+    box-shadow:0 0 10px rgba(46,230,123,.8);
+}
+
+.hero {
+    text-align:center;
+    padding:0 4px 8px;
+}
+.hero-signal {
+    font-size:58px;
+    line-height:.96;
+    font-weight:1000;
+    letter-spacing:-3px;
+    text-shadow:0 0 28px var(--glow);
+}
+.hero-wait {
+    font-size:31px;
+    line-height:1.03;
+    font-weight:1000;
+    letter-spacing:-1.2px;
+    color:#51bff3;
+    text-shadow:0 0 22px rgba(56,189,248,.20);
+}
+.confidence {
+    display:inline-block;
+    margin-top:10px;
+    padding:5px 12px;
+    border-radius:7px;
+    font-size:10px;
+    font-weight:1000;
+    letter-spacing:.4px;
+    border:1px solid var(--accent);
+    color:var(--accent);
+    background:var(--soft);
+}
+
+.two {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:7px;
+}
+.mini {
+    min-height:61px;
+    background:linear-gradient(180deg,#101722,#0c121b);
+    border:1px solid #1b2735;
+    border-radius:10px;
+    padding:8px 9px;
+}
+.mini-label {
+    color:#69778a;
+    font-size:8px;
+    font-weight:900;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+    margin-bottom:5px;
+}
+.mini-value {
+    color:#f4f7fb;
+    font-size:18px;
+    font-weight:950;
+    letter-spacing:-.4px;
+}
+.mini-sub {
+    color:#7e8b9e;
+    font-size:9px;
+    font-weight:800;
+    margin-top:3px;
+}
+.green {color:#36e985;}
+.red {color:#ff5363;}
+.blue {color:#54c6f5;}
+.amber {color:#f7bd4d;}
+
+.section {
+    background:linear-gradient(180deg,#0f1620,#0b1119);
+    border:1px solid #1b2735;
+    border-radius:11px;
+    padding:11px;
+    margin-top:8px;
+}
+.section-title {
+    color:#8b98aa;
+    font-size:9px;
+    font-weight:1000;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+    margin-bottom:8px;
+}
+.prob-row {
+    display:flex;
+    align-items:center;
+    gap:7px;
+}
+.prob-up, .prob-down {
+    height:12px;
+    border-radius:4px;
+    min-width:2px;
+}
+.prob-up {
+    background:linear-gradient(90deg,#1bcf6a,#53ef8d);
+    box-shadow:0 0 10px rgba(46,230,123,.18);
+}
+.prob-down {
+    background:linear-gradient(90deg,#ff3d50,#ff6876);
+    box-shadow:0 0 10px rgba(255,76,91,.18);
+}
+.prob-labels {
+    display:flex;
+    justify-content:space-between;
+    margin-top:7px;
+    font-size:10px;
+    font-weight:900;
+}
+
+.close-reader {
+    border-radius:11px;
+    padding:12px;
+    margin-top:8px;
+    border:1px solid var(--reader-border);
+    background:var(--reader-bg);
+    box-shadow:inset 0 0 25px rgba(0,0,0,.10);
+}
+.reader-top {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    color:#e9eef5;
+    font-size:9px;
+    font-weight:1000;
+    letter-spacing:.7px;
+}
+.reader-active {
+    padding:3px 7px;
+    border-radius:8px;
+    color:#57ee91;
+    border:1px solid rgba(69,231,129,.55);
+    background:rgba(28,153,78,.15);
+    font-size:8px;
+}
+.reader-main {
+    display:grid;
+    grid-template-columns:1fr 70px;
+    align-items:center;
+    gap:8px;
+    margin-top:12px;
+}
+.reader-text {
+    color:#f6f8fb;
+    font-size:15px;
+    line-height:1.15;
+    font-weight:1000;
+}
+.reader-note {
+    color:#8390a2;
+    font-size:8px;
+    line-height:1.35;
+    margin-top:6px;
+}
+.ring {
+    --p:50;
+    --ring:#36e985;
+    width:66px;
+    height:66px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    background:conic-gradient(var(--ring) calc(var(--p)*1%), #27313e 0);
+    position:relative;
+}
+.ring:after {
+    content:"";
+    position:absolute;
+    width:51px;
+    height:51px;
+    border-radius:50%;
+    background:#0b1119;
+}
+.ring span {
+    position:relative;
+    z-index:1;
+    color:#f7fafc;
+    font-size:15px;
+    font-weight:1000;
+}
+
+.tech-grid {
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:3px;
+    text-align:center;
+}
+.tech-label {
+    color:#637084;
+    font-size:6.5px;
+    font-weight:900;
+    letter-spacing:.25px;
+    text-transform:uppercase;
+}
+.tech-value {
+    color:#eef3f9;
+    font-size:10px;
+    font-weight:1000;
+    margin-top:5px;
+    overflow:hidden;
+    white-space:nowrap;
+}
+
+.ticker {
+    text-align:center;
+    color:#4f5c6f;
+    font-size:7.5px;
+    font-weight:800;
+    margin-top:8px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.footer-nav {
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    text-align:center;
+    padding:10px 2px 1px;
+    margin-top:7px;
+    border-top:1px solid #182331;
+}
+.nav-item {
+    color:#5f6c7e;
+    font-size:8px;
+    font-weight:800;
+}
+.nav-active {color:var(--accent);}
+
+.alert {
+    border-radius:10px;
+    padding:10px;
+    margin-top:8px;
+    text-align:center;
+    color:#ffd260;
+    background:rgba(116,78,7,.18);
+    border:1px solid rgba(247,189,77,.42);
+    font-size:10px;
+    font-weight:900;
+}
+
+/* ===== REFERENCE UI OVERRIDES ===== */
+.block-container{
+    max-width:390px !important;
+    padding:5px 9px 20px !important;
+}
+.topbar{
+    min-height:39px !important;
+    padding:2px 1px 3px !important;
+}
+.brand{font-size:12px !important;}
+.version{font-size:6.5px !important;color:#536174 !important;}
+.live{top:23px !important;font-size:6.8px !important;}
+
+.hero{padding:0 2px 5px !important;}
+.hero-signal{
+    font-size:55px !important;
+    line-height:.90 !important;
+    letter-spacing:-4px !important;
+}
+.confidence{
+    margin-top:8px !important;
+    padding:4px 9px !important;
+    border-radius:6px !important;
+    font-size:8px !important;
+}
+
+.two{
+    gap:6px !important;
+    margin-top:6px !important;
+}
+.mini{
+    min-height:57px !important;
+    padding:7px 8px !important;
+    border-radius:8px !important;
+    background:#0d141d !important;
+    border-color:#172230 !important;
+}
+.mini-label{font-size:6.8px !important;margin-bottom:3px !important;}
+.mini-value{font-size:15px !important;line-height:1.05 !important;}
+.mini-sub{font-size:6.8px !important;margin-top:2px !important;}
+
+.section{
+    padding:8px !important;
+    margin-top:6px !important;
+    border-radius:8px !important;
+    background:#0c131c !important;
+    border-color:#172230 !important;
+}
+.section-title{
+    font-size:7px !important;
+    margin-bottom:6px !important;
+}
+.prob-row{gap:5px !important;}
+.prob-up,.prob-down{height:15px !important;border-radius:3px !important;}
+.prob-labels{margin-top:5px !important;font-size:7.5px !important;}
+
+.close-reader{
+    padding:9px !important;
+    margin-top:6px !important;
+    border-radius:8px !important;
+}
+.reader-top{font-size:7px !important;}
+.reader-active{font-size:6px !important;padding:2px 5px !important;}
+.reader-main{
+    grid-template-columns:1fr 58px !important;
+    margin-top:7px !important;
+}
+.reader-text{font-size:11px !important;line-height:1.08 !important;}
+.reader-note{font-size:6.5px !important;margin-top:4px !important;}
+.ring{width:54px !important;height:54px !important;}
+.ring:after{width:42px !important;height:42px !important;}
+.ring span{font-size:12px !important;}
+
+.tech-grid{gap:0 !important;}
+.tech-grid > div{
+    padding:0 4px !important;
+    border-right:1px solid #1c2734;
+}
+.tech-grid > div:last-child{border-right:none;}
+.tech-label{font-size:5.8px !important;}
+.tech-value{font-size:8.5px !important;margin-top:3px !important;}
+
+.ref-features{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:4px;
+    padding:8px 2px 6px;
+    margin-top:6px;
+    border-top:1px solid #182331;
+}
+.ref-feature{
+    display:grid;
+    grid-template-columns:22px 1fr;
+    gap:5px;
+    align-items:center;
+    color:#66758a;
+    font-size:5.6px;
+    line-height:1.22;
+}
+.ref-feature-icon{
+    width:20px;height:20px;border-radius:50%;
+    display:grid;place-items:center;
+    border:1px solid #28dd79;
+    color:#34e982;
+    font-size:10px;font-weight:1000;
+}
+.ref-feature strong{
+    display:block;color:#cfd7e1;
+    font-size:5.8px;margin-bottom:1px;
+}
+.ref-footer{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    padding:5px 1px 1px;
+    border-top:1px solid #131d29;
+    color:#435064;
+    font-size:5.2px;
+    font-weight:800;
+}
+.footer-nav{
+    padding:7px 2px 1px !important;
+    margin-top:4px !important;
+}
+.nav-item{font-size:6.8px !important;}
 
 
-def dt_text(v):
-    return v.astimezone(timezone.utc).isoformat() if isinstance(v, datetime) else None
+/* FINAL REFERENCE MATCH */
+.block-container{max-width:430px!important;padding:7px 10px 22px!important}
+.topbar{min-height:48px!important;padding:4px 2px 5px!important;text-align:center!important}
+.brand{font-size:15px!important}.version{font-size:8px!important}
+.live{top:29px!important;right:4px!important;font-size:8px!important}
+.hero{padding:2px 2px 7px!important}
+.hero-signal{font-size:72px!important;line-height:.86!important;letter-spacing:-5px!important;text-shadow:0 0 12px currentColor,0 0 28px currentColor!important}
+.confidence{font-size:10px!important;padding:5px 16px!important;border-radius:18px!important;margin-top:9px!important}
+.two{gap:7px!important;margin-top:7px!important}
+.mini{min-height:72px!important;padding:9px 10px!important;border-radius:9px!important}
+.mini-label{font-size:8px!important}.mini-value{font-size:19px!important}.mini-sub{font-size:8px!important}
+.section{padding:9px!important;margin-top:7px!important;border-radius:9px!important}
+.section-title{font-size:8px!important;margin-bottom:6px!important}
+.prob-up,.prob-down{height:20px!important}.prob-labels{font-size:9px!important}
+.close-reader{padding:10px 11px!important;margin-top:7px!important;border-radius:10px!important}
+.reader-top{font-size:9px!important}.reader-active{font-size:7px!important}
+.reader-main{grid-template-columns:1fr 68px!important;margin-top:8px!important}
+.reader-text{font-size:15px!important;line-height:1.08!important}.reader-note{font-size:7.5px!important}
+.ring{width:64px!important;height:64px!important}.ring:after{width:50px!important;height:50px!important}.ring span{font-size:15px!important}
+.tech-label{font-size:6.5px!important}.tech-value{font-size:10px!important}
+.footer-nav{padding:9px 2px 7px!important}.nav-item{font-size:8px!important}
+.ref-features{padding:9px 3px 7px!important}.ref-feature{font-size:6px!important}
+.ref-feature strong{font-size:6.2px!important}.ref-footer{font-size:5.6px!important}
+.ref-icon{font-size:23px;line-height:1;margin-right:8px;display:inline-block;vertical-align:middle}
+.ref-btc{color:#ff9f0a}.ref-target{color:#a9c9f3}
+.ref-bars{display:inline-flex;gap:2px;align-items:flex-end;height:19px;margin-right:8px;vertical-align:middle}
+.ref-bars i{display:block;width:5px;background:var(--accent);border-radius:1px}
+.ref-bars i:nth-child(1){height:7px}.ref-bars i:nth-child(2){height:12px}.ref-bars i:nth-child(3){height:18px}
+.ref-clock{font-size:23px;color:#b9d5f5;margin-right:8px;vertical-align:middle}
+.ref-timebar{height:5px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}
+.ref-timebar b{display:block;height:100%;width:58%;background:var(--accent);border-radius:5px}
+.tech-head{display:flex;justify-content:space-between;align-items:center}
+.tech-chevron{font-size:13px;color:#b6c6da}
 
 
-def parse_dt(v):
-    if not v:
-        return None
-    try:
-        return datetime.fromisoformat(str(v).replace("Z", "+00:00"))
-    except Exception:
-        return None
+/* ===== REBUILT REFERENCE FRONTEND ===== */
+.block-container{max-width:430px!important;padding:4px 9px 18px!important}
+.refapp{font-family:Arial,sans-serif;color:#eaf2fb}
+.rhead{height:54px;position:relative;text-align:center;padding-top:7px}
+.rtitle{font-size:15px;font-weight:900}.rver{font-size:9px;color:#9badc3;margin-top:2px}
+.gear{position:absolute;right:9px;top:7px;font-size:19px;color:#a9c9ec}
+.rlive{position:absolute;right:8px;bottom:1px;font-size:9px;color:#b9c9db}
+.rlive i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-right:5px;box-shadow:0 0 12px var(--accent)}
+.rhero{text-align:center;padding:4px 0 8px}
+.rsignal{display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:72px;font-weight:1000;line-height:.82;letter-spacing:-5px;text-shadow:0 0 12px var(--glow),0 0 25px var(--glow)}
+.rarrow{font-size:79px;margin-right:5px;line-height:.7}.rhero.waiting .rsignal{font-size:39px;letter-spacing:-2px}.rhero.waiting .rarrow{display:none}
+.rconf{display:inline-block;margin-top:11px;border:1.5px solid var(--accent);border-radius:18px;padding:5px 17px;color:#fff;font-size:10px;font-weight:900;box-shadow:0 0 10px var(--soft)}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+.rcard{background:linear-gradient(180deg,#0d1823,#09131c);border:1px solid #203348;border-radius:8px}
+.keycard{height:68px;padding:8px 9px;display:flex;align-items:center;gap:8px}
+.bigicon{font-size:31px;font-weight:900;line-height:1}.btcicon{color:#ff9d00}.targeticon{color:#a9cff5}
+.rlabel{font-size:8px;color:#b9c9dc;letter-spacing:.4px}.rvalue{font-size:19px;font-weight:900;line-height:1.05;margin-top:2px}.rdelta{font-size:9px;font-weight:900;margin-top:2px}
+.green{color:#32e981!important}.red{color:#ff4c5d!important}
+.bars{display:flex;align-items:flex-end;gap:3px;width:31px;height:30px}.bars b{width:7px;background:var(--accent);border-radius:2px}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
+.clock{font-size:30px;color:#b9d8f7}.timecontent{flex:1}.timebar{height:6px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}.timebar b{display:block;height:100%;background:var(--accent);border-radius:5px}
+.probs{margin-top:6px;padding:8px}.pbar{display:flex;gap:4px;margin-top:5px}.pup,.pdown{height:21px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;border-radius:4px}.pup{background:linear-gradient(90deg,#10d76d,#54ed91);color:#06331d}.pdown{background:linear-gradient(90deg,#ff3548,#ff6472);color:#3d0710}.pleg{display:flex;justify-content:space-between;font-size:10px;font-weight:900;margin-top:6px}
+.reader{margin-top:6px;border:1.5px solid var(--rb);background:var(--rbg);border-radius:9px;padding:9px 10px}
+.readerhead{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--rr)}.readerhead .pulse{font-size:18px}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#45ec8e}
+.readerbody{display:grid;grid-template-columns:1fr 65px;align-items:center;margin-top:7px}.readerbody strong{display:block;font-size:15px;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:7px;margin-top:5px}
+.rring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:48px;height:48px;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:15px;font-weight:900}
+.tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
+.rnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #203448;border-bottom:1px solid #203448;margin-top:7px;padding:7px 0}.rnav div{text-align:center;color:#9db0c5;font-size:8px}.rnav b{display:block;font-size:17px;margin-bottom:2px}.rnav .active{color:var(--accent)}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 1px}.features>div{display:flex;gap:5px;align-items:center}.features>div>b{width:25px;height:25px;border:1px solid #28e57f;border-radius:50%;display:grid;place-items:center;color:#35e986;font-size:13px}.features p{margin:0}.features strong{display:block;font-size:5.7px;color:#e1e8f0}.features span{display:block;font-size:5.4px;color:#8c9db0;margin-top:2px}
+.refapp footer{border-top:1px solid #182a3a;padding:5px 1px;display:flex;justify-content:space-between;color:#708197;font-size:5.2px}
+.ticker{text-align:center;color:#53667d;font-size:6px;margin-top:5px}
 
 
-def new_round_state(ticker, seconds_left):
-    n = utc_now()
-    return {
-        "ticker": ticker, "detected_at": n, "detected_seconds_left": seconds_left,
-        "first_direction": None, "first_signal_time": None, "first_signal_seconds": None,
-        "first_signal_price": None, "first_signal_btc": None, "first_signal_target": None,
-        "first_signal_score": None, "first_up_probability": None, "first_down_probability": None,
-        "active_direction": None, "active_since": None,
-        "last_score": 0.0, "previous_score": 0.0, "opposite_count": 0,
-        "candidate_direction": None, "candidate_count": 0,
-        "last_live_price": None, "previous_live_price": None,
-        "reversal_warning": False, "reversal_text": "",
-        "last_target": None, "last_seconds_left": seconds_left, "last_seen_at": n,
-    }
+/* ===== FINAL PHONE REFERENCE PROPORTIONS ===== */
+.block-container{max-width:365px!important;padding:3px 7px 14px!important}
+.rhead{height:49px!important;padding-top:4px!important}
+.rtitle{font-size:14px!important}.rver{font-size:8px!important}
+.gear{right:7px!important;top:4px!important;font-size:18px!important}
+.rlive{right:7px!important;bottom:0!important;font-size:8px!important}
+.rhero{padding:1px 0 7px!important}
+.rsignal{font-size:61px!important;line-height:.80!important;letter-spacing:-4px!important}
+.rarrow{font-size:66px!important;margin-right:4px!important}
+.rhero.waiting .rsignal{font-size:29px!important;letter-spacing:-1px!important}
+.rconf{margin-top:9px!important;padding:4px 14px!important;font-size:9px!important}
+.rgrid{gap:5px!important}
+.keycard{height:57px!important;padding:6px 8px!important;gap:7px!important}
+.bigicon{font-size:27px!important}.bars{width:27px!important;height:26px!important}.clock{font-size:27px!important}
+.rlabel{font-size:7px!important}.rvalue{font-size:16px!important}.rdelta{font-size:8px!important}
+.timebar{height:5px!important;margin-top:4px!important}
+.probs{margin-top:5px!important;padding:7px!important}.pup,.pdown{height:18px!important;font-size:9px!important}
+.pleg{font-size:9px!important;margin-top:5px!important}
+.reader{margin-top:5px!important;padding:7px 8px!important}
+.readerhead{font-size:8px!important}.readerhead .pulse{font-size:15px!important}
+.readerbody{grid-template-columns:1fr 58px!important;margin-top:5px!important}
+.readerbody strong{font-size:13px!important}.readerbody small{font-size:6.3px!important;margin-top:3px!important}
+.rring{width:55px!important;height:55px!important}.rring:after{width:43px!important;height:43px!important}.rring span{font-size:13px!important}
+.tech{margin-top:5px!important;padding:6px 7px!important}.techhead{font-size:8px!important;padding-bottom:5px!important}
+.techrow>div{padding:5px 1px 1px!important}.techrow small,.techrow i{font-size:5.3px!important}.techrow b{font-size:9px!important;margin:3px 0!important}
+.rnav{margin-top:6px!important;padding:6px 0!important}.rnav div{font-size:7px!important}.rnav b{font-size:15px!important}
+.features{padding:7px 1px 5px!important;gap:3px!important}.features>div{gap:4px!important}
+.features>div>b{width:22px!important;height:22px!important;font-size:11px!important}
+.features strong{font-size:5px!important}.features span{font-size:4.8px!important}
+.refapp footer{padding:4px 1px!important;font-size:4.7px!important}
+.ticker{font-size:5.3px!important;margin-top:4px!important}
+
+/* Make arrows chunky like the reference rather than thin text arrows */
+.rarrow{font-family:Arial Black,Arial,sans-serif!important;font-weight:1000!important}
 
 
-DB_COLS = [
-    "ticker", "detected_at", "detected_seconds_left", "first_direction", "first_signal_time",
-    "first_signal_seconds", "first_signal_price", "first_signal_btc", "first_signal_target",
-    "first_signal_score", "first_up_probability", "first_down_probability", "active_direction",
-    "active_since", "last_score", "previous_score", "opposite_count", "candidate_direction",
-    "candidate_count", "last_live_price", "previous_live_price", "reversal_warning",
-    "reversal_text", "last_target", "last_seconds_left", "last_seen_at"
-]
+/* ===== TRUE FINAL: CSS ARROW + VISIBLE HEADER ===== */
+.rhead{
+    display:block!important;
+    visibility:visible!important;
+    height:58px!important;
+    min-height:58px!important;
+    padding-top:7px!important;
+    overflow:visible!important;
+    position:relative!important;
+    z-index:20!important;
+}
+.rtitle,.rver,.gear,.rlive{display:block!important;visibility:visible!important}
+.rtitle{font-size:14px!important;line-height:17px!important}
+.rver{font-size:8px!important;line-height:11px!important}
+.gear{top:7px!important;right:8px!important}
+.rlive{bottom:3px!important;right:8px!important}
+
+.rhero{padding-top:4px!important}
+.rsignal{gap:9px!important}
+.rarrow{display:none!important}
+
+/* Solid arrow matching signal color; no iOS emoji rendering */
+.cssarrow{
+    position:relative;
+    display:inline-block;
+    width:42px;
+    height:46px;
+    background:var(--accent);
+    border-radius:3px;
+    box-shadow:0 0 12px var(--glow),0 0 24px var(--glow);
+    flex:0 0 auto;
+}
+.cssarrow:before{
+    content:"";
+    position:absolute;
+    left:-17px;
+    top:-27px;
+    width:0;height:0;
+    border-left:38px solid transparent;
+    border-right:38px solid transparent;
+    border-bottom:34px solid var(--accent);
+    filter:drop-shadow(0 0 7px var(--glow));
+}
+/* DOWN: arrow head below shaft */
+.refapp.dir-down .cssarrow{transform:rotate(180deg);}
+/* Waiting state: no arrow */
+.rhero.waiting .cssarrow{display:none!important}
+
+/* Keep final phone proportions compact */
+.block-container{max-width:365px!important;padding-top:3px!important}
+.rgrid{margin-top:1px!important}
+.reader{min-height:0!important}
 
 
-def db_connect():
-    c = sqlite3.connect(DB_PATH, timeout=5)
-    c.execute("""CREATE TABLE IF NOT EXISTS rounds(
-        ticker TEXT PRIMARY KEY, detected_at TEXT, detected_seconds_left INTEGER,
-        first_direction TEXT, first_signal_time TEXT, first_signal_seconds INTEGER,
-        first_signal_price REAL, first_signal_btc REAL, first_signal_target REAL,
-        first_signal_score REAL, first_up_probability INTEGER, first_down_probability INTEGER,
-        active_direction TEXT, active_since TEXT, last_score REAL, previous_score REAL,
-        opposite_count INTEGER, candidate_direction TEXT, candidate_count INTEGER,
-        last_live_price REAL, previous_live_price REAL, reversal_warning INTEGER,
-        reversal_text TEXT, last_target REAL, last_seconds_left INTEGER, last_seen_at TEXT
-    )""")
-    c.commit()
-    return c
+.chartbox{margin-top:10px;background:linear-gradient(180deg,#08121d,#060c14);border:1px solid #203a51;border-radius:12px;padding:10px 8px 8px;box-shadow:inset 0 0 28px rgba(20,80,110,.08)}
+.charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
-
-def save_state(s):
-    d = dict(s)
-    for k in ["detected_at", "first_signal_time", "active_since", "last_seen_at"]:
-        d[k] = dt_text(s.get(k))
-    d["reversal_warning"] = int(bool(s.get("reversal_warning")))
-    try:
-        c = db_connect()
-        q = ",".join(["?"] * len(DB_COLS))
-        updates = ",".join(f"{k}=excluded.{k}" for k in DB_COLS if k != "ticker")
-        c.execute(f'INSERT INTO rounds ({",".join(DB_COLS)}) VALUES ({q}) ON CONFLICT(ticker) DO UPDATE SET {updates}', [d.get(k) for k in DB_COLS])
-        c.commit(); c.close()
-    except Exception:
-        pass
-
-
-def load_state(ticker):
-    if not ticker:
-        return None
-    try:
-        c = db_connect(); cur = c.execute("SELECT * FROM rounds WHERE ticker=?", (ticker,)); row = cur.fetchone()
-        if not row:
-            c.close(); return None
-        cols = [x[0] for x in cur.description]; c.close(); d = dict(zip(cols, row))
-        s = new_round_state(ticker, d.get("detected_seconds_left")); s.update(d)
-        for k in ["detected_at", "first_signal_time", "active_since", "last_seen_at"]:
-            s[k] = parse_dt(d.get(k))
-        s["detected_at"] = s["detected_at"] or utc_now()
-        s["reversal_warning"] = bool(d.get("reversal_warning"))
-        s["last_score"] = float(d.get("last_score") or 0); s["previous_score"] = float(d.get("previous_score") or 0)
-        s["opposite_count"] = int(d.get("opposite_count") or 0); s["candidate_count"] = int(d.get("candidate_count") or 0)
-        return s
-    except Exception:
-        return None
-
-
-def load_history(limit=12):
-    try:
-        c = db_connect(); rows = c.execute("SELECT ticker FROM rounds ORDER BY detected_at DESC LIMIT ?", (limit,)).fetchall(); c.close()
-        return [s for s in (load_state(r[0]) for r in rows) if s]
-    except Exception:
-        return []
-
+# =========================================================
+# SESSION STATE ORIGINAL
+# =========================================================
 
 if "rounds" not in st.session_state:
     st.session_state.rounds = {}
+
 if "active_ticker" not in st.session_state:
     st.session_state.active_ticker = None
 
+if "micro_prices" not in st.session_state:
+    st.session_state.micro_prices = []
+
+if "micro_ticker" not in st.session_state:
+    st.session_state.micro_ticker = None
+
+
+# =========================================================
+# KALSHI AUTO TRADING — CAPA SEPARADA DEL MOTOR v4.6.1
+# =========================================================
+_AUTO_DEFAULTS = {
+    "kalshi_auth_ok": False,
+    "kalshi_auth_message": "No conectado",
+    "auto_enabled": False,
+    "auto_amount": 0.50,
+    "auto_limit_cents": 50,
+    "auto_take_profit": 90,
+    "auto_martingale": False,
+    "auto_max_levels": 4,
+    "auto_level": 1,
+    "auto_stop_after_win": False,
+    "auto_last_ticker": None,
+    "auto_last_order": None,
+    "auto_last_status": "AUTO APAGADO",
+    "auto_history": [],
+}
+for _k, _v in _AUTO_DEFAULTS.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
+
+
+
+KALSHI_API_BASE = "https://external-api.kalshi.com"
+KALSHI_API_PREFIX = "/trade-api/v2"
+
+def _kalshi_sign(message):
+    """RSA-PSS/SHA256 signature using system OpenSSL; no Python crypto package required."""
+    pem = st.session_state.get("kalshi_private_key_input", "")
+    if not pem:
+        raise ValueError("Falta la Private Key.")
+    key_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
+            f.write(pem.strip() + "\n")
+            key_path = f.name
+        proc = subprocess.run(
+            [
+                "openssl", "dgst", "-sha256",
+                "-sigopt", "rsa_padding_mode:pss",
+                "-sigopt", "rsa_pss_saltlen:digest",
+                "-sign", key_path,
+            ],
+            input=message,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+        )
+        if proc.returncode != 0:
+            raise ValueError("Private Key inválida o OpenSSL no pudo firmar.")
+        return proc.stdout
+    finally:
+        if key_path:
+            try:
+                Path(key_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+def _kalshi_headers(method, path):
+    key_id = st.session_state.get("kalshi_api_key_input", "").strip()
+    if not key_id:
+        raise ValueError("Falta el API Key ID.")
+    ts = str(int(time.time() * 1000))
+    clean_path = path.split("?", 1)[0]
+    msg = f"{ts}{method.upper()}{clean_path}".encode("utf-8")
+    signature = _kalshi_sign(msg)
+    return {
+        "KALSHI-ACCESS-KEY": key_id,
+        "KALSHI-ACCESS-TIMESTAMP": ts,
+        "KALSHI-ACCESS-SIGNATURE": base64.b64encode(signature).decode("ascii"),
+        "Content-Type": "application/json",
+    }
+
+def kalshi_private_request(method, endpoint, payload=None, params=None):
+    path = KALSHI_API_PREFIX + endpoint
+    headers = _kalshi_headers(method, path)
+    r = requests.request(
+        method.upper(),
+        KALSHI_API_BASE + path,
+        headers=headers,
+        json=payload,
+        params=params,
+        timeout=8,
+    )
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text[:300]
+        raise RuntimeError(f"Kalshi {r.status_code}: {detail}")
+    return r.json() if r.text else {}
+
+def kalshi_test_connection():
+    data = kalshi_private_request("GET", "/portfolio/balance")
+    dollars = data.get("balance_dollars")
+    if dollars is None and data.get("balance") is not None:
+        dollars = f"{float(data['balance']) / 100:.2f}"
+    return data, dollars
+
+def _market_contract_prices(market):
+    """Returns current YES/NO asks as dollars when Kalshi exposes them."""
+    if not market:
+        return None, None
+    def f(name):
+        try:
+            v = market.get(name)
+            return float(v) if v not in (None, "") else None
+        except Exception:
+            return None
+    yes_ask = f("yes_ask_dollars")
+    no_ask = f("no_ask_dollars")
+    # Compatibility with older payloads still returned by some endpoints.
+    if yes_ask is None:
+        y = f("yes_ask")
+        yes_ask = y / 100.0 if y and y > 1 else y
+    if no_ask is None:
+        n = f("no_ask")
+        no_ask = n / 100.0 if n and n > 1 else n
+    return yes_ask, no_ask
+
+def _amount_for_level():
+    base = max(0.01, float(st.session_state.auto_amount))
+    level = max(1, int(st.session_state.auto_level))
+    return base * (2 ** (level - 1)) if st.session_state.auto_martingale else base
+
+def _direction_for_level(signal_direction):
+    level = max(1, int(st.session_state.auto_level))
+    choice = st.session_state.get(f"auto_level_direction_{level}", "Seguir señal")
+    if choice == "Solo UP":
+        return "UP"
+    if choice == "Solo DOWN":
+        return "DOWN"
+    return signal_direction
+
+def _contracts_for_amount(amount, contract_price):
+    if contract_price is None or contract_price <= 0:
+        return 0.0
+    # Fixed-point quantity; never intentionally exceeds configured premium.
+    return math.floor((amount / contract_price) * 100) / 100.0
+
+def kalshi_place_entry(ticker, direction, market):
+    limit = max(1, min(99, int(st.session_state.auto_limit_cents))) / 100.0
+    yes_ask, no_ask = _market_contract_prices(market)
+    observed = yes_ask if direction == "UP" else no_ask
+    if observed is not None and observed > limit:
+        return {"skipped": True, "reason": f"{direction} está a {observed*100:.1f}¢ > límite {limit*100:.0f}¢"}
+
+    amount = _amount_for_level()
+    contract_price = min(observed, limit) if observed is not None else limit
+    count = _contracts_for_amount(amount, contract_price)
+    if count < 0.01:
+        return {"skipped": True, "reason": "Monto demasiado pequeño para el precio actual."}
+
+    # V2 is a single YES book:
+    # UP = buy YES -> bid at max YES price.
+    # DOWN = buy NO -> economically equivalent to ask YES at 1 - max NO price.
+    if direction == "UP":
+        side = "bid"
+        yes_price = limit
+    else:
+        side = "ask"
+        yes_price = 1.0 - limit
+
+    client_id = f"btc461-{ticker}-{direction}-L{st.session_state.auto_level}"
+    payload = {
+        "ticker": ticker,
+        "client_order_id": client_id[:64],
+        "side": side,
+        "count": f"{count:.2f}",
+        "price": f"{yes_price:.4f}",
+        "time_in_force": "immediate_or_cancel",
+        "self_trade_prevention_type": "taker_at_cross",
+        "cancel_order_on_pause": True,
+    }
+    result = kalshi_private_request("POST", "/portfolio/events/orders", payload)
+    result["_direction"] = direction
+    result["_requested_count"] = count
+    result["_amount_level"] = amount
+    result["_entry_contract_price"] = contract_price
+    result["_ticker"] = ticker
+    result["_level"] = int(st.session_state.auto_level)
+    return result
+
+def kalshi_place_take_profit(entry):
+    try:
+        filled = float(entry.get("fill_count") or entry.get("fill_count_fp") or 0)
+    except Exception:
+        filled = 0.0
+    if filled <= 0:
+        return None
+
+    direction = entry["_direction"]
+    p = float(entry["_entry_contract_price"])
+    tp = max(0, float(st.session_state.auto_take_profit)) / 100.0
+    desired_contract_exit = min(0.99, p * (1.0 + tp))
+
+    if direction == "UP":
+        # Close long YES by selling YES.
+        side = "ask"
+        yes_exit = desired_contract_exit
+    else:
+        # Close long NO / short YES by buying YES back at complement.
+        side = "bid"
+        yes_exit = max(0.01, 1.0 - desired_contract_exit)
+
+    payload = {
+        "ticker": entry["_ticker"],
+        "client_order_id": (f"tp-{entry['_ticker']}-{entry['_direction']}-L{entry['_level']}")[:64],
+        "side": side,
+        "count": f"{filled:.2f}",
+        "price": f"{yes_exit:.4f}",
+        "time_in_force": "good_till_canceled",
+        "self_trade_prevention_type": "taker_at_cross",
+        "reduce_only": True,
+        "cancel_order_on_pause": True,
+    }
+    return kalshi_private_request("POST", "/portfolio/events/orders", payload)
+
+def _public_market_by_ticker(ticker):
+    r = requests.get(
+        f"{KALSHI_API_BASE}{KALSHI_API_PREFIX}/markets/{ticker}",
+        timeout=6,
+        headers={"User-Agent": "BTCSignal/4.6.1"},
+    )
+    r.raise_for_status()
+    j = r.json()
+    return j.get("market", j)
+
+def auto_check_previous_result(current_ticker):
+    prev = st.session_state.get("auto_last_order")
+    if not prev or prev.get("_resolved"):
+        return
+    old_ticker = prev.get("_ticker")
+    if not old_ticker or old_ticker == current_ticker:
+        return
+    try:
+        old_market = _public_market_by_ticker(old_ticker)
+        result = str(old_market.get("result", "")).lower()
+        if result not in ("yes", "no"):
+            return
+        won = (prev.get("_direction") == "UP" and result == "yes") or \
+              (prev.get("_direction") == "DOWN" and result == "no")
+        prev["_resolved"] = True
+        prev["_won"] = won
+        if won:
+            st.session_state.auto_level = 1
+            st.session_state.auto_last_status = "WIN · MARTINGALA REINICIADA"
+            if st.session_state.auto_stop_after_win:
+                st.session_state.auto_enabled = False
+                st.session_state.auto_last_status = "WIN · AUTO APAGADO"
+        else:
+            if st.session_state.auto_martingale:
+                st.session_state.auto_level = min(
+                    int(st.session_state.auto_level) + 1,
+                    int(st.session_state.auto_max_levels),
+                )
+            st.session_state.auto_last_status = f"LOSS · NIVEL {st.session_state.auto_level}"
+    except Exception:
+        pass
+
+def auto_trade_tick(ticker, market, round_signal):
+    if not st.session_state.get("auto_enabled"):
+        return
+    if not st.session_state.get("kalshi_auth_ok"):
+        st.session_state.auto_enabled = False
+        st.session_state.auto_last_status = "AUTO APAGADO · KALSHI NO CONECTADO"
+        return
+    if not ticker or ticker == "--":
+        return
+
+    auto_check_previous_result(ticker)
+
+    direction = round_signal.get("decision")
+    if direction not in ("UP", "DOWN"):
+        return
+    direction = _direction_for_level(direction)
+
+    # One entry maximum per Kalshi round.
+    if st.session_state.get("auto_last_ticker") == ticker:
+        return
+
+    try:
+        result = kalshi_place_entry(ticker, direction, market)
+        if result.get("skipped"):
+            st.session_state.auto_last_status = "ESPERANDO · " + result["reason"]
+            return
+
+        st.session_state.auto_last_ticker = ticker
+        st.session_state.auto_last_order = result
+        st.session_state.auto_history.append({
+            "ticker": ticker,
+            "direction": direction,
+            "level": int(st.session_state.auto_level),
+            "time": datetime.now(timezone.utc).isoformat(),
+            "order_id": result.get("order_id"),
+        })
+        filled = float(result.get("fill_count") or 0)
+        if filled > 0:
+            st.session_state.auto_last_status = f"FILLED {direction} · {filled:.2f} contratos"
+            try:
+                tp_order = kalshi_place_take_profit(result)
+                if tp_order:
+                    result["_tp_order_id"] = tp_order.get("order_id")
+            except Exception as e:
+                result["_tp_error"] = str(e)
+        else:
+            st.session_state.auto_last_status = f"ORDEN {direction} ENVIADA · SIN FILL"
+    except Exception as e:
+        st.session_state.auto_last_status = "ERROR AUTO · " + str(e)[:180]
+
+def new_round_state(ticker, seconds_left):
+    now = datetime.now(timezone.utc)
+    return {
+        "ticker": ticker,
+        "detected_at": now,
+        "detected_seconds_left": seconds_left,
+        "first_direction": None,
+        "first_signal_time": None,
+        "first_signal_seconds": None,
+        "first_signal_price": None,
+        "active_direction": None,
+        "active_since": None,
+        "last_score": 0.0,
+        "previous_score": 0.0,
+        "opposite_count": 0,
+        "last_live_price": None,
+        "previous_live_price": None,
+        "reversal_warning": False,
+        "reversal_text": "",
+    }
+
+
+# =========================================================
+# COINBASE — VELAS ORIGINALES DE 1 MINUTO
+# =========================================================
 
 @st.cache_data(ttl=5)
 def get_btc_data():
-    r = requests.get("https://api.exchange.coinbase.com/products/BTC-USD/candles", params={"granularity": 60}, headers={"User-Agent": "MacalyAlphaBot/4.6.1"}, timeout=10)
-    r.raise_for_status(); data = r.json()
+    response = requests.get(
+        "https://api.exchange.coinbase.com/products/BTC-USD/candles",
+        params={"granularity": 60},
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    data = response.json()
+
     if not isinstance(data, list) or len(data) < 30:
         raise ValueError("Coinbase no devolvió suficientes datos.")
-    df = pd.DataFrame(data, columns=["time", "low", "high", "open", "close", "volume"])
-    for col in ["low", "high", "open", "close", "volume"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df = pd.DataFrame(
+        data, columns=["time", "low", "high", "open", "close", "volume"]
+    )
+
+    for column in ["low", "high", "open", "close", "volume"]:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+
     df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
     return df.dropna().sort_values("time").reset_index(drop=True)
 
 
-def _find_kalshi_index_price(obj):
-    """Extract the newest BTC index value from Kalshi event live-data defensively."""
-    preferred = ("current_price", "index_price", "price", "value", "close", "last")
+def get_coinbase_whale_flow():
+    """FLOW PULSE BTC/USD: varias páginas de trades, aceleración y desequilibrio."""
+    now = pd.Timestamp.now(tz="UTC").timestamp()
+    tape = st.session_state.setdefault("whale_flow_tape", [])
+    seen = st.session_state.setdefault("whale_seen_ids", {})
+    headers = {"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"}
 
-    if isinstance(obj, dict):
-        # Direct numeric fields first.
-        for key in preferred:
-            if key in obj:
-                try:
-                    value = float(obj[key])
-                    if 1000 < value < 1000000:
-                        return value
-                except Exception:
-                    pass
-        # Prefer newest entries in arrays/series.
-        for key in ("points", "data", "series", "prices", "values", "timeseries", "observations"):
-            value = obj.get(key)
-            if isinstance(value, list):
-                for item in reversed(value):
-                    found = _find_kalshi_index_price(item)
-                    if found is not None:
-                        return found
-        for value in obj.values():
-            found = _find_kalshi_index_price(value)
-            if found is not None:
-                return found
+    all_rows, before = [], None
+    for _ in range(5):
+        params = {"limit": 100}
+        if before:
+            params["before"] = before
+        r = requests.get(
+            "https://api.exchange.coinbase.com/products/BTC-USD/trades",
+            params=params, headers=headers, timeout=5
+        )
+        r.raise_for_status()
+        rows = r.json()
+        if not isinstance(rows, list) or not rows:
+            break
+        all_rows.extend(rows)
+        before = r.headers.get("cb-before")
+        try:
+            oldest = pd.to_datetime(rows[-1].get("time"), utc=True, errors="coerce")
+            if not pd.isna(oldest) and now - oldest.timestamp() >= 35:
+                break
+        except Exception:
+            pass
+        if not before:
+            break
 
-    elif isinstance(obj, list):
-        for item in reversed(obj):
-            found = _find_kalshi_index_price(item)
-            if found is not None:
-                return found
+    if not all_rows:
+        raise ValueError("Coinbase no devolvió operaciones recientes.")
 
-    return None
+    for row in reversed(all_rows):
+        try:
+            trade_id = str(row.get("trade_id", ""))
+            if not trade_id or trade_id in seen:
+                continue
+            price = float(row.get("price", 0))
+            size = float(row.get("size", 0))
+            notional = price * size
+            maker_side = str(row.get("side", "")).lower()
+            aggressor = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
+            ts = pd.to_datetime(row.get("time"), utc=True, errors="coerce")
+            t = ts.timestamp() if not pd.isna(ts) else now
+            if notional > 0 and aggressor and now - t <= 40:
+                tape.append({"id": trade_id, "t": t, "notional": notional, "side": aggressor})
+                seen[trade_id] = t
+        except Exception:
+            continue
+
+    tape[:] = [x for x in tape if now - x["t"] <= 40]
+    for k in [k for k, t in seen.items() if now - t > 55]:
+        seen.pop(k, None)
+
+    def stats(lo, hi=0):
+        xs = [x for x in tape if hi < now - x["t"] <= lo]
+        bx = [x for x in xs if x["side"] == "COMPRA"]
+        sx = [x for x in xs if x["side"] == "VENTA"]
+        buy = sum(x["notional"] for x in bx)
+        sell = sum(x["notional"] for x in sx)
+        return buy, sell, buy + sell, buy - sell, len(xs), \
+               sum(x["notional"] >= 50000 for x in bx), \
+               sum(x["notional"] >= 50000 for x in sx)
+
+    buy, sell, total, net, trade_count, big_buy, big_sell = stats(5)
+    _, _, old_total, _, _, _, _ = stats(25, 5)
+
+    rate = total / 5.0
+    old_rate = old_total / 20.0 if old_total > 0 else 0.0
+    acceleration = rate / old_rate if old_rate > 0 else (9.0 if total > 0 else 0.0)
+    gross_dom = max(buy, sell) / total if total > 0 else 0.0
+    net_dom = abs(net) / total if total > 0 else 0.0
+    direction = "UP" if net > 0 else "DOWN" if net < 0 else None
+    big_same = big_buy if direction == "UP" else big_sell if direction == "DOWN" else 0
+
+    score = 0
+    if total >= 150000: score += 1
+    if total >= 300000: score += 1
+    if total >= 600000: score += 1
+    if gross_dom >= .62: score += 1
+    if gross_dom >= .72: score += 1
+    if net_dom >= .35: score += 1
+    if acceleration >= 1.8: score += 1
+    if acceleration >= 3.0: score += 1
+    if trade_count >= 80: score += 1
+    if big_same >= 2: score += 1
+
+    detected = bool(direction and total >= 200000 and abs(net) >= 100000
+                    and gross_dom >= .62 and score >= 5)
+    if direction and total >= 500000 and abs(net) >= 250000 and gross_dom >= .68:
+        detected = True
+
+    strength = "EXTREMO" if score >= 8 else "FUERTE" if score >= 6 else "ANORMAL"
+    alert = None
+    if detected:
+        alert = {
+            "direction": direction, "time": now, "buy": buy, "sell": sell,
+            "total": total, "imbalance": gross_dom, "net": abs(net),
+            "acceleration": acceleration, "trades": trade_count,
+            "big_trades": big_same, "score": score, "strength": strength,
+        }
+
+    return {
+        "detected": detected, "alert": alert, "live_buy": buy,
+        "live_sell": sell, "live_total": total, "imbalance": gross_dom,
+        "acceleration": acceleration, "trades": trade_count, "score": score,
+    }
+
+def compact_usd(value):
+    value = float(value or 0)
+    if value >= 1_000_000:
+        return f"${value/1_000_000:.2f}M"
+    if value >= 1_000:
+        return f"${value/1_000:.0f}K"
+    return f"${value:,.0f}"
 
 
-def get_kalshi_live_btc_price(market):
-    """Public Kalshi event live-data feed used by the Kalshi app for crypto charts."""
-    if not market:
-        raise ValueError("No hay mercado Kalshi activo.")
+def render_whale_panel(whale, active):
+    base = "margin:8px 0;padding:12px;border:1px solid #26384b;border-radius:13px;background:linear-gradient(180deg,#0c1724,#09111b)"
+    if not whale or not whale.get("detected"):
+        buy = compact_usd((whale or {}).get("live_buy", 0))
+        sell = compact_usd((whale or {}).get("live_sell", 0))
+        return f'''<section style="{base}">
+          <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
+          <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">FLUJO NORMAL / SIN CONFIRMACIÓN</div>
+          <div style="margin-top:6px;font-size:9px;color:#8da0b4">5s · COMPRAS {buy} · VENTAS {sell}</div>
+          <div style="margin-top:4px;font-size:8px;color:#6f8195">Lee hasta 500 trades recientes y compara presión, aceleración y desequilibrio.</div>
+        </section>'''
 
-    event_ticker = market.get("event_ticker")
-    if not event_ticker:
-        raise ValueError("La ronda no entregó event_ticker.")
+    a = whale["alert"]
+    up = a["direction"] == "UP"
+    color = "#35e986" if up else "#ff5367"
+    arrow = "↑" if up else "↓"
+    label = "COMPRADOR · POSIBLE IMPULSO UP" if up else "VENDEDOR · POSIBLE IMPULSO DOWN"
+    dominant = a["buy"] if up else a["sell"]
+    relation = ""
+    if active in ("UP", "DOWN"):
+        relation = " · CONFIRMA SEÑAL" if active == a["direction"] else " · CONTRADICE SEÑAL"
+    return f'''<section style="{base};border-color:{color};box-shadow:0 0 20px {color}33">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:{color}">● ALERTA</span></div>
+      <div style="margin-top:8px;font-size:15px;font-weight:950;color:{color}">⚡ {arrow} FLUJO EXTREMO {label}</div>
+      <div style="margin-top:6px;font-size:12px;font-weight:900;color:#f3f7fb">{compact_usd(dominant)} dominantes AHORA</div>
+      <div style="margin-top:5px;font-size:9px;color:#aab8c7">COMPRAS {compact_usd(a['buy'])} · VENTAS {compact_usd(a['sell'])} · DOMINIO {a['imbalance']*100:.0f}%{relation}</div>
+      <div style="margin-top:4px;font-size:8px;color:#7f91a5">Alerta temprana de presión extraordinaria en el flujo real de BTC/USD.</div>
+    </section>'''
 
-    url = f"https://external-api.kalshi.com/trade-api/v2/live_data/events/{event_ticker}"
+
+def get_btc_live_price():
     response = requests.get(
-        url,
-        params={"range": "15min"},
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"},
+        "https://api.exchange.coinbase.com/products/BTC-USD/ticker",
+        headers={
+            "User-Agent": "MacalyAlphaBot/4.6.1",
+            "Cache-Control": "no-cache",
+        },
+        params={"_": int(datetime.now(timezone.utc).timestamp())},
         timeout=6,
     )
     response.raise_for_status()
-    payload = response.json()
-    price = _find_kalshi_index_price(payload.get("details", payload))
-
-    if price is None:
-        raise ValueError("Kalshi live-data no devolvió un precio BTC utilizable.")
+    price = response.json().get("price")
+    if price in [None, ""]:
+        raise ValueError("Coinbase ticker no devolvió precio.")
     return float(price)
 
 
-def get_coinbase_live_price():
-    """Fallback only. Coinbase candles remain the technical-analysis source."""
-    r = requests.get(
-        "https://api.exchange.coinbase.com/products/BTC-USD/ticker",
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"},
-        params={"_": int(utc_now().timestamp())},
-        timeout=6,
-    )
-    r.raise_for_status()
-    p = r.json().get("price")
-    if p in [None, ""]:
-        raise ValueError("Coinbase ticker no devolvió precio.")
-    return float(p)
-
+# =========================================================
+# KALSHI BTC 15 MIN
+# =========================================================
 
 @st.cache_data(ttl=2)
 def get_kalshi_btc_market():
-    r = requests.get("https://external-api.kalshi.com/trade-api/v2/markets", params={"limit": 100, "status": "open", "series_ticker": "KXBTC15M"}, headers={"User-Agent": "MacalyAlphaBot/4.6.1"}, timeout=10)
-    r.raise_for_status(); markets = r.json().get("markets", [])
+    response = requests.get(
+        "https://external-api.kalshi.com/trade-api/v2/markets",
+        params={
+            "limit": 100,
+            "status": "open",
+            "series_ticker": "KXBTC15M",
+        },
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    markets = response.json().get("markets", [])
     if not markets:
         return None
     markets.sort(key=lambda m: str(m.get("close_time") or "9999"))
     return markets[0]
 
 
+def get_event_ticker_from_market(market):
+    if not market:
+        return None
+    event_ticker = market.get("event_ticker")
+    if event_ticker:
+        return str(event_ticker)
+    ticker = market.get("ticker")
+    if not ticker:
+        return None
+    parts = str(ticker).split("-")
+    return "-".join(parts[:-1]) if len(parts) >= 2 else None
+
+
+def extract_kalshi_btc_price(data):
+    if not isinstance(data, dict):
+        return None
+
+    live_data = data.get("live_data", data)
+    details = live_data.get("details", {}) if isinstance(live_data, dict) else {}
+    candidates = []
+
+    preferred_keys = {
+        "price", "value", "index_value", "indexvalue",
+        "current_price", "currentprice", "current_value", "currentvalue",
+        "last_price", "lastprice", "close",
+    }
+
+    def walk_preferred(obj):
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                normalized_key = str(key).lower().replace("-", "_")
+                if normalized_key in preferred_keys:
+                    try:
+                        number = float(value)
+                        if 10000 < number < 1000000:
+                            candidates.append(number)
+                    except (TypeError, ValueError):
+                        pass
+                walk_preferred(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk_preferred(item)
+
+    walk_preferred(details)
+    if candidates:
+        return float(candidates[-1])
+
+    pair_candidates = []
+
+    def walk_pairs(obj):
+        if isinstance(obj, list):
+            if len(obj) >= 2:
+                try:
+                    possible_price = float(obj[-1])
+                    if 10000 < possible_price < 1000000:
+                        pair_candidates.append(possible_price)
+                except (TypeError, ValueError):
+                    pass
+            for item in obj:
+                walk_pairs(item)
+        elif isinstance(obj, dict):
+            for value in obj.values():
+                walk_pairs(value)
+
+    walk_pairs(details)
+    return float(pair_candidates[-1]) if pair_candidates else None
+
+
+def get_kalshi_live_btc(market):
+    event_ticker = get_event_ticker_from_market(market)
+    if not event_ticker:
+        raise ValueError("La ronda no entregó event_ticker.")
+
+    response = requests.get(
+        "https://external-api.kalshi.com/trade-api/v2/live_data/events/"
+        f"{event_ticker}",
+        params={
+            "range": "15min",
+            "_": int(datetime.now(timezone.utc).timestamp()),
+        },
+        headers={
+            "User-Agent": "MacalyAlphaBot/4.6.1",
+            "Cache-Control": "no-cache",
+        },
+        timeout=6,
+    )
+    response.raise_for_status()
+    price = extract_kalshi_btc_price(response.json())
+    if price is None:
+        raise ValueError("Kalshi live respondió sin precio BTC válido.")
+    return float(price)
+
+
+# =========================================================
+# INDICADORES ORIGINALES
+# =========================================================
+
 def add_indicators(df):
-    df = df.copy(); close = df["close"]
-    df["ema9"] = close.ewm(span=9, adjust=False).mean(); df["ema21"] = close.ewm(span=21, adjust=False).mean()
-    delta = close.diff(); gain = delta.clip(lower=0); loss = -delta.clip(upper=0)
-    ag = gain.ewm(alpha=1/14, adjust=False, min_periods=14).mean(); al = loss.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
-    df["rsi"] = (100 - (100 / (1 + ag / al.replace(0, np.nan)))).fillna(50)
-    df["mom3"] = close.pct_change(3) * 100; df["mom5"] = close.pct_change(5) * 100; df["mom15"] = close.pct_change(15) * 100
-    df["vol_ratio"] = df["volume"] / df["volume"].rolling(20).mean().replace(0, np.nan)
+    df = df.copy()
+    close = df["close"]
+
+    df["ema9"] = close.ewm(span=9, adjust=False).mean()
+    df["ema21"] = close.ewm(span=21, adjust=False).mean()
+
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+
+    avg_gain = gain.ewm(
+        alpha=1 / 14, adjust=False, min_periods=14
+    ).mean()
+    avg_loss = loss.ewm(
+        alpha=1 / 14, adjust=False, min_periods=14
+    ).mean()
+
+    rs = avg_gain / avg_loss.replace(0, np.nan)
+    df["rsi"] = (100 - (100 / (1 + rs))).fillna(50)
+
+    df["mom3"] = close.pct_change(3) * 100
+    df["mom5"] = close.pct_change(5) * 100
+    df["mom15"] = close.pct_change(15) * 100
+
+    avg_volume = df["volume"].rolling(20).mean()
+    df["vol_ratio"] = df["volume"] / avg_volume.replace(0, np.nan)
     return df
 
 
 def get_target_from_market(market):
     if not market:
         return None
-    for key in ["floor_strike", "cap_strike"]:
-        try:
-            v = float(market.get(key))
-            if v > 1000:
-                return v
-        except Exception:
-            pass
+
+    for key in ("floor_strike", "cap_strike"):
+        value = market.get(key)
+        if value not in [None, ""]:
+            try:
+                number = float(value)
+                if number > 1000:
+                    return number
+            except Exception:
+                pass
     return None
 
 
@@ -253,8 +1355,13 @@ def get_seconds_remaining(market):
     if not market or not market.get("close_time"):
         return None
     try:
-        close_dt = datetime.fromisoformat(str(market["close_time"]).replace("Z", "+00:00"))
-        return max(0, int((close_dt - utc_now()).total_seconds()))
+        close_dt = datetime.fromisoformat(
+            str(market["close_time"]).replace("Z", "+00:00")
+        )
+        seconds = int(
+            (close_dt - datetime.now(timezone.utc)).total_seconds()
+        )
+        return max(0, seconds)
     except Exception:
         return None
 
@@ -262,282 +1369,963 @@ def get_seconds_remaining(market):
 def format_countdown(seconds):
     if seconds is None:
         return "--:--"
-    seconds = max(0, int(seconds)); return f"{seconds//60:02d}:{seconds%60:02d}"
+    return f"{seconds // 60:02d}:{seconds % 60:02d}"
 
 
 def numeric_kalshi_price(dollar_value, cent_value):
     if dollar_value not in [None, ""]:
-        try: return float(dollar_value)
-        except Exception: pass
+        try:
+            return float(dollar_value)
+        except Exception:
+            pass
     if cent_value not in [None, ""]:
-        try: return float(cent_value) / 100
-        except Exception: pass
+        try:
+            return float(cent_value) / 100
+        except Exception:
+            pass
     return None
 
 
-def kalshi_price(d, c):
-    v = numeric_kalshi_price(d, c); return "--" if v is None else f"${v:.2f}"
+def get_yes_ask(market):
+    if not market:
+        return None
+    return numeric_kalshi_price(
+        market.get("yes_ask_dollars"), market.get("yes_ask")
+    )
 
 
-def get_yes_ask(m):
-    return numeric_kalshi_price(m.get("yes_ask_dollars"), m.get("yes_ask")) if m else None
+def get_no_ask(market):
+    if not market:
+        return None
+
+    direct = numeric_kalshi_price(
+        market.get("no_ask_dollars"), market.get("no_ask")
+    )
+    if direct is not None:
+        return direct
+
+    yes_bid = numeric_kalshi_price(
+        market.get("yes_bid_dollars"), market.get("yes_bid")
+    )
+    if yes_bid is not None:
+        return max(0.0, min(1.0, 1.0 - yes_bid))
+    return None
 
 
-def get_no_ask(m):
-    if not m: return None
-    direct = numeric_kalshi_price(m.get("no_ask_dollars"), m.get("no_ask"))
-    if direct is not None: return direct
-    yb = numeric_kalshi_price(m.get("yes_bid_dollars"), m.get("yes_bid"))
-    return max(0, min(1, 1-yb)) if yb is not None else None
+# =========================================================
+# PROBABILIDAD ORIGINAL
+# =========================================================
+
+def estimated_probabilities(
+    final_score, distance, seconds_left, mom3, mom5
+):
+    score = float(np.clip(final_score, -10, 10))
+    up_prob = 50 + score * 4.2
+
+    if mom3 > 0.04:
+        up_prob += 3
+    elif mom3 < -0.04:
+        up_prob -= 3
+
+    if mom5 > 0.06:
+        up_prob += 2
+    elif mom5 < -0.06:
+        up_prob -= 2
+
+    if (
+        distance is not None
+        and seconds_left is not None
+        and seconds_left <= 180
+    ):
+        if distance > 0:
+            up_prob += 3
+        elif distance < 0:
+            up_prob -= 3
+
+    up_prob = float(np.clip(up_prob, 5, 95))
+    return round(up_prob), round(100 - up_prob)
 
 
-def estimated_probabilities(final_score, distance, seconds_left, mom3, mom5):
-    score = float(np.clip(final_score, -10, 10)); up = 50 + score * 4.2
-    if mom3 > .04: up += 3
-    elif mom3 < -.04: up -= 3
-    if mom5 > .06: up += 2
-    elif mom5 < -.06: up -= 2
-    if distance is not None and seconds_left is not None and seconds_left <= 180:
-        if distance > 0: up += 3
-        elif distance < 0: up -= 3
-    up = float(np.clip(up, 5, 95)); return round(up), round(100-up)
-
+# =========================================================
+# MOTOR ORIGINAL v4.6.1
+# =========================================================
 
 def build_signal(df, target, seconds_left, live_price=None):
-    last = df.iloc[-1]; candle = float(last["close"]); price = float(live_price) if live_price is not None else candle
-    rsi = float(last["rsi"]); mom3 = float(last["mom3"]) if pd.notna(last["mom3"]) else 0.0
-    mom5 = float(last["mom5"]) if pd.notna(last["mom5"]) else 0.0; mom15 = float(last["mom15"]) if pd.notna(last["mom15"]) else 0.0
-    vol = float(last["vol_ratio"]) if pd.notna(last["vol_ratio"]) else 0.0; tech = 0.0
-    if last["ema9"] > last["ema21"]: tech += 2; ema = "ALCISTA 🚀"
-    else: tech -= 2; ema = "BAJISTA 🔻"
-    if rsi >= 55: tech += 1
-    elif rsi <= 45: tech -= 1
-    if mom3 > .02: tech += 1.25
-    elif mom3 < -.02: tech -= 1.25
-    if mom5 > .03: tech += 1
-    elif mom5 < -.03: tech -= 1
-    if mom15 > .05: tech += .75
-    elif mom15 < -.05: tech -= .75
-    if vol > 1.20:
-        if mom3 > 0: tech += .50
-        elif mom3 < 0: tech -= .50
-    distance = None; distance_pct = None; target_score = 0.0
+    last = df.iloc[-1]
+    candle_price = float(last["close"])
+    price = float(live_price) if live_price is not None else candle_price
+
+    rsi = float(last["rsi"])
+    mom3 = float(last["mom3"]) if pd.notna(last["mom3"]) else 0.0
+    mom5 = float(last["mom5"]) if pd.notna(last["mom5"]) else 0.0
+    mom15 = float(last["mom15"]) if pd.notna(last["mom15"]) else 0.0
+    vol_ratio = (
+        float(last["vol_ratio"]) if pd.notna(last["vol_ratio"]) else 0.0
+    )
+
+    technical_score = 0.0
+
+    if last["ema9"] > last["ema21"]:
+        technical_score += 2.0
+        ema_text = "BULL"
+    else:
+        technical_score -= 2.0
+        ema_text = "BEAR"
+
+    if rsi >= 55:
+        technical_score += 1.0
+    elif rsi <= 45:
+        technical_score -= 1.0
+
+    if mom3 > 0.02:
+        technical_score += 1.25
+    elif mom3 < -0.02:
+        technical_score -= 1.25
+
+    if mom5 > 0.03:
+        technical_score += 1.0
+    elif mom5 < -0.03:
+        technical_score -= 1.0
+
+    if mom15 > 0.05:
+        technical_score += 0.75
+    elif mom15 < -0.05:
+        technical_score -= 0.75
+
+    if vol_ratio > 1.20:
+        if mom3 > 0:
+            technical_score += 0.50
+        elif mom3 < 0:
+            technical_score -= 0.50
+
+    distance = None
+    distance_pct = None
+    target_score = 0.0
+
     if target is not None:
-        distance = price - target; distance_pct = distance / target * 100
-        if distance > 0: target_score += 2
-        elif distance < 0: target_score -= 2
+        distance = price - target
+        distance_pct = distance / target * 100
+
+        if distance > 0:
+            target_score += 2.0
+        elif distance < 0:
+            target_score -= 2.0
+
         if seconds_left is not None:
-            if seconds_left <= 30: target_score += 4 if distance > 0 else (-4 if distance < 0 else 0)
-            elif seconds_left <= 60: target_score += 3 if distance > 0 else (-3 if distance < 0 else 0)
-            elif seconds_left <= 180: target_score += 2 if distance > 0 else (-2 if distance < 0 else 0)
-            elif seconds_left <= 300: target_score += 1 if distance > 0 else (-1 if distance < 0 else 0)
-            if abs(distance) < 10: target_score *= .60
-            elif abs(distance) < 20: target_score *= .80
-    score = tech + target_score; momentum = "ALCISTA" if mom3 > .02 else ("BAJISTA" if mom3 < -.02 else "NEUTRAL")
-    up, down = estimated_probabilities(score, distance, seconds_left, mom3, mom5)
-    return dict(price=price,candle_price=candle,rsi=rsi,mom3=mom3,mom5=mom5,mom15=mom15,vol_ratio=vol,ema=ema,
-                technical_score=tech,target_score=target_score,final_score=score,distance=distance,distance_pct=distance_pct,
-                momentum=momentum,up_probability=up,down_probability=down)
+            abs_distance = abs(distance)
+
+            if seconds_left <= 30:
+                target_score += 4.0 if distance > 0 else -4.0 if distance < 0 else 0
+            elif seconds_left <= 60:
+                target_score += 3.0 if distance > 0 else -3.0 if distance < 0 else 0
+            elif seconds_left <= 180:
+                target_score += 2.0 if distance > 0 else -2.0 if distance < 0 else 0
+            elif seconds_left <= 300:
+                target_score += 1.0 if distance > 0 else -1.0 if distance < 0 else 0
+
+            if abs_distance < 10:
+                target_score *= 0.60
+            elif abs_distance < 20:
+                target_score *= 0.80
+
+    final_score = technical_score + target_score
+
+    if mom3 > 0.02:
+        momentum = "ALCISTA"
+    elif mom3 < -0.02:
+        momentum = "BAJISTA"
+    else:
+        momentum = "NEUTRAL"
+
+    up_probability, down_probability = estimated_probabilities(
+        final_score, distance, seconds_left, mom3, mom5
+    )
+
+    return {
+        "price": price,
+        "candle_price": candle_price,
+        "rsi": rsi,
+        "mom3": mom3,
+        "mom5": mom5,
+        "mom15": mom15,
+        "vol_ratio": vol_ratio,
+        "ema": ema_text,
+        "technical_score": technical_score,
+        "target_score": target_score,
+        "final_score": final_score,
+        "distance": distance,
+        "distance_pct": distance_pct,
+        "momentum": momentum,
+        "up_probability": up_probability,
+        "down_probability": down_probability,
+    }
 
 
 def entry_quality(price, seconds_left):
-    if price is None: return "PRECIO NO DISPONIBLE", "#94a3b8"
-    if seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK: return "TARDE ⏰", "#fb7185"
-    if price <= .60: return "BUENA 🟢", "#34d399"
-    if price <= .70: return "PRECAUCIÓN 🟡", "#fbbf24"
-    return "CARA / TARDE 🔴", "#fb7185"
+    if price is None:
+        return "PRECIO NO DISPONIBLE", "#94a3b8"
+    if seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK:
+        return "TARDE", "#fb7185"
+    if price <= 0.60:
+        return "BUENA", "#34d399"
+    if price <= 0.70:
+        return "PRECAUCIÓN", "#fbbf24"
+    return "CARA / TARDE", "#fb7185"
 
 
-def process_round_signal(ticker, sig, market, seconds_left, target):
-    n = utc_now()
-    if not ticker or ticker == "--":
-        return dict(decision="NO TRADE",signal="SIN RONDA",icon="⚠️",color="#fbbf24",round_state=None,reversal=False,reversal_text="",entry_price=None,entry_quality="SIN DATOS",entry_quality_color="#94a3b8")
+# =========================================================
+# CONTROL DE RONDA ORIGINAL
+# =========================================================
 
-    if st.session_state.active_ticker != ticker:
+def process_round_signal(ticker, sig, market, seconds_left):
+    now = datetime.now(timezone.utc)
+
+    if (
+        ticker
+        and ticker != "--"
+        and st.session_state.active_ticker != ticker
+    ):
         st.session_state.active_ticker = ticker
-        restored = load_state(ticker)
-        st.session_state.rounds[ticker] = restored if restored else new_round_state(ticker, seconds_left)
+        st.session_state.rounds[ticker] = new_round_state(
+            ticker, seconds_left
+        )
+
+    if not ticker or ticker == "--":
+        return {
+            "decision": "NO TRADE",
+            "signal": "SIN RONDA",
+            "icon": "•",
+            "color": "#fbbf24",
+            "round_state": None,
+            "reversal": False,
+            "reversal_text": "",
+            "entry_price": None,
+            "entry_quality": "SIN DATOS",
+            "entry_quality_color": "#94a3b8",
+        }
 
     if ticker not in st.session_state.rounds:
-        st.session_state.rounds[ticker] = load_state(ticker) or new_round_state(ticker, seconds_left)
+        st.session_state.rounds[ticker] = new_round_state(
+            ticker, seconds_left
+        )
 
     state = st.session_state.rounds[ticker]
-    age = (n - state["detected_at"]).total_seconds(); score = sig["final_score"]
-    prev_price = state.get("last_live_price"); state["previous_live_price"] = prev_price; state["last_live_price"] = sig["price"]
-    price_change = sig["price"] - prev_price if prev_price is not None else 0.0
-    prev_score = float(state.get("last_score") or 0); state["previous_score"] = prev_score; score_change = score - prev_score; state["last_score"] = score
-    state["last_target"] = target; state["last_seconds_left"] = seconds_left; state["last_seen_at"] = n
+    age = (now - state["detected_at"]).total_seconds()
+    score = sig["final_score"]
 
-    if age < NEW_ROUND_WAIT and state.get("active_direction") is None:
-        save_state(state)
-        return dict(decision="ANALIZANDO NUEVA RONDA",signal="ESPERANDO CONFIRMACIÓN",icon="⏳",color="#38bdf8",round_state=state,reversal=False,reversal_text="",entry_price=None,entry_quality="ESPERANDO",entry_quality_color="#38bdf8")
+    previous_live_price = state["last_live_price"]
+    state["previous_live_price"] = previous_live_price
+    state["last_live_price"] = sig["price"]
 
-    lock = seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK
+    price_change = (
+        sig["price"] - previous_live_price
+        if previous_live_price is not None
+        else 0.0
+    )
+
+    previous_score = state["last_score"]
+    state["previous_score"] = previous_score
+    score_change = score - previous_score
+    state["last_score"] = score
+
+    if age < NEW_ROUND_WAIT:
+        state["reversal_warning"] = False
+        state["reversal_text"] = ""
+        return {
+            "decision": "ANALIZANDO NUEVA RONDA",
+            "signal": "ESPERANDO CONFIRMACIÓN",
+            "icon": "⌛",
+            "color": "#38bdf8",
+            "round_state": state,
+            "reversal": False,
+            "reversal_text": "",
+            "entry_price": None,
+            "entry_quality": "ESPERANDO",
+            "entry_quality_color": "#38bdf8",
+        }
+
+    lock_new_entries = (
+        seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK
+    )
+
     candidate = None
     if score >= UP_THRESHOLD:
         candidate = "UP"
     elif score <= DOWN_THRESHOLD:
         candidate = "DOWN"
 
-    if state.get("active_direction") is None and candidate and not lock:
-        p = get_yes_ask(market) if candidate == "UP" else get_no_ask(market)
-        state.update(active_direction=candidate,active_since=n,first_direction=candidate,first_signal_time=n,
-                     first_signal_seconds=seconds_left,first_signal_price=p,first_signal_btc=sig["price"],first_signal_target=target,
-                     first_signal_score=score,first_up_probability=sig["up_probability"],first_down_probability=sig["down_probability"],opposite_count=0)
-        save_state(state)
+    if (
+        state["active_direction"] is None
+        and candidate is not None
+        and not lock_new_entries
+    ):
+        direction_price = (
+            get_yes_ask(market)
+            if candidate == "UP"
+            else get_no_ask(market)
+        )
 
-    active = state.get("active_direction"); reversal = False; reversal_text = ""
+        state["active_direction"] = candidate
+        state["active_since"] = now
+        state["first_direction"] = candidate
+        state["first_signal_time"] = now
+        state["first_signal_seconds"] = seconds_left
+        state["first_signal_price"] = direction_price
+        state["opposite_count"] = 0
+
+    active = state["active_direction"]
+    reversal = False
+    reversal_text = ""
+
     if active == "UP":
-        w = sum([score < 3, score_change <= -1.25, sig["mom3"] < -.02, sig["mom5"] < 0, price_change < -8,
-                 sig["distance"] is not None and seconds_left is not None and seconds_left <= 180 and sig["distance"] < 25 and price_change < 0])
-        if w >= 2: reversal = True; reversal_text = "UP PERDIENDO FUERZA • POSIBLE REVERSIÓN A DOWN"
-        state["opposite_count"] = state.get("opposite_count",0)+1 if score <= FLIP_DOWN_THRESHOLD and sig["mom3"] < 0 else 0
-        if state["opposite_count"] >= FLIP_CONFIRMATIONS:
-            if not lock: state["active_direction"]="DOWN"; state["active_since"]=n
-            state["opposite_count"]=0
+        weakness_points = 0
+
+        if score < 3:
+            weakness_points += 1
+        if score_change <= -1.25:
+            weakness_points += 1
+        if sig["mom3"] < -0.02:
+            weakness_points += 1
+        if sig["mom5"] < 0:
+            weakness_points += 1
+        if price_change < -8:
+            weakness_points += 1
+        if (
+            sig["distance"] is not None
+            and seconds_left is not None
+            and seconds_left <= 180
+            and sig["distance"] < 25
+            and price_change < 0
+        ):
+            weakness_points += 1
+
+        if weakness_points >= 2:
+            reversal = True
+            reversal_text = "UP PERDIENDO FUERZA • POSIBLE REVERSIÓN A DOWN"
+
     elif active == "DOWN":
-        w = sum([score > -3, score_change >= 1.25, sig["mom3"] > .02, sig["mom5"] > 0, price_change > 8,
-                 sig["distance"] is not None and seconds_left is not None and seconds_left <= 180 and sig["distance"] > -25 and price_change > 0])
-        if w >= 2: reversal = True; reversal_text = "DOWN PERDIENDO FUERZA • POSIBLE REBOTE A UP"
-        state["opposite_count"] = state.get("opposite_count",0)+1 if score >= FLIP_UP_THRESHOLD and sig["mom3"] > 0 else 0
+        weakness_points = 0
+
+        if score > -3:
+            weakness_points += 1
+        if score_change >= 1.25:
+            weakness_points += 1
+        if sig["mom3"] > 0.02:
+            weakness_points += 1
+        if sig["mom5"] > 0:
+            weakness_points += 1
+        if price_change > 8:
+            weakness_points += 1
+        if (
+            sig["distance"] is not None
+            and seconds_left is not None
+            and seconds_left <= 180
+            and sig["distance"] > -25
+            and price_change > 0
+        ):
+            weakness_points += 1
+
+        if weakness_points >= 2:
+            reversal = True
+            reversal_text = "DOWN PERDIENDO FUERZA • POSIBLE REBOTE A UP"
+
+    state["reversal_warning"] = reversal
+    state["reversal_text"] = reversal_text
+
+    if active == "UP":
+        if score <= FLIP_DOWN_THRESHOLD and sig["mom3"] < 0:
+            state["opposite_count"] += 1
+        else:
+            state["opposite_count"] = 0
+
         if state["opposite_count"] >= FLIP_CONFIRMATIONS:
-            if not lock: state["active_direction"]="UP"; state["active_since"]=n
-            state["opposite_count"]=0
+            if not lock_new_entries:
+                state["active_direction"] = "DOWN"
+                state["active_since"] = now
+            state["opposite_count"] = 0
 
-    state["reversal_warning"] = reversal; state["reversal_text"] = reversal_text; save_state(state)
-    active = state.get("active_direction")
-    if active == "UP": decision,signal,icon,color,p = "POSIBLE UP","SEÑAL UP","🚀","#34d399",get_yes_ask(market)
-    elif active == "DOWN": decision,signal,icon,color,p = "POSIBLE DOWN","SEÑAL DOWN","🔻","#fb7185",get_no_ask(market)
-    elif lock: decision,signal,icon,color,p = "NO NUEVA ENTRADA","FINAL DE RONDA","⏰","#fbbf24",None
-    else: decision,signal,icon,color,p = "NO TRADE","ESPERAR","⚪","#fbbf24",None
-    q,qc = entry_quality(p,seconds_left)
-    return dict(decision=decision,signal=signal,icon=icon,color=color,round_state=state,reversal=reversal,reversal_text=reversal_text,entry_price=p,entry_quality=q,entry_quality_color=qc)
+    elif active == "DOWN":
+        if score >= FLIP_UP_THRESHOLD and sig["mom3"] > 0:
+            state["opposite_count"] += 1
+        else:
+            state["opposite_count"] = 0
+
+        if state["opposite_count"] >= FLIP_CONFIRMATIONS:
+            if not lock_new_entries:
+                state["active_direction"] = "UP"
+                state["active_since"] = now
+            state["opposite_count"] = 0
+
+    active = state["active_direction"]
+
+    if active == "UP":
+        decision = "UP"
+        signal = "SEÑAL UP"
+        icon = "⬆"
+        color = "#34e982"
+        current_entry_price = get_yes_ask(market)
+    elif active == "DOWN":
+        decision = "DOWN"
+        signal = "SEÑAL DOWN"
+        icon = "⬇"
+        color = "#ff4e5f"
+        current_entry_price = get_no_ask(market)
+    else:
+        current_entry_price = None
+        if lock_new_entries:
+            decision = "NO NUEVA ENTRADA"
+            signal = "FINAL DE RONDA"
+            icon = "⏱"
+            color = "#fbbf24"
+        else:
+            decision = "ESPERANDO"
+            signal = "ESPERAR"
+            icon = "•"
+            color = "#38bdf8"
+
+    quality, quality_color = entry_quality(
+        current_entry_price, seconds_left
+    )
+
+    return {
+        "decision": decision,
+        "signal": signal,
+        "icon": icon,
+        "color": color,
+        "round_state": state,
+        "reversal": reversal,
+        "reversal_text": reversal_text,
+        "entry_price": current_entry_price,
+        "entry_quality": quality,
+        "entry_quality_color": quality_color,
+    }
 
 
 # =========================================================
-# MOTOR AUTÓNOMO NUEVO
+# LECTOR DE CIERRE PRO — MICRO LECTURA ~2 SEGUNDOS
+# Mantiene intacto el motor v4.6.1 y sus señales.
+# No inventa velas REST de 1 segundo: construye una cinta
+# de muestras del BTC live que ya recibe el dashboard.
 # =========================================================
-BASE_URL = "https://external-api.kalshi.com"
-CRED_FILE = Path(".kalshi_credentials.json")
-DEFAULT_CFG = {"modo":"SIMULACIÓN","auto_on":False,"max_levels":4,"martingala":True,"monto_inicial":0.50,"multiplicador":2.0,"precio_limite":0.45,"take_profit":90,"riesgo_max_dia":20.0,"max_operaciones_dia":20,"nivel_actual":1,"direcciones":["Seguir señal"]*12}
 
-def init_new_db():
-    c=sqlite3.connect(DB_PATH); c.execute("CREATE TABLE IF NOT EXISTS app_config(k TEXT PRIMARY KEY,v TEXT)"); c.execute("CREATE TABLE IF NOT EXISTS trades(id INTEGER PRIMARY KEY AUTOINCREMENT,ticker TEXT UNIQUE,created_at TEXT,mode TEXT,level INTEGER,direction TEXT,amount REAL,limit_price REAL,contracts REAL,client_order_id TEXT,order_id TEXT,status TEXT,pnl REAL DEFAULT 0,result TEXT,note TEXT)"); c.commit(); c.close()
-def cfg_load():
-    init_new_db(); d=dict(DEFAULT_CFG); c=sqlite3.connect(DB_PATH)
-    for k,v in c.execute("SELECT k,v FROM app_config").fetchall():
-        try:d[k]=json.loads(v)
-        except:pass
-    c.close(); return d
-def cfg_save(d):
-    init_new_db(); c=sqlite3.connect(DB_PATH)
-    for k,v in d.items(): c.execute("INSERT OR REPLACE INTO app_config(k,v) VALUES(?,?)",(k,json.dumps(v)))
-    c.commit(); c.close()
-def creds_load():
-    if not CRED_FILE.exists(): return {"key_id":"","pem":""}
-    try:return json.loads(CRED_FILE.read_text())
-    except:return {"key_id":"","pem":""}
-def creds_save(key_id,pem):
-    CRED_FILE.write_text(json.dumps({"key_id":key_id.strip(),"pem":pem.strip()}))
-    try:os.chmod(CRED_FILE,0o600)
-    except:pass
-def creds_delete():
-    try:CRED_FILE.unlink(missing_ok=True)
-    except:pass
-def auth_headers(method,path,key_id=None,pem=None):
-    cr=creds_load(); key_id=key_id or cr.get("key_id"); pem=pem or cr.get("pem")
-    if not key_id or not pem: raise ValueError("Faltan las credenciales de Kalshi.")
-    private_key=serialization.load_pem_private_key(pem.encode(),password=None); ts=str(int(time.time()*1000)); clean=path.split("?")[0]; msg=(ts+method.upper()+clean).encode()
-    sig=private_key.sign(msg,padding.PSS(mgf=padding.MGF1(hashes.SHA256()),salt_length=padding.PSS.DIGEST_LENGTH),hashes.SHA256())
-    return {"KALSHI-ACCESS-KEY":key_id,"KALSHI-ACCESS-TIMESTAMP":ts,"KALSHI-ACCESS-SIGNATURE":base64.b64encode(sig).decode(),"Content-Type":"application/json"}
-def kreq(method,path,params=None,payload=None,key_id=None,pem=None,timeout=10):
-    r=requests.request(method,BASE_URL+path,headers=auth_headers(method,path,key_id,pem),params=params,json=payload,timeout=timeout)
-    if not r.ok: raise RuntimeError(f"Kalshi {r.status_code}: {r.text[:240]}")
-    return r.json() if r.content else {}
-def verify_kalshi(key_id=None,pem=None):
-    t=time.perf_counter(); data=kreq("GET","/trade-api/v2/portfolio/balance",key_id=key_id,pem=pem); ms=round((time.perf_counter()-t)*1000); raw=data.get("balance",0); balance=float(raw)/100 if isinstance(raw,(int,float)) and raw>100 else float(raw or 0); return balance,ms
-def create_order_v2(ticker,direction,count,limit_price):
-    side="bid" if direction=="UP" else "ask"; yes_price=limit_price if direction=="UP" else 1-limit_price; cid=str(uuid.uuid4())
-    body={"ticker":ticker,"side":side,"count":f"{count:.2f}","price":f"{yes_price:.4f}","time_in_force":"good_till_canceled","self_trade_prevention_type":"taker_at_cross","client_order_id":cid}
-    data=kreq("POST","/trade-api/v2/portfolio/events/orders",payload=body); oid=data.get("order_id") or (data.get("order") or {}).get("order_id"); return cid,oid,data
-def trade_for_ticker(ticker):
-    init_new_db(); c=sqlite3.connect(DB_PATH); c.row_factory=sqlite3.Row; r=c.execute("SELECT * FROM trades WHERE ticker=?",(ticker,)).fetchone(); c.close(); return dict(r) if r else None
-def add_trade(**x):
-    init_new_db(); c=sqlite3.connect(DB_PATH); cols=list(x); c.execute(f"INSERT OR IGNORE INTO trades({','.join(cols)}) VALUES({','.join(['?']*len(cols))})",[x[k] for k in cols]); c.commit(); c.close()
-def recent_trades(n=25):
-    init_new_db(); c=sqlite3.connect(DB_PATH); c.row_factory=sqlite3.Row; rows=[dict(r) for r in c.execute("SELECT * FROM trades ORDER BY id DESC LIMIT ?",(n,)).fetchall()]; c.close(); return rows
-def today_stats():
-    rows=recent_trades(200); today=utc_now().date().isoformat(); rr=[r for r in rows if str(r.get('created_at','')).startswith(today)]; return len(rr),sum(float(r.get('pnl') or 0) for r in rr)
-def effective_direction(signal,level,cfg):
-    rule=cfg["direcciones"][max(0,min(11,level-1))]; return "UP" if rule=="Solo UP" else ("DOWN" if rule=="Solo DOWN" else signal)
-def autonomous_tick():
-    cfg=cfg_load()
-    try:
-        market=get_kalshi_btc_market()
-        if not market:return {"ok":False,"msg":"No hay ronda BTC 15M abierta."}
-        df=add_indicators(get_btc_data()); target=get_target_from_market(market); secs=get_seconds_remaining(market)
-        try:live=get_kalshi_live_btc_price(market)
-        except:live=get_coinbase_live_price()
-        sig=build_signal(df,target,secs,live); rs=process_round_signal(market.get("ticker","--"),sig,market,secs,target); out={"ok":True,"market":market,"sig":sig,"rs":rs,"secs":secs,"target":target,"live":live}
-        if not cfg.get("auto_on"):return out
-        if cfg.get("modo")=="LIVE" and not creds_load().get("key_id"):out["block"]="Faltan credenciales Kalshi"; return out
-        direction=(rs.get("round_state") or {}).get("active_direction")
-        if direction not in ("UP","DOWN"):return out
-        ticker=market.get("ticker")
-        if trade_for_ticker(ticker):return out
-        nops,pnl=today_stats()
-        if nops>=int(cfg["max_operaciones_dia"]):out["block"]="Límite diario de operaciones alcanzado"; return out
-        if pnl<=-abs(float(cfg["riesgo_max_dia"])):out["block"]="Límite diario de pérdida alcanzado"; return out
-        level=max(1,min(int(cfg["nivel_actual"]),int(cfg["max_levels"]))); direction=effective_direction(direction,level,cfg); ask=get_yes_ask(market) if direction=="UP" else get_no_ask(market)
-        if ask is None:out["block"]="Precio de entrada no disponible"; return out
-        limit=float(cfg["precio_limite"])
-        if ask>limit:out["block"]=f"Precio {ask:.2f} supera límite {limit:.2f}"; return out
-        amount=float(cfg["monto_inicial"])*(float(cfg["multiplicador"])**(level-1) if cfg["martingala"] else 1); count=max(1,int(amount/max(ask,.01))); cid=oid=None; status="SIMULADA"; note=f"Señal {direction}; score {sig['final_score']:.2f}"
-        if cfg["modo"]=="LIVE":cid,oid,_=create_order_v2(ticker,direction,count,limit); status="ENVIADA"
-        add_trade(ticker=ticker,created_at=utc_now().isoformat(),mode=cfg["modo"],level=level,direction=direction,amount=amount,limit_price=limit,contracts=count,client_order_id=cid,order_id=oid,status=status,pnl=0,result=None,note=note); out["executed"]={"direction":direction,"amount":amount,"count":count,"status":status,"order_id":oid}; return out
-    except Exception as e:return {"ok":False,"msg":str(e)}
+def update_micro_tape(ticker, live_price):
+    if not ticker or ticker == "--" or live_price is None:
+        return
 
-st.markdown("""<style>#MainMenu,header,footer{visibility:hidden}.stApp{background:#07100d;color:#eef7f2}.block-container{max-width:520px;padding:18px 16px 90px!important}[data-testid=stMetric]{background:#0d1814;border:1px solid #1d3a30;border-radius:18px;padding:14px}.hero{border:1px solid #1f5b46;background:linear-gradient(145deg,#0b1914,#09120f);border-radius:22px;padding:18px;margin:8px 0 14px}.ey{color:#69d7a8;font-size:12px;font-weight:800;letter-spacing:1.5px}.big{font-size:34px;font-weight:900}.muted{color:#8fa49b}.pill{display:inline-block;border:1px solid #2a6b53;border-radius:99px;padding:5px 10px;color:#6ee7b7;font-size:12px;font-weight:800}.danger{color:#ff6b72}.warn{color:#f5c451}.good{color:#38d39f}.level{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.dot{border:1px solid #2b4a40;border-radius:10px;padding:7px 10px;font-size:12px}.active{border-color:#39d99f;color:#39d99f;background:#0d241b}.stButton>button{border-radius:14px;min-height:44px;font-weight:800}</style>""",unsafe_allow_html=True)
-if "page" not in st.session_state:st.session_state.page="⚡ Bot"
-page=st.radio("Navegación",["⚡ Bot","▤ Operaciones","$ Saldo","⚙ Ajustes"],horizontal=True,label_visibility="collapsed",key="page")
-if page=="⚡ Bot":
-    state=autonomous_tick(); cfg=cfg_load()
-    if not state.get("ok"):st.error(state.get("msg","Error de conexión"))
+    # Cada ronda empieza con su propia cinta.
+    if st.session_state.micro_ticker != ticker:
+        st.session_state.micro_ticker = ticker
+        st.session_state.micro_prices = []
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    tape = st.session_state.micro_prices
+
+    # Evita duplicar muestras dentro del mismo refresco.
+    if not tape or now_ts - tape[-1]["t"] >= 1.0:
+        tape.append({"t": now_ts, "p": float(live_price)})
+
+    # Conserva aproximadamente los últimos 90 segundos.
+    cutoff = now_ts - 90
+    st.session_state.micro_prices = [
+        x for x in tape if x["t"] >= cutoff
+    ]
+
+
+def micro_reading():
+    tape = st.session_state.micro_prices
+
+    if len(tape) < 4:
+        return {
+            "ready": False,
+            "change_10s": 0.0,
+            "change_30s": 0.0,
+            "slope": 0.0,
+            "up_ratio": 0.5,
+            "pressure": "NEUTRAL",
+        }
+
+    now_t = tape[-1]["t"]
+    current = tape[-1]["p"]
+
+    def price_ago(seconds):
+        target_t = now_t - seconds
+        candidates = [x for x in tape if x["t"] <= target_t]
+        if candidates:
+            return candidates[-1]["p"]
+        return tape[0]["p"]
+
+    p10 = price_ago(10)
+    p30 = price_ago(30)
+
+    changes = [
+        tape[i]["p"] - tape[i - 1]["p"]
+        for i in range(1, len(tape))
+    ]
+    nonzero = [x for x in changes if x != 0]
+    up_ratio = (
+        sum(1 for x in nonzero if x > 0) / len(nonzero)
+        if nonzero else 0.5
+    )
+
+    # Regresión simple precio/tiempo para medir dirección micro.
+    xs = np.array([x["t"] - tape[0]["t"] for x in tape], dtype=float)
+    ys = np.array([x["p"] for x in tape], dtype=float)
+    slope = float(np.polyfit(xs, ys, 1)[0]) if len(xs) >= 3 and xs[-1] > 0 else 0.0
+
+    c10 = current - p10
+    c30 = current - p30
+
+    if slope > 0.35 and up_ratio >= 0.58:
+        pressure = "ALCISTA"
+    elif slope < -0.35 and up_ratio <= 0.42:
+        pressure = "BAJISTA"
     else:
-        m,sig,rs=state["market"],state["sig"],state["rs"]; direction=(rs.get("round_state") or {}).get("active_direction") or "ESPERANDO"; color="good" if direction=="UP" else ("danger" if direction=="DOWN" else "warn")
-        st.markdown(f'<div class="hero"><div class="ey">BTC · 15 MIN &nbsp; <span class="pill">KALSHI</span></div><div class="big">${state["live"]:,.2f}</div><div class="muted">Ronda {m.get("ticker","--")} · {format_countdown(state["secs"])} restantes</div></div>',unsafe_allow_html=True)
-        a,b=st.columns(2); a.metric("TARGET",f'${state["target"]:,.2f}' if state["target"] else "--"); b.metric("DISTANCIA",f'{sig["distance"]:+.2f}' if sig["distance"] is not None else "--")
-        st.markdown(f'<div class="hero"><div class="ey">ALPHA ENGINE v4.6.1</div><div class="big {color}">{direction}</div><div>UP {sig["up_probability"]}% · DOWN {sig["down_probability"]}%</div><div class="muted">EMA {sig["ema"]} · RSI {sig["rsi"]:.1f} · Momentum {sig["momentum"]} · Score {sig["final_score"]:.2f}</div></div>',unsafe_allow_html=True)
-        lv=int(cfg['nivel_actual']); mx=int(cfg['max_levels']); dots=''.join(f'<span class="dot {"active" if i==lv else ""}">Nivel {i}</span>' for i in range(1,mx+1)); st.markdown(f'<div class="hero"><div class="ey">AUTO TRADING · {cfg["modo"]}</div><div class="big">{"ENCENDIDO" if cfg["auto_on"] else "APAGADO"}</div><div class="muted">Nivel actual {lv}/{mx} · Monto base ${cfg["monto_inicial"]:.2f} · Límite ${cfg["precio_limite"]:.2f}</div><div class="level">{dots}</div></div>',unsafe_allow_html=True)
-        if state.get("block"):st.warning(state["block"])
-        if state.get("executed"):st.success(f'Operación {state["executed"]["status"]}: {state["executed"]["direction"]} · ${state["executed"]["amount"]:.2f}')
-        if st.button("⏻ APAGAR BOT" if cfg['auto_on'] else "⏻ ENCENDER BOT",use_container_width=True,type="primary"):cfg['auto_on']=not cfg['auto_on']; cfg_save(cfg); st.rerun()
-elif page=="▤ Operaciones":
-    st.title("Operaciones"); rows=recent_trades(50)
-    if not rows:st.info("Todavía no hay operaciones.")
-    for r in rows:st.markdown(f'<div class="hero"><div class="ey">{r["ticker"]} · NIVEL {r["level"]}</div><div class="big {"good" if r["direction"]=="UP" else "danger"}">{r["direction"]} · {r["status"]}</div><div class="muted">${r["amount"]:.2f} · {r["contracts"]} contratos · límite {r["limit_price"]:.2f}</div></div>',unsafe_allow_html=True)
-elif page=="$ Saldo":
-    st.title("Saldo"); cr=creds_load()
-    if not cr.get('key_id'):st.info("Conecta Kalshi desde Ajustes → Conexión Kalshi.")
+        pressure = "NEUTRAL"
+
+    return {
+        "ready": True,
+        "change_10s": c10,
+        "change_30s": c30,
+        "slope": slope,
+        "up_ratio": up_ratio,
+        "pressure": pressure,
+    }
+
+
+def closing_reader(sig, round_signal, seconds_left, micro):
+    """
+    Lector independiente de cierre.
+    - La señal principal v4.6.1 NO se modifica.
+    - En los últimos segundos, tiempo + distancia al target dominan sobre
+      una pequeña contradicción de momentum/microlectura.
+    - Nunca llama "confirmado" a un resultado antes del cierre.
+    """
+    state = round_signal.get("round_state")
+    active_direction = state.get("active_direction") if state else None
+
+    if active_direction not in ("UP", "DOWN"):
+        return {
+            "percent": 50,
+            "headline": "ESPERANDO SEÑAL",
+            "note": "El motor todavía no confirmó una dirección.",
+            "micro": "MICROLECTURA PREPARÁNDOSE",
+            "color": "#38bdf8",
+            "border": "rgba(56,189,248,.45)",
+            "bg": "linear-gradient(135deg,rgba(11,64,91,.30),rgba(9,23,34,.72))",
+        }
+
+    distance = sig.get("distance")
+    close_direction = active_direction
+    terminal_override = False
+    terminal_too_close = False
+
+    # En cierre extremo, la posición REAL respecto al target manda.
+    # Umbrales deliberadamente conservadores para no llamar un flip por $2-$10.
+    if seconds_left is not None and distance is not None:
+        abs_d = abs(distance)
+        market_side = "UP" if distance > 0 else "DOWN"
+
+        if seconds_left <= 15:
+            strong_distance = abs_d >= 30
+            too_close = abs_d < 15
+        elif seconds_left <= 30:
+            strong_distance = abs_d >= 45
+            too_close = abs_d < 20
+        elif seconds_left <= 60:
+            strong_distance = abs_d >= 70
+            too_close = abs_d < 25
+        else:
+            strong_distance = False
+            too_close = False
+
+        if strong_distance:
+            close_direction = market_side
+            terminal_override = True
+        elif too_close and seconds_left <= 30:
+            terminal_too_close = True
+
+    direction = close_direction
+    base = sig["up_probability"] if direction == "UP" else sig["down_probability"]
+    confidence = float(base)
+
+    if distance is not None:
+        aligned = distance > 0 if direction == "UP" else distance < 0
+        confidence += 6 if aligned else -9
+
+    aligned_momentum = sig["mom3"] > 0 if direction == "UP" else sig["mom3"] < 0
+    confidence += 3 if aligned_momentum else -5
+
+    if round_signal.get("reversal") and not terminal_override:
+        confidence -= 12
+
+    micro_text = "MICROLECTURA REUNIENDO DATOS"
+    strong_contradiction = False
+
+    if micro.get("ready"):
+        wanted = 1 if direction == "UP" else -1
+        c10 = micro["change_10s"] * wanted
+        c30 = micro["change_30s"] * wanted
+        slope = micro["slope"] * wanted
+        ratio = micro["up_ratio"] if direction == "UP" else 1 - micro["up_ratio"]
+
+        micro_score = 0
+        micro_score += 6 if c10 > 8 else (3 if c10 > 2 else (-7 if c10 < -8 else (-4 if c10 < -2 else 0)))
+        micro_score += 7 if c30 > 15 else (4 if c30 > 5 else (-9 if c30 < -15 else (-5 if c30 < -5 else 0)))
+        micro_score += 4 if slope > 0.45 else (-5 if slope < -0.45 else 0)
+        micro_score += 4 if ratio >= 0.62 else (-5 if ratio <= 0.38 else 0)
+
+        # La microlectura pesa menos cuando quedan segundos y la distancia es amplia.
+        weight = 1.0
+        if seconds_left is not None:
+            if seconds_left <= 30:
+                weight = 0.45 if terminal_override else 1.20
+            elif seconds_left <= 60:
+                weight = 0.70 if terminal_override else 1.35
+            elif seconds_left <= 120:
+                weight = 1.35
+            elif seconds_left <= 180:
+                weight = 1.20
+
+        confidence += float(np.clip(micro_score * weight, -28, 20))
+        strong_contradiction = (c10 < -5 and c30 < -10)
+
+        # Solo limitar por contradicción si tiempo/distancia NO hacen el cierre dominante.
+        if strong_contradiction and not terminal_override:
+            confidence = min(confidence, 69)
+
+        micro_text = (
+            f"MICRO {micro['pressure']} • "
+            f"10s {micro['change_10s']:+.1f} • "
+            f"30s {micro['change_30s']:+.1f}"
+        )
+
+    if seconds_left is not None and seconds_left <= 180:
+        confidence += 2
+
+    # Refuerzo específico de tiempo + distancia.
+    if terminal_override and distance is not None:
+        abs_d = abs(distance)
+        if seconds_left <= 15:
+            confidence = max(confidence, 90 if abs_d >= 75 else 82)
+        elif seconds_left <= 30:
+            confidence = max(confidence, 86 if abs_d >= 100 else 78)
+        elif seconds_left <= 60:
+            confidence = max(confidence, 80 if abs_d >= 120 else 74)
+
+    confidence = int(round(np.clip(confidence, 5, 95)))
+
+    if terminal_too_close:
+        confidence = min(confidence, 58)
+        headline = "DEMASIADO CERRADO"
+        note = "Queda muy poco tiempo y BTC está demasiado cerca del target."
+    elif terminal_override:
+        headline = f"CIERRE MUY FAVORECIDO PARA {direction}"
+        note = (
+            f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
+            f"{'arriba' if distance > 0 else 'abajo'} del target."
+        )
+    elif round_signal.get("reversal"):
+        headline = "SEÑAL PERDIENDO FUERZA"
+        note = round_signal.get("reversal_text") or "Posible cambio de dirección."
+    elif strong_contradiction:
+        headline = f"{direction} PERDIENDO FUERZA"
+        note = "La presión live de 10s y 30s va contra la señal activa."
+    elif confidence >= 75:
+        headline = ("ALTA PROBABILIDAD DE CIERRE EN VERDE" if direction == "UP"
+                    else "ALTA PROBABILIDAD DE CIERRE EN ROJO")
+        note = "Basado en momentum, volatilidad, presión de precio y distancia al target."
+    elif confidence >= 60:
+        headline = f"VENTAJA MODERADA PARA {direction}"
+        note = "La dirección sigue activa, pero la presión inmediata aún puede cambiar."
     else:
-        try:bal,ms=verify_kalshi(); st.metric("Saldo Kalshi",f"${bal:,.2f}"); st.caption(f"API conectada · {ms} ms")
-        except Exception as e:st.error(str(e))
-    n,p=today_stats(); a,b=st.columns(2); a.metric("Operaciones hoy",n); b.metric("P&L registrado",f"${p:,.2f}")
-else:
-    st.title("Ajustes"); tab1,tab2=st.tabs(["🤖 Bot y niveles","🔐 Conexión Kalshi"])
-    with tab1:
-        cfg=cfg_load(); st.subheader("Estrategia"); modo=st.selectbox("Modo de operación",["SIMULACIÓN","LIVE"],index=0 if cfg['modo']=="SIMULACIÓN" else 1); maxl=st.slider("Máximo de niveles",1,12,int(cfg['max_levels'])); mart=st.toggle("Martingala",value=bool(cfg['martingala'])); monto=st.number_input("Monto inicial ($)",min_value=0.01,value=float(cfg['monto_inicial']),step=0.25); mult=st.number_input("Multiplicador por nivel",min_value=1.0,max_value=5.0,value=float(cfg['multiplicador']),step=0.25); lim=st.slider("Precio máximo de entrada",0.01,0.99,float(cfg['precio_limite']),0.01,format="$%.2f"); tp=st.slider("Tomar profit (%)",1,99,int(cfg['take_profit'])); loss=st.number_input("Pérdida máxima diaria ($)",min_value=1.0,value=float(cfg['riesgo_max_dia']),step=1.0); mop=st.number_input("Máximo de operaciones por día",min_value=1,max_value=100,value=int(cfg['max_operaciones_dia'])); dirs=list(cfg['direcciones']); st.subheader("Dirección por nivel")
-        for i in range(maxl):dirs[i]=st.selectbox(f"Nivel {i+1}",["Seguir señal","Solo UP","Solo DOWN"],index=["Seguir señal","Solo UP","Solo DOWN"].index(dirs[i]),key=f"dir{i}")
-        if st.button("Guardar cambios",type="primary",use_container_width=True):cfg.update(modo=modo,max_levels=maxl,martingala=mart,monto_inicial=monto,multiplicador=mult,precio_limite=lim,take_profit=tp,riesgo_max_dia=loss,max_operaciones_dia=int(mop),direcciones=dirs); cfg['nivel_actual']=min(cfg['nivel_actual'],maxl); cfg_save(cfg); st.success("Configuración guardada.")
-        if modo=="LIVE":st.warning("LIVE envía órdenes reales. Prueba primero en SIMULACIÓN.")
-    with tab2:
-        st.subheader("Conexión Kalshi"); cr=creds_load(); st.caption("API Key ID + clave privada PEM. La clave se guarda localmente con permisos restringidos cuando el sistema lo permite."); kid=st.text_input("API Key ID",value=cr.get('key_id',''),placeholder="Tu Key ID"); pem=st.text_area("Clave privada PEM",value="",placeholder="Pega aquí la clave para conectar o reemplazarla",height=180); c1,c2=st.columns(2)
-        if c1.button("Verificar y guardar",type="primary",use_container_width=True):
-            testpem=pem.strip() or cr.get('pem','')
-            try:bal,ms=verify_kalshi(kid,testpem); creds_save(kid,testpem); st.success(f"Conectado · ${bal:,.2f} · {ms} ms")
-            except Exception as e:st.error(f"No se pudo conectar: {e}")
-        if c2.button("Eliminar credenciales",use_container_width=True):creds_delete(); st.success("Credenciales eliminadas."); st.rerun()
-        if cr.get('key_id'):
-            try:bal,ms=verify_kalshi(); st.markdown(f'<div class="hero"><div class="ey">KALSHI LIVE</div><div class="big good">CONECTADO</div><div class="muted">Saldo ${bal:,.2f} · Latencia {ms} ms</div></div>',unsafe_allow_html=True)
-            except Exception as e:st.warning(f"Credenciales guardadas, pero la prueba falló: {e}")
-st.caption("Alpha Autónomo · El modo LIVE puede ejecutar operaciones reales. Los límites reducen riesgo, pero no garantizan ganancias.")
+        headline = f"CIERRE {direction} SIN VENTAJA CLARA"
+        note = "La microlectura no confirma con fuerza la dirección."
+
+    if direction == "UP":
+        color = "#34e982"
+        border = "rgba(52,233,130,.48)"
+        bg = "linear-gradient(135deg,rgba(4,86,43,.46),rgba(7,36,25,.78))"
+    else:
+        color = "#ff4e5f"
+        border = "rgba(255,78,95,.48)"
+        bg = "linear-gradient(135deg,rgba(102,20,31,.48),rgba(43,10,17,.80))"
+
+    return {
+        "percent": confidence,
+        "headline": headline,
+        "note": note,
+        "micro": micro_text,
+        "color": color,
+        "border": border,
+        "bg": bg,
+    }
+
+
+
+
+def render_live_candles(df, live_price, target, active, timeframe="1m"):
+    # Renderiza velas BTC/USD para visualización sin cambiar el motor v4.6.1.
+    # 3m y 5m se construyen agrupando las velas reales de Coinbase de 1 minuto.
+    if df is None or len(df) < 5:
+        return f'<div class="chartbox"><div class="charttitle">BTC/USD · {timeframe}</div><div class="chartempty">Esperando velas…</div></div>'
+
+    tf_minutes = {"1m": 1, "3m": 3, "5m": 5}.get(timeframe, 1)
+    source_df = df.copy().sort_values("time")
+    if tf_minutes > 1:
+        d = (
+            source_df.set_index("time")
+            .resample(f"{tf_minutes}min", label="left", closed="left")
+            .agg({
+                "open": "first",
+                "high": "max",
+                "low": "min",
+                "close": "last",
+                "volume": "sum",
+            })
+            .dropna()
+            .reset_index()
+        )
+    else:
+        d = source_df[["time", "open", "high", "low", "close", "volume"]].copy()
+
+    d = d.tail(42).reset_index(drop=True)
+    # La última vela se mantiene visualmente al precio live recibido por el dashboard.
+    if live_price is not None and len(d):
+        i = d.index[-1]
+        d.loc[i, "close"] = float(live_price)
+        d.loc[i, "high"] = max(float(d.loc[i, "high"]), float(live_price))
+        d.loc[i, "low"] = min(float(d.loc[i, "low"]), float(live_price))
+
+    close = d["close"].astype(float)
+    ema9 = close.ewm(span=9, adjust=False).mean()
+    ema21 = close.ewm(span=21, adjust=False).mean()
+
+    W, H = 760, 430
+    left, right, top, bottom = 18, 142, 54, 82
+    pw, ph = W-left-right, H-top-bottom
+    vals = list(d["low"].astype(float)) + list(d["high"].astype(float))
+    if target is not None: vals.append(float(target))
+    if live_price is not None: vals.append(float(live_price))
+    lo, hi = min(vals), max(vals)
+    pad = max((hi-lo)*0.10, 8)
+    lo, hi = lo-pad, hi+pad
+    def y(v): return top + (hi-float(v))/(hi-lo)*ph
+    n=len(d); step=pw/max(n,1); body=max(3.2, min(8, step*.58))
+
+    svg=[]
+    # horizontal grid + prices
+    for k in range(5):
+        yy=top+ph*k/4; price=hi-(hi-lo)*k/4
+        svg.append(f'<line x1="{left}" y1="{yy:.1f}" x2="{W-right}" y2="{yy:.1f}" stroke="#182536" stroke-width="1"/>')
+        svg.append(f'<text x="{W-right+8}" y="{yy+4:.1f}" fill="#8392a7" font-size="12">{price:,.0f}</text>')
+    # vertical grid
+    for k in range(5):
+        xx=left+pw*k/4
+        svg.append(f'<line x1="{xx:.1f}" y1="{top}" x2="{xx:.1f}" y2="{top+ph}" stroke="#121e2d" stroke-width="1"/>')
+
+    # volume scaled into bottom 52 px of plot
+    vmax=max(float(d["volume"].max()),1)
+    vbase=top+ph
+    for i,row in d.iterrows():
+        x=left+(i+.5)*step; vh=float(row["volume"])/vmax*48
+        col='#16b97a' if float(row['close'])>=float(row['open']) else '#c43d59'
+        svg.append(f'<rect x="{x-body/2:.1f}" y="{vbase-vh:.1f}" width="{body:.1f}" height="{vh:.1f}" fill="{col}" opacity=".55"/>')
+
+    # candles
+    for i,row in d.iterrows():
+        x=left+(i+.5)*step
+        o,c,h,l=map(float,[row['open'],row['close'],row['high'],row['low']])
+        col='#19e6a2' if c>=o else '#ff4e6a'
+        svg.append(f'<line x1="{x:.1f}" y1="{y(h):.1f}" x2="{x:.1f}" y2="{y(l):.1f}" stroke="{col}" stroke-width="1.4"/>')
+        yy=min(y(o),y(c)); hh=max(2.0,abs(y(o)-y(c)))
+        svg.append(f'<rect x="{x-body/2:.1f}" y="{yy:.1f}" width="{body:.1f}" height="{hh:.1f}" rx=".7" fill="{col}"/>')
+
+    # EMA paths
+    def path(series,color):
+        pts=' '.join(f'{left+(i+.5)*step:.1f},{y(v):.1f}' for i,v in enumerate(series))
+        return f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    svg.append(path(ema9,'#df42e7'))
+    svg.append(path(ema21,'#32d7ef'))
+
+    # target line
+    if target is not None and lo <= float(target) <= hi:
+        ty=y(target)
+        svg.append(f'<line x1="{left}" y1="{ty:.1f}" x2="{W-right}" y2="{ty:.1f}" stroke="#23e7c1" stroke-width="1.8" stroke-dasharray="7 6"/>')
+        # La etiqueta queda en el margen derecho, fuera del área de velas.
+        svg.append(f'<rect x="{W-right+18}" y="{ty-12:.1f}" width="96" height="23" rx="3" fill="#20e7bd"/>')
+        svg.append(f'<text x="{W-right+25}" y="{ty+4:.1f}" fill="#061510" font-size="10" font-weight="800">TARGET</text>')
+    # live price line + label
+    if live_price is not None and lo <= float(live_price) <= hi:
+        ly=y(live_price); lc='#31e889' if active=='UP' else '#ff5367' if active=='DOWN' else '#38bdf8'
+        svg.append(f'<line x1="{left}" y1="{ly:.1f}" x2="{W-right}" y2="{ly:.1f}" stroke="{lc}" stroke-width="1.3" stroke-dasharray="3 4"/>')
+        svg.append(f'<rect x="{W-right+18}" y="{ly-12:.1f}" width="96" height="23" rx="3" fill="{lc}"/>')
+        svg.append(f'<text x="{W-right+25}" y="{ly+4:.1f}" fill="#061510" font-size="11" font-weight="900">{float(live_price):,.0f}</text>')
+
+    # time labels
+    picks=[0, max(0,n//3), max(0,2*n//3), n-1]
+    for idx in picks:
+        tm=d.iloc[idx]['time'].to_pydatetime().astimezone().strftime('%H:%M')
+        xx=left+(idx+.5)*step
+        svg.append(f'<text x="{xx:.1f}" y="{H-52}" text-anchor="middle" fill="#8392a7" font-size="11">{tm}</text>')
+
+    last=d.iloc[-1]
+    change=float(last['close'])-float(last['open'])
+    pct=(change/float(last['open'])*100) if float(last['open']) else 0
+    direction_color='#31e889' if change>=0 else '#ff5367'
+    target_label=f'${float(target):,.0f}' if target is not None else '--'
+    return f'''<section class="chartbox">
+      <div class="charttop"><div><b>BTC/USD · {timeframe}</b><span class="chartlive">● LIVE</span></div><div class="charttf">{timeframe}</div></div>
+      <div class="ohlc">O {float(last['open']):,.0f} &nbsp; H {float(last['high']):,.0f} &nbsp; L {float(last['low']):,.0f} &nbsp; C {float(last['close']):,.0f} &nbsp; <strong style="color:{direction_color}">{change:+,.0f} ({pct:+.2f}%)</strong></div>
+      <div class="indicators"><span class="ema9dot">●</span> EMA9 {float(ema9.iloc[-1]):,.0f} &nbsp;&nbsp; <span class="ema21dot">●</span> EMA21 {float(ema21.iloc[-1]):,.0f} &nbsp;&nbsp; <span class="targetdot">━</span> TARGET {target_label}</div>
+      <svg class="candlesvg" viewBox="0 0 {W} {H}" preserveAspectRatio="none">{''.join(svg)}</svg>
+      <div class="chartfoot"><span class="selected">{timeframe}</span><span>VELAS REALES COINBASE</span><span>ACTUALIZACIÓN LIVE</span></div>
+    </section>'''
+
+
+# =========================================================
+
+# =========================================================
+# ALPHA AUTÓNOMO • MOBILE FRONTEND
+# Referencia visual aprobada: 5 pantallas compactas, negro/verde, navegación inferior.
+
+st.markdown(r'''<style>
+:root{--bg:#020806;--card:#07110d;--line:#18372b;--green:#18e58b;--red:#ff4e68;--muted:#8c9a94;--text:#f2f7f4;--yellow:#f5c84b}
+html,body,[class*="css"]{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
+.stApp{background:var(--bg)!important;color:var(--text)!important}.block-container{max-width:430px!important;padding:10px 12px 92px!important}
+#MainMenu,header,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important}
+[data-testid="stSidebar"]{display:none!important}
+h1,h2,h3,p{margin:0}.aa-title{font-size:22px;font-weight:900;margin:8px 0 14px}.aa-section{font-size:10px;font-weight:900;letter-spacing:.7px;margin:17px 0 8px;color:#e8efeb}
+.aa-card{background:linear-gradient(180deg,#08130f,#06100c);border:1px solid var(--line);border-radius:12px;padding:11px;margin:7px 0}.aa-row{display:flex;justify-content:space-between;gap:10px;align-items:center}.aa-muted{color:var(--muted);font-size:10px}.aa-green{color:var(--green)}.aa-red{color:var(--red)}
+.market-head{display:flex;justify-content:space-between;align-items:center;margin:7px 0 6px}.market-name{font-size:15px;font-weight:900}.kalshi-live{font-size:11px;font-weight:900;color:var(--green)}.kalshi-live:before{content:'●';margin-right:6px}.btc-price{font-size:25px;font-weight:950;color:var(--green);line-height:1.05}.btc-change{font-size:10px;color:var(--green);font-weight:800;margin-top:4px}
+.round-grid{display:grid;grid-template-columns:1fr 82px;gap:8px}.round-name{font-size:16px;font-weight:900;margin:3px 0 8px}.round-lines{font-size:11px;line-height:1.75}.round-lines b{float:right}.timer{width:74px;height:74px;border-radius:50%;background:conic-gradient(var(--green) var(--deg),#173028 0);display:grid;place-items:center;margin:auto;position:relative}.timer:after{content:'';position:absolute;inset:7px;border-radius:50%;background:#07110d}.timer-in{z-index:2;text-align:center;font-size:18px;font-weight:900}.timer-in small{display:block;font-size:8px;color:var(--muted);font-weight:600}
+.chart-wrap{height:190px;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:8px 0;background:#030a08}.chart-svg{width:100%;height:100%;display:block}.engine{border-color:#0e6b45}.engine-head{font-size:12px;font-weight:900;letter-spacing:.4px}.engine-status{font-size:9px;color:var(--green);font-weight:900}.engine-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:10px;margin-top:9px}.prob-big{font-size:26px;font-weight:950;line-height:1}.bar{height:7px;background:#11231c;border-radius:9px;overflow:hidden;margin:4px 0 8px}.bar i{display:block;height:100%;border-radius:9px}.sig-line{font-size:12px;line-height:1.9}.checks{font-size:9px;margin-top:7px;display:flex;justify-content:space-between;color:#dbe5df}
+.auto-card{border-color:#185b40}.auto-head{font-size:12px;font-weight:900}.pill-on{border:1px solid var(--green);border-radius:20px;padding:4px 11px;color:var(--green);font-size:10px;font-weight:900}.auto-live{font-size:9px;color:var(--green);font-weight:900;margin:4px 0 8px}.auto-lines{font-size:10px;line-height:1.7}.auto-lines b{float:right}
+.stats6{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.statbox{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:9px}.statbox small{display:block;color:var(--muted);font-size:8px}.statbox b{font-size:18px;display:block;margin-top:3px}.op-head,.op-row{display:grid;grid-template-columns:1.45fr .65fr .65fr .75fr;gap:4px;align-items:center}.op-head{font-size:8px;color:#b7c1bc;padding:9px 4px}.op-row{border-bottom:1px solid #10231b;padding:8px 4px;font-size:10px}.op-row small{font-size:7px;color:var(--muted)}
+.k-card{border:1px solid #15734c;border-radius:12px;padding:11px;background:#06120d}.k-logo{width:52px;height:52px;border-radius:9px;background:linear-gradient(135deg,#16ef9a,#00b86c);display:grid;place-items:center;color:#032016;font-size:16px;font-weight:950}.k-title{font-size:17px;font-weight:900}.connected{border:1px solid #168858;border-radius:18px;padding:4px 10px;color:var(--green);font-size:9px;font-weight:900}.latency{font-size:23px;color:var(--green);font-weight:900}.spark{height:58px;width:100%;margin-top:5px}
+.level-card{display:grid;grid-template-columns:38px 1fr 1.35fr 38px;align-items:center;gap:7px;border:1px solid var(--line);border-radius:10px;padding:8px;margin:7px 0;background:#07110d}.level-num{width:28px;height:28px;border-radius:50%;border:2px solid #4b5c55;display:grid;place-items:center;font-weight:900}.level-num.active{border-color:var(--green);color:var(--green)}.toggle-dot{width:34px;height:18px;border-radius:18px;background:#0a7049;position:relative}.toggle-dot:after{content:'';position:absolute;width:14px;height:14px;right:2px;top:2px;background:#fff;border-radius:50%}.progression{display:flex;justify-content:space-around;align-items:center;padding:10px 3px}.prog{width:34px;height:34px;border-radius:50%;border:2px solid #5b6964;display:grid;place-items:center;font-weight:900}.prog.win{border-color:var(--green);background:#063c29;color:var(--green)}.prog.current{border-color:var(--yellow);color:var(--yellow);box-shadow:0 0 12px #9c7c1d}.arrow{color:#65736d}
+.balance-big{text-align:center;padding:20px}.balance-big small{font-size:10px;color:var(--muted)}.balance-big b{display:block;font-size:36px;margin:5px}.risk{border:1px solid #6d5816;background:#171407;border-radius:10px;padding:11px;color:#d7c06b;font-size:9px}
+/* Streamlit controls */
+div.stButton>button{border-radius:9px!important;border:1px solid #24503d!important;background:#08130f!important;color:#f0f5f2!important;font-weight:800!important;min-height:38px}.stTextInput input,.stTextArea textarea,[data-baseweb="select"]>div{background:#07110d!important;border-color:#254136!important;color:#eef4f0!important;border-radius:9px!important}.stNumberInput input{background:#07110d!important;color:#eef4f0!important}.stToggle label{font-size:12px!important}.stCaption{color:var(--muted)!important;font-size:9px!important}
+/* fixed bottom navigation via horizontal radio */
+div[data-testid="stRadio"]:has(input[value="Bot"]){position:fixed!important;bottom:0!important;left:50%!important;transform:translateX(-50%)!important;width:min(430px,100vw)!important;z-index:9999!important;background:#06100d!important;border-top:1px solid #173126!important;padding:7px 8px 10px!important;margin:0!important}div[data-testid="stRadio"]:has(input[value="Bot"])>label{display:none!important}div[data-testid="stRadio"]:has(input[value="Bot"]) [role="radiogroup"]{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:3px!important}div[data-testid="stRadio"]:has(input[value="Bot"]) [role="radio"]{justify-content:center!important}div[data-testid="stRadio"]:has(input[value="Bot"]) [role="radio"]>div:first-child{display:none!important}div[data-testid="stRadio"]:has(input[value="Bot"]) [role="radio"] p{font-size:10px!important;text-align:center!important;color:#9aa6a0!important}div[data-testid="stRadio"]:has(input[value="Bot"]) [aria-checked="true"] p{color:var(--green)!important;font-weight:900!important}
+</style>''',unsafe_allow_html=True)
+
+if "alpha_page" not in st.session_state: st.session_state.alpha_page="Bot"
+if "amount_mode" not in st.session_state: st.session_state.amount_mode="Manual"
+if "level_enabled" not in st.session_state: st.session_state.level_enabled={i:True for i in range(1,13)}
+
+def _safe_money(v):
+    try:return f"${float(v):,.2f}"
+    except:return "--"
+
+def _amount(level):
+    base=float(st.session_state.get("auto_amount",.5)); return base*(2**(level-1) if st.session_state.get("auto_martingale") else 1)
+
+def _hist(): return list(reversed(st.session_state.get("auto_history",[])))
+
+def _mini_chart(df,target=None):
+    if df is None or len(df)<2:return '<div class="chart-wrap"></div>'
+    d=df.tail(34).copy(); lo=float(d.low.min()); hi=float(d.high.max()); span=max(hi-lo,1); W,H=390,190; left,right,top,bottom=8,45,8,22; cw=(W-left-right)/len(d)
+    out=[]
+    for j in range(5):
+        y=top+j*(H-top-bottom)/4; out.append(f'<line x1="{left}" y1="{y:.1f}" x2="{W-right}" y2="{y:.1f}" stroke="#10231b" stroke-width="1"/>')
+    for i,(_,r) in enumerate(d.iterrows()):
+        x=left+(i+.5)*cw; yo=top+(hi-float(r.open))/span*(H-top-bottom); yc=top+(hi-float(r.close))/span*(H-top-bottom); yh=top+(hi-float(r.high))/span*(H-top-bottom); yl=top+(hi-float(r.low))/span*(H-top-bottom); c='#18e58b' if r.close>=r.open else '#ff4e68'; out.append(f'<line x1="{x:.1f}" y1="{yh:.1f}" x2="{x:.1f}" y2="{yl:.1f}" stroke="{c}" stroke-width="1"/><rect x="{x-cw*.28:.1f}" y="{min(yo,yc):.1f}" width="{max(cw*.56,2):.1f}" height="{max(abs(yc-yo),2):.1f}" fill="{c}"/>')
+    if target and lo<=target<=hi:
+        y=top+(hi-target)/span*(H-top-bottom); out.append(f'<line x1="{left}" y1="{y:.1f}" x2="{W-right}" y2="{y:.1f}" stroke="#89958f" stroke-dasharray="4 4"/><text x="{W-right+2}" y="{y+3:.1f}" fill="#cbd4cf" font-size="8">{target:,.0f}</text>')
+    for j,val in enumerate([hi,(hi+lo)/2,lo]):
+        y=top+j*(H-top-bottom)/2; out.append(f'<text x="{W-right+2}" y="{y+3:.1f}" fill="#84918b" font-size="8">{val:,.0f}</text>')
+    return f'<div class="chart-wrap"><svg class="chart-svg" viewBox="0 0 {W} {H}">{"".join(out)}</svg></div>'
+
+def bot_page():
+    try: df=add_indicators(get_btc_data())
+    except: df=None
+    try: market=get_kalshi_btc_market()
+    except: market=None
+    try: cb=get_btc_live_price()
+    except: cb=float(df.iloc[-1].close) if df is not None and len(df) else 0
+    try: kp=get_kalshi_live_btc(market) if market else None
+    except: kp=None
+    live=kp if kp is not None else cb; target=get_target_from_market(market); secs=get_seconds_remaining(market); ticker=market.get("ticker","--") if market else "--"
+    sig=build_signal(df,target,secs,live) if df is not None else {"price":live or 0,"rsi":50,"mom3":0,"mom5":0,"mom15":0,"vol_ratio":0,"ema":"N/A","final_score":0,"distance":None,"distance_pct":None,"up_probability":50,"down_probability":50}
+    rs=process_round_signal(ticker,sig,market,secs); auto_trade_tick(ticker,market,rs); state=rs.get("round_state") or {}; active=state.get("active_direction"); signal=active or rs.get("signal") or "ESPERANDO"
+    delta=(float(sig.get("price",0))-float(target)) if target else 0; pct=delta/target*100 if target else 0; up=int(round(sig.get("up_probability",50))); down=100-up; deg=max(0,min(360,(secs/900)*360)); ema_txt="ALCISTA" if str(sig.get("ema","")).upper() in ("UP","ALCISTA","BULLISH") else "BAJISTA"; mom=float(sig.get("mom3",0)); mom_txt="ALCISTA" if mom>0 else "BAJISTA" if mom<0 else "NEUTRAL"; sigcolor='var(--green)' if signal=='UP' else 'var(--red)' if signal=='DOWN' else 'var(--yellow)'
+    round_name=ticker.replace('KXBTC15M-','') if ticker!='--' else '--'; auto=bool(st.session_state.get('auto_enabled')); lvl=int(st.session_state.get('auto_level',1)); maxlvl=int(st.session_state.get('auto_max_levels',4)); direction=st.session_state.get(f'auto_level_direction_{lvl}','Seguir señal')
+    st.markdown(f'''<div class="market-head"><div class="market-name">BTC/USD · 15 MIN⌄</div><div class="kalshi-live">KALSHI LIVE</div></div><div class="btc-price">${float(sig.get('price',0)):,.2f}</div><div class="btc-change">{delta:+,.2f} ({pct:+.2f}%)</div>
+    <div class="aa-card round-grid"><div><div class="aa-muted" style="font-weight:900">RONDA ACTUAL</div><div class="round-name">{round_name}</div><div class="round-lines">Target <b>{_safe_money(target)}</b><br>BTC actual <b>{_safe_money(sig.get('price'))}</b><br>Diferencia <b class="{'aa-green' if delta>=0 else 'aa-red'}">{delta:+,.2f} ({pct:+.2f}%)</b></div></div><div class="timer" style="--deg:{deg:.0f}deg"><div class="timer-in">{format_countdown(secs)}<small>/ 15:00</small></div></div></div>''',unsafe_allow_html=True)
+    st.markdown(_mini_chart(df,target),unsafe_allow_html=True)
+    st.markdown(f'''<div class="aa-card engine"><div class="aa-row"><div class="engine-head">ALPHA ENGINE v4.6.1</div><div class="engine-status">ANALIZANDO</div></div><div class="engine-grid"><div><div class="prob-big aa-green">UP <span style="font-size:13px">{up}%</span></div><div class="bar"><i style="width:{up}%;background:var(--green)"></i></div><div class="prob-big aa-red">DOWN <span style="font-size:13px">{down}%</span></div><div class="bar"><i style="width:{down}%;background:var(--red)"></i></div></div><div class="sig-line">SEÑAL: <b style="color:{sigcolor}">{signal}</b><br>Confirmaciones <b>{state.get('confirmations',0)}/2</b><br>Calidad: <b class="aa-green">{str(rs.get('entry_quality','--')).upper()}</b></div></div><div class="checks">● EMA {ema_txt} &nbsp; ✓ RSI {float(sig.get('rsi',50)):.1f} &nbsp; ✓ Momentum {mom_txt} &nbsp; ✓ Volumen</div></div>
+    <div class="aa-card auto-card"><div class="aa-row"><div class="auto-head">AUTO TRADING</div><div class="pill-on">{'ON' if auto else 'OFF'}</div></div><div class="auto-live">{'LIVE · OPERANDO AUTOMÁTICO' if auto else 'APAGADO'}</div><div class="auto-lines">Estado <b>{st.session_state.get('auto_last_status','ESPERANDO ENTRADA')}</b><br>Nivel <b>{lvl} / {maxlvl}</b><br>Dirección <b>{direction}</b><br>Monto próximo <b>${_amount(lvl):.2f}</b><br>Precio límite <b>{int(st.session_state.get('auto_limit_cents',45))}¢</b><br>Take profit <b>+{int(st.session_state.get('auto_take_profit',90))}%</b></div></div>''',unsafe_allow_html=True)
+    req=st.toggle("Trading Automático",value=auto,key="alpha_auto_toggle")
+    if req and not st.session_state.get("kalshi_auth_ok"):
+        st.session_state.auto_enabled=False; st.warning("Conecta Kalshi antes de activar operaciones LIVE.")
+    else: st.session_state.auto_enabled=req
+
+def operations_page():
+    h=_hist(); wins=sum(x.get('_won') is True for x in h); losses=sum(x.get('_won') is False for x in h); settled=wins+losses; wr=(wins/settled*100) if settled else 0; invested=sum(float(x.get('amount',0) or 0) for x in h); pnl=sum(float(x.get('pnl',0) or 0) for x in h)
+    st.markdown('<div class="aa-title">Operaciones</div>',unsafe_allow_html=True)
+    st.markdown(f'''<div class="stats6"><div class="statbox"><small>Ganadas</small><b class="aa-green">{wins}</b></div><div class="statbox"><small>Perdidas</small><b class="aa-red">{losses}</b></div><div class="statbox"><small>Win Rate</small><b>{wr:.1f}%</b></div><div class="statbox"><small>P&L Total</small><b class="{'aa-green' if pnl>=0 else 'aa-red'}">{pnl:+.2f}</b></div><div class="statbox"><small>Rondas</small><b>{len(h)}</b></div><div class="statbox"><small>Inversión</small><b>${invested:.2f}</b></div></div><div class="op-head"><span>Hora / Ronda</span><span>Dirección</span><span>Monto</span><span>Resultado</span></div>''',unsafe_allow_html=True)
+    if not h: st.info("Todavía no hay operaciones registradas.")
+    for x in h[:50]:
+        won=x.get('_won'); res='WIN' if won is True else 'LOSS' if won is False else 'PEND.'; color='aa-green' if won is True else 'aa-red' if won is False else ''; tm=str(x.get('time',''))[11:16] or '--'; ticker=str(x.get('ticker','--'))[-12:]
+        st.markdown(f'<div class="op-row"><span><b>{tm}</b><br><small>{ticker}</small></span><b class="{"aa-green" if x.get("direction")=="UP" else "aa-red"}">{x.get("direction","--")}</b><span>${float(x.get("amount",0) or 0):.2f}</span><b class="{color}">{res}<br><small>{float(x.get("pnl",0) or 0):+.2f}</small></b></div>',unsafe_allow_html=True)
+
+def settings_page():
+    st.markdown('<div class="aa-title">Ajustes del bot</div>',unsafe_allow_html=True)
+    st.markdown('<div class="aa-section">CEREBRO / GENERACIÓN DE SEÑAL</div>',unsafe_allow_html=True); st.selectbox('Motor',['Alpha Engine v4.6.1 (Tu bot)'],disabled=True,label_visibility='collapsed'); st.caption('EMA, RSI, Momentum, Volumen, memoria de ronda, confirmaciones y probabilidades.')
+    st.markdown('<div class="aa-section">ESTRATEGIA DE OPERACIÓN</div>',unsafe_allow_html=True); st.selectbox('Estrategia',['Martingala (Personalizada)','Monto fijo'],index=0 if st.session_state.get('auto_martingale') else 1,label_visibility='collapsed'); st.caption('Controla el monto, progresión y salida.')
+    st.markdown('<div class="aa-section">MODO DE MONTO</div>',unsafe_allow_html=True); st.session_state.amount_mode=st.segmented_control('Modo',['Manual','Automático'],default=st.session_state.amount_mode,label_visibility='collapsed'); st.caption('En automático distribuye el saldo para cubrir los niveles activos.')
+    st.session_state.auto_amount=st.number_input('Monto inicial ($)',min_value=.01,value=float(st.session_state.get('auto_amount',.5)),step=.25)
+    st.markdown('<div class="aa-section">MÁXIMO DE NIVELES</div>',unsafe_allow_html=True); st.session_state.auto_max_levels=st.selectbox('Niveles',list(range(1,13)),index=max(0,int(st.session_state.get('auto_max_levels',4))-1),label_visibility='collapsed'); st.caption('Puedes usar de 1 hasta 12 niveles.')
+    st.markdown('<div class="aa-section">PRECIO LÍMITE DE ENTRADA</div>',unsafe_allow_html=True); st.session_state.auto_limit_cents=st.selectbox('Límite',list(range(5,100,5)),index=max(0,min(18,(int(st.session_state.get('auto_limit_cents',45))-5)//5)),format_func=lambda x:f'{x}¢',label_visibility='collapsed'); st.caption('El bot solo entra si el precio es menor o igual.')
+    st.markdown('<div class="aa-section">TAKE PROFIT</div>',unsafe_allow_html=True); vals=list(range(10,201,5)); cur=int(st.session_state.get('auto_take_profit',90)); st.session_state.auto_take_profit=st.selectbox('TP',vals,index=min(range(len(vals)),key=lambda i:abs(vals[i]-cur)),format_func=lambda x:f'+{x}%',label_visibility='collapsed'); st.caption('Vende automáticamente al alcanzar el porcentaje seleccionado.')
+    st.session_state.auto_martingale=st.toggle('MARTINGALA',value=bool(st.session_state.get('auto_martingale',True)))
+    if st.button('Progresión y niveles',use_container_width=True): st.session_state.alpha_page='Progresión'; st.rerun()
+    if st.button('Conexión Kalshi',use_container_width=True): st.session_state.alpha_page='Conexión'; st.rerun()
+
+def connection_page():
+    st.markdown('<div class="aa-title">Conexión Kalshi</div>',unsafe_allow_html=True); ok=bool(st.session_state.get('kalshi_auth_ok')); status='CONECTADO' if ok else 'NO CONECTADO'
+    st.markdown(f'''<div class="k-card"><div class="aa-row"><div style="display:flex;gap:10px;align-items:center"><div class="k-logo">Kalshi</div><div><div class="aa-muted">API DE OPERACIONES</div><div class="k-title">Kalshi Live</div></div></div><div class="connected">● {status}</div></div></div><div class="aa-card"><div class="aa-row"><div><div class="aa-muted">LATENCIA DE API</div><div class="latency">{'LIVE' if ok else '--'}</div></div><div class="aa-green" style="font-size:9px">● {'Conectado' if ok else 'Sin conexión'}</div></div><svg class="spark" viewBox="0 0 360 60"><polyline points="0,45 25,42 45,46 70,35 95,39 120,30 145,38 170,25 195,33 220,22 245,28 270,17 295,29 320,23 360,27" fill="none" stroke="#18e58b" stroke-width="2"/></svg></div>''',unsafe_allow_html=True)
+    st.text_input('API Key ID',key='kalshi_api_key_input',placeholder='Solo para conectar o reemplazar credenciales'); st.text_area('Clave privada PEM',key='kalshi_private_key_input',placeholder='-----BEGIN PRIVATE KEY-----',height=120); st.caption('La clave no debe guardarse en GitHub. Usa Secrets/variables del servidor para persistencia segura.')
+    c1,c2=st.columns(2)
+    with c1:
+        if st.button('Verificar y guardar',use_container_width=True):
+            try: _,bal=kalshi_test_connection(); st.session_state.kalshi_auth_ok=True; st.session_state.kalshi_auth_message=f'Conectado · ${bal}'; st.success('Kalshi conectado.')
+            except Exception as e: st.session_state.kalshi_auth_ok=False; st.session_state.auto_enabled=False; st.error(str(e)[:180])
+    with c2:
+        if st.button('Eliminar credenciales',use_container_width=True): st.session_state.kalshi_auth_ok=False; st.session_state.auto_enabled=False; st.session_state.kalshi_api_key_input=''; st.session_state.kalshi_private_key_input=''; st.rerun()
+    if st.button('← Volver a Ajustes',use_container_width=True): st.session_state.alpha_page='Ajustes'; st.rerun()
+
+def progression_page():
+    st.markdown('<div class="aa-title">Progresión y niveles</div>',unsafe_allow_html=True); maxlvl=int(st.session_state.get('auto_max_levels',4)); current=int(st.session_state.get('auto_level',1));
+    st.markdown(f'<div class="stats6" style="grid-template-columns:1fr 1fr"><div class="statbox"><small>Niveles activos</small><b>{maxlvl}</b></div><div class="statbox"><small>Total disponible</small><b>12</b></div></div>',unsafe_allow_html=True)
+    for i in range(1,maxlvl+1):
+        key=f'auto_level_direction_{i}'; st.session_state.setdefault(key,'Seguir señal'); c1,c2=st.columns([1.25,1]);
+        with c1: st.markdown(f'<div class="level-card" style="grid-template-columns:38px 1fr"><div class="level-num {"active" if i<=current else ""}">{i}</div><div><span class="aa-muted">Nivel {i}</span><br><b>${_amount(i):.2f}</b></div></div>',unsafe_allow_html=True)
+        with c2: st.selectbox(f'Dirección {i}',['Seguir señal','Solo UP','Solo DOWN'],key=key,label_visibility='collapsed')
+    nodes=[]
+    for i in range(1,maxlvl+1): nodes.append(f'<div class="prog {"current" if i==current else "win" if i<current else ""}">{i}</div>' + ('<div class="arrow">→</div>' if i<maxlvl else ''))
+    st.markdown('<div class="aa-card"><b>Vista de progresión</b><div class="progression">'+''.join(nodes)+'</div></div>',unsafe_allow_html=True)
+    total=sum(_amount(i) for i in range(1,maxlvl+1)); st.markdown(f'<div class="aa-card aa-row"><div><span class="aa-muted">Monto total posible</span><br><b>${total:.2f}</b></div><div><span class="aa-muted">Nivel actual</span><br><b>{current}/{maxlvl}</b></div></div>',unsafe_allow_html=True)
+    if st.button('RESTAURAR PROGRESIÓN',use_container_width=True): st.session_state.auto_level=1; st.rerun()
+    if st.button('← Volver a Ajustes',use_container_width=True): st.session_state.alpha_page='Ajustes'; st.rerun()
+
+def balance_page():
+    st.markdown('<div class="aa-title">Saldo</div>',unsafe_allow_html=True); amount='--'
+    if st.session_state.get('kalshi_auth_ok'):
+        try: _,bal=kalshi_test_connection(); amount=_safe_money(bal)
+        except: pass
+    st.markdown(f'<div class="aa-card balance-big"><small>SALDO DISPONIBLE EN KALSHI</small><b>{amount}</b><span class="aa-green">Cuenta conectada</span></div><div class="risk"><b>ADVERTENCIA DE RIESGO</b><br><br>Los mercados de predicción implican riesgo y pueden ocasionar pérdidas. Las ganancias no están aseguradas.</div>',unsafe_allow_html=True)
+
+page=st.session_state.alpha_page
+if page=='Bot': bot_page()
+elif page=='Operaciones': operations_page()
+elif page=='Saldo': balance_page()
+elif page=='Ajustes': settings_page()
+elif page=='Conexión': connection_page()
+elif page=='Progresión': progression_page()
+
+# La barra principal permanece abajo en las cuatro páginas principales.
+if st.session_state.alpha_page in ['Bot','Operaciones','Saldo','Ajustes']:
+    nav=st.radio('Navegación',['Bot','Operaciones','Saldo','Ajustes'],index=['Bot','Operaciones','Saldo','Ajustes'].index(st.session_state.alpha_page),horizontal=True,label_visibility='collapsed',key='alpha_nav')
+    if nav!=st.session_state.alpha_page: st.session_state.alpha_page=nav; st.rerun()
