@@ -2221,7 +2221,9 @@ def connection_page():
 
 def bot_settings():
     page_header("Ajustes del bot","INDICADORES")
-    st.markdown('<div class="card"><h4>Generación de señal</h4><p>Motor Macaly + Alpha v4.6.1 · BTC 15 MIN.</p></div>',unsafe_allow_html=True)
+    st.markdown('<div class="card"><h4>Generación de señal</h4><p>K2 Señal · Motor Macaly + Alpha v4.6.1 · BTC 15 MIN.</p></div>',unsafe_allow_html=True)
+    calc_mode=st.selectbox("Cálculo del monto",["Manual","Automático"],index=0)
+    st.caption("Automático distribuye el 90% del saldo para cubrir todos los niveles seleccionados.")
     st.selectbox("Administración de la operación",["Martingala","Monto fijo"],index=0 if st.session_state.auto_martingale else 1)
     st.session_state.auto_amount=st.number_input("Monto inicial manual ($)",min_value=.01,value=float(st.session_state.auto_amount),step=.25)
     st.session_state.auto_martingale=st.toggle("Martingala",value=bool(st.session_state.auto_martingale))
@@ -2234,8 +2236,13 @@ def bot_settings():
         key=f"auto_level_direction_{level}"
         if key not in st.session_state:st.session_state[key]="Seguir señal"
         st.selectbox(f"Nivel {level} · ${float(st.session_state.auto_amount)*(2**(level-1) if st.session_state.auto_martingale else 1):.2f}",["Seguir señal","Solo UP","Solo DOWN"],key=key)
+    st.markdown('<div class="psub">CONTINUIDAD</div>',unsafe_allow_html=True)
+    if "crit_continuity" not in st.session_state: st.session_state.crit_continuity=True
+    st.session_state.crit_continuity=st.toggle("Continuar operando después de cada resultado",value=bool(st.session_state.crit_continuity))
     st.markdown('<div class="psub">FINALIZACIÓN</div>',unsafe_allow_html=True)
     st.session_state.auto_stop_after_win=st.toggle("Apagar bot en la próxima operación ganadora",value=bool(st.session_state.auto_stop_after_win))
+    if "crit_sounds" not in st.session_state: st.session_state.crit_sounds=True
+    st.session_state.crit_sounds=st.toggle("Sonidos del bot",value=bool(st.session_state.crit_sounds))
     if st.button("RESTAURAR PROGRESIÓN",use_container_width=True):st.session_state.auto_level=1;st.session_state.auto_last_status="PROGRESIÓN REINICIADA"
     st.caption(st.session_state.auto_last_status)
 
@@ -2282,7 +2289,9 @@ def bot_page():
         vals=[x["p"] for x in tape];allv=vals+([target] if target else []);lo,hi=min(allv),max(allv);span=max(hi-lo,1);pts=" ".join(f'{8+i*(336/max(1,len(vals)-1)):.1f},{211-(v-lo)/span*174:.1f}' for i,v in enumerate(vals));tl=f'<line x1="8" y1="{211-(target-lo)/span*174:.1f}" x2="344" y2="{211-(target-lo)/span*174:.1f}" stroke="#8b9791" stroke-dasharray="3 5"/>' if target else ""
     else:pts="";tl=""
     auto=bool(st.session_state.auto_enabled);sigtext=active or "ESPERANDO";sigcolor="#31db86" if active=="UP" else "#ff626b" if active=="DOWN" else "#ffbd39"
-    st.markdown(f'<div class="crit"><div class="ctop"><div class="asset"><div class="coin">₿</div><div><div class="kicker">BTC · 15 MIN</div><div class="name">BTC/USD⌄</div></div></div><div class="auto">TRADING AUTOMÁTICO<div class="power {"on" if auto else ""}">⏻</div><div class="status {"on" if auto else ""}">● {"ON" if auto else "OFF"}</div></div></div><div class="market"><div><div class="lab">TARGET</div><div class="price">{f"${target:,.2f}" if target else "--"}</div><div class="sub">Cierre de ronda</div><div class="count">⌛ {format_countdown(seconds)}</div></div><div><div class="lab">CURRENT {"↑" if delta>=0 else "↓"}</div><div class="price green">${sig["price"]:,.2f}</div><div class="sub {"green" if delta>=0 else "red"}">{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class="live"><i></i>En vivo</div><div class="wormbox"><svg class="worm" viewBox="0 0 352 220" preserveAspectRatio="none">{tl}<polyline points="{pts}" fill="none" stroke="#31db86" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg></div><div class="past">PAST MARKETS &nbsp;<b>▲ ▲ ▼ ▼ ▲ ▲ ▼ ▼ ▲ ▼</b></div><section class="mode"><div class="mhead"><span>⚡ GUÍA MANUAL</span><span>{"● ACTIVO" if st.session_state.signal_mode else "○ OFF"}</span></div><div class="mtitle">Modo Señales</div><div class="minner"><small>MERCADO ACTUAL · MOTOR v4.6.1</small><div class="msig" style="color:{sigcolor}">{sigtext}</div><small>{reader["headline"]} · {reader["percent"]}%</small></div></section><section class="reader"><small>SCORE {sig["final_score"]:+.2f}</small><strong>{rs.get("signal","--")}</strong><small>{rs.get("entry_quality","")}</small></section></div>',unsafe_allow_html=True)
+    resolved=[x for x in st.session_state.get("auto_history",[]) if x.get("_won") is not None][-10:]
+    past_html=" ".join(("<span style=\"color:#31db86\">▲</span>" if x.get("_won") else "<span style=\"color:#ff626b\">▼</span>") for x in resolved) or '<span style="color:#66736d">— — — — —</span>'
+    st.markdown(f'<div class="crit"><div class="ctop"><div class="asset"><div class="coin">₿</div><div><div class="kicker">BTC · 15 MIN</div><div class="name">BTC/USD⌄</div></div></div><div class="auto">TRADING AUTOMÁTICO<div class="power {"on" if auto else ""}">⏻</div><div class="status {"on" if auto else ""}">● {"ON" if auto else "OFF"}</div></div></div><div class="market"><div><div class="lab">TARGET</div><div class="price">{f"${target:,.2f}" if target else "--"}</div><div class="sub">Cierre de ronda</div><div class="count">⌛ {format_countdown(seconds)}</div></div><div><div class="lab">CURRENT {"↑" if delta>=0 else "↓"}</div><div class="price green">${sig["price"]:,.2f}</div><div class="sub {"green" if delta>=0 else "red"}">{delta:+,.2f} ({pct:+.3f}%)</div></div></div><div class="live"><i></i>En vivo</div><div class="wormbox"><svg class="worm" viewBox="0 0 352 220" preserveAspectRatio="none">{tl}<polyline points="{pts}" fill="none" stroke="#31db86" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg></div><div class="past">PAST MARKETS &nbsp;<b>{past_html}</b></div><section class="mode"><div class="mhead"><span>⚡ GUÍA MANUAL</span><span>{"● ACTIVO" if st.session_state.signal_mode else "○ OFF"}</span></div><div class="mtitle">Modo Señales</div><div class="minner"><small>MERCADO ACTUAL · MOTOR v4.6.1</small><div class="msig" style="color:{sigcolor}">{sigtext}</div><small>{reader["headline"]} · {reader["percent"]}%</small></div></section><section class="reader"><small>SCORE {sig["final_score"]:+.2f}</small><strong>{rs.get("signal","--")}</strong><small>{rs.get("entry_quality","")}</small></section></div>',unsafe_allow_html=True)
     c1,c2=st.columns(2)
     with c1:st.session_state.signal_mode=st.toggle("Modo Señales",value=bool(st.session_state.signal_mode))
     with c2:
