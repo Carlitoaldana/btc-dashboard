@@ -2485,3 +2485,68 @@ div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button{min-height:51
 div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button p{font-size:8px!important;line-height:1.55!important}
 .nav-spacer{height:50px!important}
 </style>''', unsafe_allow_html=True)
+
+# =========================================================
+# STABLE KEY-SCOPED MOBILE LAYOUT FIX
+# Avoid brittle first/last-of-type selectors that moved the
+# signal card instead of the navigation on Streamlit mobile.
+# =========================================================
+st.markdown(r'''<style>
+/* Reset the accidental fixed positioning from generic horizontal-block rules. */
+div[data-testid="stHorizontalBlock"]{
+  position:relative!important;
+  left:auto!important;
+  bottom:auto!important;
+  transform:none!important;
+  width:auto!important;
+  height:auto!important;
+  z-index:auto!important;
+}
+
+/* HEADER: always visible and compact. */
+.block-container{max-width:430px!important;padding:8px 10px 72px!important}
+.st-key-auto_power_real{display:flex!important;justify-content:center!important}
+.st-key-auto_power_real .stButton{display:flex!important;justify-content:center!important;width:100%!important}
+.st-key-auto_power_real button{
+  width:42px!important;height:42px!important;min-height:42px!important;max-height:42px!important;
+  min-width:42px!important;max-width:42px!important;padding:0!important;margin:1px auto!important;
+  border-radius:50%!important;border:1.5px solid #7d353c!important;background:#07100c!important;
+  color:#ff626b!important;box-shadow:none!important;font-size:22px!important;
+}
+.st-key-auto_power_real button p{font-size:22px!important;line-height:1!important;margin:0!important}
+
+/* MARKET + CHART: same compact phone proportions; no giant reserved area. */
+.market{padding:6px 2px 1px!important}
+.chartwrap{height:292px!important;margin-top:1px!important;grid-template-columns:7px 1fr 55px!important;gap:6px!important}
+.plot,.plot svg{height:100%!important;max-height:292px!important}
+.times{padding:1px 56px 4px 12px!important}
+.past{padding:1px 0 6px 2px!important}
+
+/* SIGNAL CARD: normal document flow. Never pin this row to the viewport. */
+div[data-testid="stHorizontalBlock"]:has(.st-key-signal_switch_real){
+  position:relative!important;left:auto!important;bottom:auto!important;transform:none!important;
+  width:100%!important;height:auto!important;background:transparent!important;border:0!important;
+  z-index:auto!important;padding:0!important;
+}
+.st-key-signal_switch_real{position:relative!important;inset:auto!important}
+.st-key-signal_switch_real [data-testid="stToggle"]{transform:scale(.90)!important;transform-origin:right center!important}
+
+/* BOTTOM NAV: target ONLY the row containing the nav keys. */
+div[data-testid="stHorizontalBlock"]:has(.st-key-nav_Bot){
+  position:fixed!important;left:50%!important;bottom:0!important;transform:translateX(-50%)!important;
+  width:min(430px,100vw)!important;height:66px!important;background:#020705!important;
+  border-top:1px solid #26342e!important;z-index:9999!important;padding:3px 7px!important;gap:0!important;
+  display:flex!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.st-key-nav_Bot) [data-testid="stColumn"]{width:25%!important;flex:1 1 25%!important}
+div[data-testid="stHorizontalBlock"]:has(.st-key-nav_Bot) .stButton>button{
+  border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;
+  min-height:56px!important;height:56px!important;padding:2px 0!important;color:#8d9994!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.st-key-nav_Bot) .stButton>button[kind="primary"]{color:#24d77d!important;background:transparent!important}
+div[data-testid="stHorizontalBlock"]:has(.st-key-nav_Bot) .stButton>button p{font-size:9px!important;line-height:1.65!important;margin:0!important;white-space:pre-line!important}
+.nav-spacer{height:58px!important}
+
+/* Keep the signal panel immediately after past markets. */
+[data-testid="stVerticalBlockBorderWrapper"]{margin-top:0!important;margin-bottom:4px!important}
+</style>''', unsafe_allow_html=True)
