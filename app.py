@@ -532,7 +532,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .readerhead{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--rr)}.readerhead .pulse{font-size:18px}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#45ec8e}
 .readerbody{display:grid;grid-template-columns:1fr 65px;align-items:center;margin-top:7px}.readerbody strong{display:block;font-size:15px;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:7px;margin-top:5px}
 .rring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:48px;height:48px;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:15px;font-weight:900}
-.tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
+.tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small, .techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
 .rnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #203448;border-bottom:1px solid #203448;margin-top:7px;padding:7px 0}.rnav div{text-align:center;color:#9db0c5;font-size:8px}.rnav b{display:block;font-size:17px;margin-bottom:2px}.rnav .active{color:var(--accent)}
 .features{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 1px}.features>div{display:flex;gap:5px;align-items:center}.features>div>b{width:25px;height:25px;border:1px solid #28e57f;border-radius:50%;display:grid;place-items:center;color:#35e986;font-size:13px}.features p{margin:0}.features strong{display:block;font-size:5.7px;color:#e1e8f0}.features span{display:block;font-size:5.4px;color:#8c9db0;margin-top:2px}
 .refapp footer{border-top:1px solid #182a3a;padding:5px 1px;display:flex;justify-content:space-between;color:#708197;font-size:5.2px}
@@ -628,6 +628,72 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 
 .chartbox{margin-top:10px;background:linear-gradient(180deg,#08121d,#060c14);border:1px solid #203a51;border-radius:12px;padding:10px 8px 8px;box-shadow:inset 0 0 28px rgba(20,80,110,.08)}
 .charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
+
+/* =========================================================
+   ESTILOS CRITIK2 PARA LA SECCIÓN DE AJUSTES
+   ========================================================= */
+.critik-container {
+    background-color: #000000;
+    color: #FFFFFF;
+    padding: 2px 0;
+}
+.critik-card {
+    background-color: #121212;
+    border: 1px solid #222222;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+}
+.critik-header {
+    font-size: 20px;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #222222;
+}
+.critik-subheading {
+    font-size: 14px;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin: 14px 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.critik-green-box {
+    background-color: #0c2314;
+    border: 1px solid #1a5c32;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    color: #d4edda;
+    font-size: 13px;
+}
+.row-label {
+    font-size: 13px;
+    color: #E0E0E0;
+    font-weight: 500;
+}
+.level-card {
+    background-color: #121212;
+    border: 1px solid #222222;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.level-info-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #FFFFFF;
+}
+.level-info-subtitle {
+    font-size: 11px;
+    color: #888888;
+    margin-top: 1px;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -1156,7 +1222,7 @@ def render_whale_panel(whale, active):
     if not whale or not whale.get("detected"):
         buy = compact_usd((whale or {}).get("live_buy", 0))
         sell = compact_usd((whale or {}).get("live_sell", 0))
-        return f'''<section style="{base}">
+        return f'''<style="{base}">
           <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
           <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">FLUJO NORMAL / SIN CONFIRMACIÓN</div>
           <div style="margin-top:6px;font-size:9px;color:#8da0b4">5s · COMPRAS {buy} · VENTAS {sell}</div>
@@ -2144,9 +2210,14 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     </section>'''
 
 # =========================================================
-# AJUSTES KALSHI + AUTO TRADING (ESTILO CRITIK2 EXACTO)
+# AJUSTES KALSHI + AUTO TRADING (ESTILO CRITIK2 RECONSTRUIDO)
 # =========================================================
 with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
+    st.markdown('<div class="critik-container">', unsafe_allow_html=True)
+    st.markdown('<div class="critik-header">Ajustes del bot</div>', unsafe_allow_html=True)
+
+    # Tarjeta de Credenciales y Conexión
+    st.markdown('<div class="critik-card">', unsafe_allow_html=True)
     st.caption("Las credenciales quedan en esta sesión; no se escriben dentro del archivo ni se muestran en pantalla.")
     st.text_input("Kalshi API Key ID", key="kalshi_api_key_input", placeholder="Pega tu API Key ID")
     st.text_area(
@@ -2177,30 +2248,56 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         st.success("🟢 " + st.session_state.kalshi_auth_message)
     else:
         st.info("🔴 " + st.session_state.kalshi_auth_message)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.divider()
-    requested_auto = st.toggle("🤖 AUTO TRADING", value=st.session_state.auto_enabled)
+    # Toggle Auto Trading principal dentro de tarjeta
+    st.markdown('<div class="critik-card">', unsafe_allow_html=True)
+    col_at1, col_at2 = st.columns([1, 1])
+    with col_at1:
+        st.markdown('<div class="row-label" style="padding-top:4px;"><b>AUTO TRADING</b></div>', unsafe_allow_html=True)
+    with col_at2:
+        requested_auto = st.toggle("🤖 AUTO TRADING", value=st.session_state.auto_enabled, label_visibility="collapsed")
+    
     if requested_auto and not st.session_state.kalshi_auth_ok:
         st.warning("Primero conecta Kalshi. AUTO permanece apagado.")
         st.session_state.auto_enabled = False
     else:
         st.session_state.auto_enabled = requested_auto
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # Configuración estilo Critik2
-    modo_monto = st.radio("Cálculo del monto", ["Manual", "Automático"], horizontal=True, key="auto_modo_monto")
-    st.caption("Automático distribuye el 90% del saldo real para cubrir todos los niveles seleccionados.")
+    # Orden Correcto: Capturar Primero Niveles y Martingala antes de Calcular Monto
+    st.markdown('<div class="critik-card">', unsafe_allow_html=True)
 
-    max_lvl = int(st.slider("Máximo de niveles", 1, 12, int(st.session_state.get("auto_max_levels", 9))))
-    st.session_state.auto_max_levels = max_lvl
+    # Máximo de niveles (hasta 12 niveles)
+    col_ml1, col_ml2 = st.columns([1, 1])
+    with col_ml1:
+        st.markdown('<div class="row-label" style="padding-top:4px;"><b>Máximo de niveles</b></div>', unsafe_allow_html=True)
+    with col_ml2:
+        max_lvl_input = st.selectbox("Máximo de niveles", list(range(1, 13)), index=int(st.session_state.get("auto_max_levels", 9)) - 1, key="sb_max_niveles_critik", label_visibility="collapsed")
+        max_lvl = int(max_lvl_input)
+        st.session_state.auto_max_levels = max_lvl
 
-    # ---------------------------------------------------------
-    # TOGGLE DE MARTINGALA MOVIDO ANTES DEL CÁLCULO DEL MONTO AUTOMÁTICO
-    # ---------------------------------------------------------
-    st.session_state.auto_martingale = st.toggle("Martingala", value=bool(st.session_state.auto_martingale))
+    # Martingala Toggle
+    col_mart1, col_mart2 = st.columns([1, 1])
+    with col_mart1:
+        st.markdown('<div class="row-label" style="padding-top:8px;"><b>Martingala</b></div>', unsafe_allow_html=True)
+    with col_mart2:
+        st.session_state.auto_martingale = st.toggle("Martingala", value=bool(st.session_state.auto_martingale), label_visibility="collapsed")
+
+    # Cálculo del monto (Manual / Automático)
+    col_m1, col_m2 = st.columns([1, 1])
+    with col_m1:
+        st.markdown('<div class="row-label" style="padding-top:4px;"><b>Cálculo del monto</b><br><span style="color:#888888; font-size:11px;">Automático distribuye el 90% del saldo real para cubrir todos los niveles seleccionados.</span></div>', unsafe_allow_html=True)
+    with col_m2:
+        modo_monto = st.selectbox("Cálculo del monto", ["Manual", "Automático"], key="auto_modo_monto", label_visibility="collapsed")
 
     if modo_monto == "Manual":
-        monto_inicial = st.number_input("Monto inicial manual ($)", min_value=0.01, max_value=1000.0, value=float(st.session_state.get("auto_amount", 0.50)), step=0.25)
-        st.session_state.auto_amount = monto_inicial
+        col_mi1, col_mi2 = st.columns([1, 1])
+        with col_mi1:
+            st.markdown('<div class="row-label" style="padding-top:8px;">Monto inicial manual ($)</div>', unsafe_allow_html=True)
+        with col_mi2:
+            monto_inicial = st.number_input("Monto inicial manual ($)", min_value=0.01, max_value=1000.0, value=float(st.session_state.get("auto_amount", 0.50)), step=0.25, label_visibility="collapsed")
+            st.session_state.auto_amount = monto_inicial
     else:
         bal_live = _get_kalshi_balance_float()
         bud = bal_live * 0.90
@@ -2211,15 +2308,43 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         else:
             calc_init = bud / max_lvl if max_lvl > 0 else 0.50
         st.session_state.auto_amount = calc_init
-        st.info(f"Saldo disponible: ${bal_live:.2f} · Monto inicial automático (90% / {max_lvl} niveles): ${calc_init:.2f}")
 
-    st.session_state.auto_limit_cents = st.slider("Precio de orden límite (¢)", 1, 99, int(st.session_state.auto_limit_cents))
-    st.session_state.auto_take_profit = st.slider("Tomar profit (%)", 1, 100, int(min(100, st.session_state.auto_take_profit)), step=1)
+    # Precio de orden límite
+    col_pl1, col_pl2 = st.columns([1, 1])
+    with col_pl1:
+        st.markdown('<div class="row-label" style="padding-top:4px;">Precio de orden límite (¢)</div>', unsafe_allow_html=True)
+    with col_pl2:
+        st.session_state.auto_limit_cents = st.slider("Precio de orden límite (¢)", 1, 99, int(st.session_state.auto_limit_cents), label_visibility="collapsed")
 
-    st.markdown("### Elige la dirección")
-    st.caption("Configura cada nivel por separado. Solo Up abre UP, Solo Down abre DOWN, Contraria invierte la señal.")
+    # Tomar profit (máximo 100%)
+    col_tp1, col_tp2 = st.columns([1, 1])
+    with col_tp1:
+        st.markdown('<div class="row-label" style="padding-top:4px;">Tomar profit (%)</div>', unsafe_allow_html=True)
+    with col_tp2:
+        st.session_state.auto_take_profit = st.slider("Tomar profit (%)", 1, 100, int(min(100, st.session_state.auto_take_profit)), step=1, label_visibility="collapsed")
 
-    # Vista previa calculada de montos por nivel
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Caja verde de saldo y monto automático
+    if modo_monto == "Automático":
+        bal_live = _get_kalshi_balance_float()
+        bud = bal_live * 0.90
+        is_m_temp = bool(st.session_state.get("auto_martingale", False))
+        if is_m_temp:
+            f_sum = sum(2 ** i for i in range(max_lvl))
+            calc_init = bud / f_sum if f_sum > 0 else 0.50
+        else:
+            calc_init = bud / max_lvl if max_lvl > 0 else 0.50
+        st.markdown(f'''
+        <div class="critik-green-box">
+            <b>Saldo disponible:</b> ${bal_live:.2f} · <b>Monto inicial automático (90% / {max_lvl} niveles):</b> ${calc_init:.2f}
+        </div>
+        ''', unsafe_allow_html=True)
+
+    # SECCIÓN: ELIGE LA DIRECCIÓN
+    st.markdown('<div class="critik-subheading">ELIGE LA DIRECCIÓN</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 12px; color: #888888; margin-bottom: 10px;">Configura cada nivel por separado. Solo Up abre UP, Solo Down abre DOWN, Contraria invierte la señal.</div>', unsafe_allow_html=True)
+
     current_base = st.session_state.auto_amount
     is_m = st.session_state.auto_martingale
 
@@ -2231,31 +2356,48 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         lvl_amt = current_base * (2 ** (_level - 1)) if is_m else current_base
         label_name = "Entrada inicial" if _level == 1 else f"Martingala {_level - 1}"
         
-        st.selectbox(
-            f"{label_name} (Nivel {_level} · ${lvl_amt:.2f})",
-            ["Seguir señal", "Solo UP", "Solo DOWN", "Contraria a la señal"],
-            key=_key,
-        )
+        st.markdown('<div class="level-card">', unsafe_allow_html=True)
+        col_info, col_sel = st.columns([1, 1])
+        with col_info:
+            st.markdown(f'''
+            <div class="level-info-title">{label_name}</div>
+            <div class="level-info-subtitle">Nivel {_level} · ${lvl_amt:.2f}</div>
+            ''', unsafe_allow_html=True)
+        with col_sel:
+            st.selectbox(
+                f"Dirección Nivel {_level}",
+                ["Seguir señal", "Solo UP", "Solo DOWN", "Contraria a la señal"],
+                key=_key,
+                label_visibility="collapsed",
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.session_state.auto_stop_after_win = st.toggle("Apagar bot en la próxima operación ganadora", value=bool(st.session_state.auto_stop_after_win))
+    # SECCIÓN CONTINUIDAD
+    st.markdown('<div class="critik-subheading">CONTINUIDAD</div>', unsafe_allow_html=True)
+    st.markdown('<div class="critik-card">', unsafe_allow_html=True)
+    col_c1, col_c2 = st.columns([1, 1])
+    with col_c1:
+        st.markdown('<div class="row-label" style="font-size:13px;"><b>Apagar bot en la próxima operación ganadora</b></div>', unsafe_allow_html=True)
+    with col_c2:
+        st.session_state.auto_stop_after_win = st.toggle("Apagar bot en la próxima operación ganadora", value=bool(st.session_state.auto_stop_after_win), label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    b1, b2 = st.columns(2)
-    with b1:
-        if st.button("↺ Reiniciar martingala", use_container_width=True):
-            st.session_state.auto_level = 1
-            st.session_state.auto_last_status = "PROGRESIÓN REINICIADA"
-    with b2:
-        if st.button("🛑 APAGAR AUTO", use_container_width=True):
-            st.session_state.auto_enabled = False
-            st.session_state.auto_last_status = "AUTO APAGADO"
+    # Botón Reiniciar Progresión
+    st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+    if st.button("↺ REINICIAR MARTINGALA", use_container_width=True):
+        st.session_state.auto_level = 1
+        st.session_state.auto_last_status = "PROGRESIÓN REINICIADA"
 
     _next_amount = _amount_for_level()
-    st.markdown(
-        f"**Estado:** {'🟢 AUTO' if st.session_state.auto_enabled else '⚪ AUTO OFF'}  \n"
-        f"**Nivel activo:** {st.session_state.auto_level}/{max_lvl} · "
-        f"**Próximo monto:** ${_next_amount:.2f}  \n"
-        f"**Último estado:** {st.session_state.auto_last_status}"
-    )
+    st.markdown(f"""
+    <div style="margin-top:10px; font-size:12px; color:#888888; border-top:1px solid #222222; padding-top:8px;">
+        <b>Estado:</b> {'🟢 AUTO' if st.session_state.auto_enabled else '⚪ AUTO OFF'} | 
+        <b>Nivel:</b> {st.session_state.auto_level}/{max_lvl} | 
+        <b>Próximo:</b> ${_next_amount:.2f} | 
+        <b>Status:</b> {st.session_state.auto_last_status}
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 @st.fragment(run_every="2s")
 def live_dashboard():
