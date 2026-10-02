@@ -660,14 +660,14 @@ _AUTO_DEFAULTS = {
     "auto_limit_cents": 50,
     "auto_take_profit": 90,
     "auto_martingale": False,
-    "auto_max_levels": 4,
+    "auto_max_levels": 9,
     "auto_level": 1,
     "auto_stop_after_win": False,
     "auto_last_ticker": None,
     "auto_last_order": None,
     "auto_last_status": "AUTO APAGADO",
     "auto_history": [],
-    "auto_modo_monto": "Automático",
+    "auto_modo_monto": "Manual",
 }
 for _k, _v in _AUTO_DEFAULTS.items():
     if _k not in st.session_state:
@@ -748,6 +748,19 @@ def kalshi_test_connection():
         dollars = f"{float(data['balance']) / 100:.2f}"
     return data, dollars
 
+def _get_kalshi_balance_float():
+    try:
+        data = kalshi_private_request("GET", "/portfolio/balance")
+        b = data.get("balance_dollars")
+        if b is not None:
+            return float(b)
+        bal_cents = data.get("balance")
+        if bal_cents is not None:
+            return float(bal_cents) / 100.0
+    except Exception:
+        pass
+    return 0.0
+
 def _market_contract_prices(market):
     if not market:
         return None, None
@@ -768,26 +781,29 @@ def _market_contract_prices(market):
     return yes_ask, no_ask
 
 def _amount_for_level():
-    """Calcula el monto real para el nivel actual conectando Manual o Automático correctamente."""
+    """Calcula el monto real para el nivel actual estilo Critik2 (Manual con Martingala vs Automático saldo 90%)."""
     level = max(1, int(st.session_state.auto_level))
-    max_lvl = int(st.session_state.get("auto_max_levels", 4))
+    max_lvl = int(st.session_state.get("auto_max_levels", 9))
     lvl_idx = max(0, min(level - 1, max_lvl - 1))
     
-    modo = st.session_state.get("auto_modo_monto", "Automático")
+    modo = st.session_state.get("auto_modo_monto", "Manual")
     is_martingale = bool(st.session_state.get("auto_martingale", False))
-    monto_total = float(st.session_state.get("auto_amount", 0.50))
 
-    if modo == "Manual":
-        # Devuelve exactamente lo que el usuario escribió en el input manual de este nivel
-        return float(st.session_state.get(f"monto_nivel_{lvl_idx}", 0.50))
-    else:
-        # Automático calcula presupuesto total y progresión
+    if modo == "Automático":
+        balance = _get_kalshi_balance_float()
+        budget = balance * 0.90
         if is_martingale:
             factor_sum = sum(2 ** i for i in range(max_lvl))
-            unit_base = monto_total / factor_sum if factor_sum > 0 else monto_total
-            return unit_base * (2 ** lvl_idx)
+            base_init = budget / factor_sum if factor_sum > 0 else 0.50
         else:
-            return monto_total / max_lvl
+            base_init = budget / max_lvl if max_lvl > 0 else 0.50
+    else:
+        base_init = float(st.session_state.get("auto_amount", 0.50))
+
+    if is_martingale:
+        return base_init * (2 ** lvl_idx)
+    else:
+        return base_init
 
 def _direction_for_level(signal_direction):
     level = max(1, int(st.session_state.auto_level))
@@ -796,6 +812,8 @@ def _direction_for_level(signal_direction):
         return "UP"
     if choice == "Solo DOWN":
         return "DOWN"
+    if choice == "Contraria a la señal":
+        return "DOWN" if signal_direction == "UP" else "UP"
     return signal_direction
 
 def _contracts_for_amount(amount, contract_price):
@@ -2126,7 +2144,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     </section>'''
 
 # =========================================================
-# AJUSTES KALSHI + AUTO TRADING (CORREGIDO Y LIMPIO)
+# AJUSTES KALSHI + AUTO TRADING (ESTILO CRITIK2 EXACTO)
 # =========================================================
 with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
     st.caption("Las credenciales quedan en esta sesión; no se escriben dentro del archivo ni se muestran en pantalla.")
@@ -2168,76 +2186,62 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
     else:
         st.session_state.auto_enabled = requested_auto
 
-    # 1. Martingala procesada antes de calcular montos / niveles
-    st.session_state.auto_martingale = st.toggle(
-        "Martingala", value=bool(st.session_state.auto_martingale)
-    )
+    # Configuración estilo Critik2
+    modo_monto = st.radio("Cálculo del monto", ["Manual", "Automático"], horizontal=True, key="auto_modo_monto")
+    st.caption("Automático distribuye el 90% del saldo real para cubrir todos los niveles seleccionados.")
 
-    # 2. Máximo de niveles (hasta 12)
-    st.session_state.auto_max_levels = st.slider(
-        "Máximo de niveles", 1, 12, int(st.session_state.get("auto_max_levels", 4))
-    )
+    max_lvl = int(st.slider("Máximo de niveles", 1, 12, int(st.session_state.get("auto_max_levels", 9))))
+    st.session_state.auto_max_levels = max_lvl
 
-    # 3. Distribución de Monto: Automático / Manual
-    modo_monto = st.radio("Distribución de Monto", ["Automático", "Manual"], horizontal=True, key="auto_modo_monto")
-    
-    max_lvl = int(st.session_state.auto_max_levels)
-    is_martingale = bool(st.session_state.auto_martingale)
+    # ---------------------------------------------------------
+    # TOGGLE DE MARTINGALA MOVIDO ANTES DEL CÁLCULO DEL MONTO AUTOMÁTICO
+    # ---------------------------------------------------------
+    st.session_state.auto_martingale = st.toggle("Martingala", value=bool(st.session_state.auto_martingale))
 
-    if modo_monto == "Automático":
-        monto_total = st.number_input(
-            "Presupuesto Total / Base ($)", min_value=0.01, max_value=10000.0,
-            value=float(st.session_state.get("auto_amount", 0.50)), step=0.25
-        )
-        st.session_state.auto_amount = monto_total
-
-        if is_martingale:
-            factor_sum = sum(2 ** i for i in range(max_lvl))
-            unit_base = monto_total / factor_sum if factor_sum > 0 else monto_total
-            st.markdown("**Desglose Automático (Martingala):**")
-            for i in range(max_lvl):
-                m_niv = unit_base * (2 ** i)
-                st.caption(f"• Nivel {i+1}: **${m_niv:.2f}**")
-        else:
-            monto_unitario = monto_total / max_lvl
-            st.info(f"Modo Automático: **${monto_unitario:.2f}** por cada uno de los {max_lvl} niveles.")
+    if modo_monto == "Manual":
+        monto_inicial = st.number_input("Monto inicial manual ($)", min_value=0.01, max_value=1000.0, value=float(st.session_state.get("auto_amount", 0.50)), step=0.25)
+        st.session_state.auto_amount = monto_inicial
     else:
-        st.write("Asigna el monto libremente para cada nivel:")
-        for i in range(max_lvl):
-            default_val = 0.50 if i == 0 else 1.00
-            saved_val = st.session_state.get(f"monto_nivel_{i}", float(default_val))
-            st.number_input(f"Nivel {i+1} ($)", min_value=0.0, value=float(saved_val), key=f"monto_nivel_{i}", step=0.25)
+        bal_live = _get_kalshi_balance_float()
+        bud = bal_live * 0.90
+        is_m_temp = bool(st.session_state.get("auto_martingale", False))
+        if is_m_temp:
+            f_sum = sum(2 ** i for i in range(max_lvl))
+            calc_init = bud / f_sum if f_sum > 0 else 0.50
+        else:
+            calc_init = bud / max_lvl if max_lvl > 0 else 0.50
+        st.session_state.auto_amount = calc_init
+        st.info(f"Saldo disponible: ${bal_live:.2f} · Monto inicial automático (90% / {max_lvl} niveles): ${calc_init:.2f}")
 
-    st.session_state.auto_limit_cents = st.slider(
-        "Precio límite de entrada (¢)", 1, 99,
-        int(st.session_state.auto_limit_cents)
-    )
-    
-    # 4. Take Profit: Máximo 100%
-    st.session_state.auto_take_profit = st.slider(
-        "Take profit (%)", 1, 100,
-        int(min(100, st.session_state.auto_take_profit)), step=1
-    )
+    st.session_state.auto_limit_cents = st.slider("Precio de orden límite (¢)", 1, 99, int(st.session_state.auto_limit_cents))
+    st.session_state.auto_take_profit = st.slider("Tomar profit (%)", 1, 100, int(min(100, st.session_state.auto_take_profit)), step=1)
 
-    st.caption("Dirección por nivel")
+    st.markdown("### Elige la dirección")
+    st.caption("Configura cada nivel por separado. Solo Up abre UP, Solo Down abre DOWN, Contraria invierte la señal.")
+
+    # Vista previa calculada de montos por nivel
+    current_base = st.session_state.auto_amount
+    is_m = st.session_state.auto_martingale
+
     for _level in range(1, max_lvl + 1):
         _key = f"auto_level_direction_{_level}"
         if _key not in st.session_state:
             st.session_state[_key] = "Seguir señal"
+        
+        lvl_amt = current_base * (2 ** (_level - 1)) if is_m else current_base
+        label_name = "Entrada inicial" if _level == 1 else f"Martingala {_level - 1}"
+        
         st.selectbox(
-            f"Nivel {_level}",
-            ["Seguir señal", "Solo UP", "Solo DOWN"],
+            f"{label_name} (Nivel {_level} · ${lvl_amt:.2f})",
+            ["Seguir señal", "Solo UP", "Solo DOWN", "Contraria a la señal"],
             key=_key,
         )
 
-    st.session_state.auto_stop_after_win = st.toggle(
-        "Apagar después del próximo WIN",
-        value=bool(st.session_state.auto_stop_after_win)
-    )
+    st.session_state.auto_stop_after_win = st.toggle("Apagar bot en la próxima operación ganadora", value=bool(st.session_state.auto_stop_after_win))
 
     b1, b2 = st.columns(2)
     with b1:
-        if st.button("↺ Reiniciar progresión", use_container_width=True):
+        if st.button("↺ Reiniciar martingala", use_container_width=True):
             st.session_state.auto_level = 1
             st.session_state.auto_last_status = "PROGRESIÓN REINICIADA"
     with b2:
@@ -2246,10 +2250,9 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
             st.session_state.auto_last_status = "AUTO APAGADO"
 
     _next_amount = _amount_for_level()
-    
     st.markdown(
         f"**Estado:** {'🟢 AUTO' if st.session_state.auto_enabled else '⚪ AUTO OFF'}  \n"
-        f"**Nivel:** {st.session_state.auto_level}/{max_lvl} · "
+        f"**Nivel activo:** {st.session_state.auto_level}/{max_lvl} · "
         f"**Próximo monto:** ${_next_amount:.2f}  \n"
         f"**Último estado:** {st.session_state.auto_last_status}"
     )
