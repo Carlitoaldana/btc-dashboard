@@ -2441,3 +2441,47 @@ div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button[kind="primary
 div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button p{font-size:9px!important;line-height:1.8!important}
 .nav-spacer{height:58px!important}
 </style>""",unsafe_allow_html=True)
+
+# =========================================================
+# COMPACT MOBILE PROPORTIONS — keep logic/data unchanged
+# =========================================================
+st.markdown(r'''<style>
+/* Fit the complete bot view much closer to the reference on iPhone. */
+.block-container{max-width:430px!important;padding:7px 10px 76px!important}
+div[data-testid="stVerticalBlock"]{gap:.18rem!important}
+
+/* header */
+.asset{padding-top:0!important}.coin{width:36px!important;height:36px!important;font-size:23px!important}
+.kicker{font-size:8px!important}.name{font-size:18px!important;margin-top:1px!important}
+.auto-label{font-size:7px!important;margin-top:0!important}
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:last-child .stButton>button{
+ width:40px!important;height:40px!important;min-height:40px!important;max-width:40px!important;font-size:21px!important;margin:0 auto!important
+}
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:last-child .stButton>button p{font-size:21px!important}
+.auto-state{font-size:8px!important;line-height:1!important;margin-top:1px!important}
+
+/* target/current block */
+.market{padding:5px 2px 0!important;gap:8px!important}
+.market>div+div{padding-left:9px!important}
+.lab{font-size:8px!important}.price{font-size:22px!important;margin-top:3px!important}.sub{font-size:9px!important;margin-top:2px!important}
+.count{font-size:17px!important;margin-top:7px!important}.live{font-size:8px!important;padding-right:58px!important;margin-top:-6px!important;height:12px!important}
+
+/* chart — this was the part making the page huge */
+.chartwrap{height:238px!important;margin-top:0!important;grid-template-columns:6px 1fr 54px!important;gap:5px!important}
+.scale{font-size:7px!important}.times{font-size:6.5px!important;padding:1px 54px 2px 11px!important}
+.past{font-size:7.5px!important;padding:0 0 3px 2px!important}.past .arr{font-size:13px!important;letter-spacing:1px!important}
+
+/* signal card */
+[data-testid="stVerticalBlockBorderWrapper"]{padding:7px 9px!important;border-radius:13px!important}
+.guide{gap:7px!important}.guideicon{width:30px!important;height:30px!important;border-radius:9px!important}
+.guide-small{font-size:6.5px!important}.mtitle{font-size:18px!important;margin-top:0!important}
+.minner{min-height:62px!important;padding:8px 10px!important;margin-top:6px!important;border-radius:10px!important}
+.minner small{font-size:6.5px!important}.msig{font-size:20px!important;margin:4px 0!important}.mnote{font-size:7.5px!important;line-height:1.2!important}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stToggle"]{transform:scale(.88);transform-origin:right center!important}
+
+/* bottom navigation */
+div[data-testid="stHorizontalBlock"]:last-of-type{height:61px!important;padding:2px 7px!important}
+div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button{min-height:51px!important;padding:1px 0!important}
+div[data-testid="stHorizontalBlock"]:last-of-type .stButton>button p{font-size:8px!important;line-height:1.55!important}
+.nav-spacer{height:50px!important}
+</style>''', unsafe_allow_html=True)
