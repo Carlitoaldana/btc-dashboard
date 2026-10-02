@@ -9,3 +9,6 @@ dependencies = [
     "numpy==2.4.6",
     "cryptography==46.0.3",
 ]
+
+[tool.poetry]
+package-mode = false
