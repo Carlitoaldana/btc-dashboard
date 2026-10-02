@@ -1,0 +1,11 @@
+[project]
+name = "btc-dashboard"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "streamlit==1.64.0",
+    "requests==2.34.2",
+    "pandas==3.0.6",
+    "numpy==2.4.6",
+    "cryptography==46.0.3",
+]
