@@ -707,6 +707,8 @@ _AUTO_DEFAULTS = {
     "auto_last_status": "AUTO APAGADO",
     "auto_history": [],
     "auto_modo_monto": "Manual",
+    "trading_mode": "🧪 PRUEBA / PAPER",
+    "confirm_real_mode": False,
 }
 for _k, _v in _AUTO_DEFAULTS.items():
     if _k not in st.session_state:
@@ -798,6 +800,10 @@ def _get_kalshi_balance_float():
             return float(bal_cents) / 100.0
     except Exception:
         pass
+    
+    mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
+    if mode == "🧪 PRUEBA / PAPER":
+        return 1000.0
     return 0.0
 
 def _market_contract_prices(market):
@@ -860,6 +866,30 @@ def _contracts_for_amount(amount, contract_price):
     return math.floor((amount / contract_price) * 100) / 100.0
 
 def kalshi_place_entry(ticker, direction, market):
+    # CAPA DE SEGURIDAD ABSOLUTA PARA MODO PRUEBA / PAPER
+    mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
+    if mode == "🧪 PRUEBA / PAPER":
+        amount = _amount_for_level()
+        limit = max(1, min(99, int(st.session_state.auto_limit_cents))) / 100.0
+        yes_ask, no_ask = _market_contract_prices(market)
+        observed = yes_ask if direction == "UP" else no_ask
+        contract_price = min(observed, limit) if observed is not None else limit
+        count = _contracts_for_amount(amount, contract_price)
+        simulated_order_id = f"paper-{uuid.uuid4().hex[:8]}"
+        return {
+            "order_id": simulated_order_id,
+            "status": "executed_paper",
+            "fill_count": f"{max(1.0, count):.2f}",
+            "_direction": direction,
+            "_requested_count": count,
+            "_amount_level": amount,
+            "_entry_contract_price": contract_price,
+            "_ticker": ticker,
+            "_level": int(st.session_state.auto_level),
+            "_is_paper": True,
+        }
+
+    # EJECUCIÓN REAL ORIGINAL (Únicamente si está en Modo REAL y confirmado)
     limit = max(1, min(99, int(st.session_state.auto_limit_cents))) / 100.0
     yes_ask, no_ask = _market_contract_prices(market)
     observed = yes_ask if direction == "UP" else no_ask
@@ -897,9 +927,13 @@ def kalshi_place_entry(ticker, direction, market):
     result["_entry_contract_price"] = contract_price
     result["_ticker"] = ticker
     result["_level"] = int(st.session_state.auto_level)
+    result["_is_paper"] = False
     return result
 
 def kalshi_place_take_profit(entry):
+    if entry.get("_is_paper"):
+        return {"order_id": f"paper-tp-{uuid.uuid4().hex[:8]}"}
+
     try:
         filled = float(entry.get("fill_count") or entry.get("fill_count_fp") or 0)
     except Exception:
@@ -949,6 +983,47 @@ def auto_check_previous_result(current_ticker):
     old_ticker = prev.get("_ticker")
     if not old_ticker or old_ticker == current_ticker:
         return
+    
+    # Si es orden simulada de paper, resolvemos basándonos en el resultado real del mercado público o simulación
+    if prev.get("_is_paper"):
+        try:
+            old_market = _public_market_by_ticker(old_ticker)
+            result = str(old_market.get("result", "")).lower()
+            if result not in ("yes", "no"):
+                return
+            won = (prev.get("_direction") == "UP" and result == "yes") or \
+                  (prev.get("_direction") == "DOWN" and result == "no")
+            prev["_resolved"] = True
+            prev["_won"] = won
+            
+            # Registrar en el historial de Paper
+            history_item = {
+                "ticker": old_ticker,
+                "direction": prev.get("_direction"),
+                "level": prev.get("_level"),
+                "amount": prev.get("_amount_level"),
+                "result": "WIN 🟢" if won else "LOSS 🔴",
+                "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+            }
+            st.session_state.setdefault("paper_history", []).insert(0, history_item)
+
+            if won:
+                st.session_state.auto_level = 1
+                st.session_state.auto_last_status = "PAPER WIN · MARTINGALA REINICIADA"
+                if st.session_state.auto_stop_after_win:
+                    st.session_state.auto_enabled = False
+                    st.session_state.auto_last_status = "PAPER WIN · AUTO APAGADO"
+            else:
+                if st.session_state.auto_martingale:
+                    st.session_state.auto_level = min(
+                        int(st.session_state.auto_level) + 1,
+                        int(st.session_state.auto_max_levels),
+                    )
+                st.session_state.auto_last_status = f"PAPER LOSS · NIVEL {st.session_state.auto_level}"
+        except Exception:
+            pass
+        return
+
     try:
         old_market = _public_market_by_ticker(old_ticker)
         result = str(old_market.get("result", "")).lower()
@@ -977,7 +1052,8 @@ def auto_check_previous_result(current_ticker):
 def auto_trade_tick(ticker, market, round_signal):
     if not st.session_state.get("auto_enabled"):
         return
-    if not st.session_state.get("kalshi_auth_ok"):
+    mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
+    if mode == "💵 REAL" and not st.session_state.get("kalshi_auth_ok"):
         st.session_state.auto_enabled = False
         st.session_state.auto_last_status = "AUTO APAGADO · KALSHI NO CONECTADO"
         return
@@ -1011,7 +1087,8 @@ def auto_trade_tick(ticker, market, round_signal):
         })
         filled = float(result.get("fill_count") or 0)
         if filled > 0:
-            st.session_state.auto_last_status = f"FILLED {direction} · {filled:.2f} contratos"
+            prefix = "🧪 PAPER FILLED" if result.get("_is_paper") else "FILLED"
+            st.session_state.auto_last_status = f"{prefix} {direction} · {filled:.2f} contratos"
             try:
                 tp_order = kalshi_place_take_profit(result)
                 if tp_order:
@@ -2189,6 +2266,37 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
     st.markdown('<div class="critik-header">Ajustes del bot</div>', unsafe_allow_html=True)
 
     with st.container(border=True):
+        st.markdown('<div class="row-label" style="padding-bottom:4px;"><b>MODO DE OPERACIÓN</b></div>', unsafe_allow_html=True)
+        
+        # Selector de Modo con Paper por defecto absoluto
+        selected_mode = st.radio(
+            "Modo de operación",
+            ["🧪 PRUEBA / PAPER", "💵 REAL"],
+            index=0 if st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER") == "🧪 PRUEBA / PAPER" else 1,
+            key="radio_trading_mode",
+            label_visibility="collapsed",
+            horizontal=True
+        )
+
+        if selected_mode == "💵 REAL":
+            st.warning("⚠️ Estás a punto de activar el modo con DINERO REAL.")
+            confirmed = st.checkbox("Confirmo que deseo operar con dinero real en Kalshi", key="chk_confirm_real")
+            if confirmed:
+                st.session_state.trading_mode = "💵 REAL"
+                st.session_state.confirm_real_mode = True
+            else:
+                st.session_state.trading_mode = "🧪 PRUEBA / PAPER"
+                st.session_state.confirm_real_mode = False
+        else:
+            st.session_state.trading_mode = "🧪 PRUEBA / PAPER"
+            st.session_state.confirm_real_mode = False
+
+        if st.session_state.trading_mode == "🧪 PRUEBA / PAPER":
+            st.markdown('<div style="background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.4); border-radius:6px; padding:8px; font-size:11px; color:#38bdf8; margin-top:6px;">🧪 PAPER MODE · NO SE ENVIARÁ DINERO REAL</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="background:rgba(255,83,99,0.15); border:1px solid rgba(255,83,99,0.4); border-radius:6px; padding:8px; font-size:11px; color:#ff5363; margin-top:6px;">💵 MODO REAL ACTIVO · SE USARÁN FONDOS REALES</div>', unsafe_allow_html=True)
+
+    with st.container(border=True):
         st.caption("Las credenciales quedan en esta sesión; no se escriben dentro del archivo ni se muestran en pantalla.")
         st.text_input("Kalshi API Key ID", key="kalshi_api_key_input", placeholder="Pega tu API Key ID")
         st.text_area(
@@ -2227,8 +2335,8 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         with col_at2:
             requested_auto = st.toggle("🤖 AUTO TRADING", value=st.session_state.auto_enabled, label_visibility="collapsed")
         
-        if requested_auto and not st.session_state.kalshi_auth_ok:
-            st.warning("Primero conecta Kalshi. AUTO permanece apagado.")
+        if requested_auto and st.session_state.trading_mode == "💵 REAL" and not st.session_state.kalshi_auth_ok:
+            st.warning("Primero conecta Kalshi para modo REAL. AUTO permanece apagado.")
             st.session_state.auto_enabled = False
         else:
             st.session_state.auto_enabled = requested_auto
@@ -2336,6 +2444,14 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         with col_c2:
             st.session_state.auto_stop_after_win = st.toggle("Apagar bot en la próxima operación ganadora", value=bool(st.session_state.auto_stop_after_win), label_visibility="collapsed")
 
+    # Historial de Operaciones Simuladas en Paper
+    paper_hist = st.session_state.get("paper_history", [])
+    if paper_hist:
+        st.markdown('<div class="critik-subheading">HISTORIAL DE PRUEBA / PAPER</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            for h in paper_hist[:5]:
+                st.markdown(f"<div style='font-size:11px; color:#c2d0df; border-bottom:1px solid #1a2735; padding:4px 0;'><b>{h['time']}</b> · {h['ticker']} · <b>{h['direction']}</b> · Nivel {h['level']} · ${h['amount']:.2f} · {h['result']}</div>", unsafe_allow_html=True)
+
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     if st.button("↺ REINICIAR MARTINGALA", use_container_width=True):
         st.session_state.auto_level = 1
@@ -2344,6 +2460,7 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
     _next_amount = _amount_for_level()
     st.markdown(f"""
     <div style="margin-top:8px; font-size:11px; color:#888888; border-top:1px solid #222222; padding-top:6px;">
+        <b>Modo:</b> {st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")} | 
         <b>Estado:</b> {'🟢 AUTO' if st.session_state.auto_enabled else '⚪ AUTO OFF'} | 
         <b>Nivel:</b> {st.session_state.auto_level}/{max_lvl} | 
         <b>Próximo:</b> ${_next_amount:.2f} | 
