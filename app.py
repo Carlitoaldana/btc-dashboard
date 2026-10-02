@@ -637,26 +637,19 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     color: #FFFFFF;
     padding: 2px 0;
 }
-.critik-card {
-    background-color: #121212;
-    border: 1px solid #222222;
-    border-radius: 10px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-}
 .critik-header {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     color: #FFFFFF;
-    margin-bottom: 12px;
-    padding-bottom: 6px;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #222222;
 }
 .critik-subheading {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: #FFFFFF;
-    margin: 14px 0 8px 0;
+    margin: 12px 0 6px 0;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -664,35 +657,15 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     background-color: #0c2314;
     border: 1px solid #1a5c32;
     border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
     color: #d4edda;
-    font-size: 13px;
+    font-size: 12px;
 }
 .row-label {
-    font-size: 13px;
+    font-size: 12px;
     color: #E0E0E0;
     font-weight: 500;
-}
-.level-card {
-    background-color: #121212;
-    border: 1px solid #222222;
-    border-radius: 8px;
-    padding: 10px 14px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.level-info-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #FFFFFF;
-}
-.level-info-subtitle {
-    font-size: 11px;
-    color: #888888;
-    margin-top: 1px;
 }
 </style>
 """,
@@ -847,7 +820,6 @@ def _market_contract_prices(market):
     return yes_ask, no_ask
 
 def _amount_for_level():
-    """Calcula el monto real para el nivel actual estilo Critik2 (Manual con Martingala vs Automático saldo 90%)."""
     level = max(1, int(st.session_state.auto_level))
     max_lvl = int(st.session_state.get("auto_max_levels", 9))
     lvl_idx = max(0, min(level - 1, max_lvl - 1))
@@ -1222,7 +1194,7 @@ def render_whale_panel(whale, active):
     if not whale or not whale.get("detected"):
         buy = compact_usd((whale or {}).get("live_buy", 0))
         sell = compact_usd((whale or {}).get("live_sell", 0))
-        return f'''<style="{base}">
+        return f'''<section style="{base}">
           <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
           <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">FLUJO NORMAL / SIN CONFIRMACIÓN</div>
           <div style="margin-top:6px;font-size:9px;color:#8da0b4">5s · COMPRAS {buy} · VENTAS {sell}</div>
@@ -2216,116 +2188,102 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
     st.markdown('<div class="critik-container">', unsafe_allow_html=True)
     st.markdown('<div class="critik-header">Ajustes del bot</div>', unsafe_allow_html=True)
 
-    # Tarjeta de Credenciales y Conexión
-    st.markdown('<div class="critik-card">', unsafe_allow_html=True)
-    st.caption("Las credenciales quedan en esta sesión; no se escriben dentro del archivo ni se muestran en pantalla.")
-    st.text_input("Kalshi API Key ID", key="kalshi_api_key_input", placeholder="Pega tu API Key ID")
-    st.text_area(
-        "Kalshi Private Key",
-        key="kalshi_private_key_input",
-        placeholder="-----BEGIN PRIVATE KEY----- ...",
-        height=105,
-    )
+    with st.container(border=True):
+        st.caption("Las credenciales quedan en esta sesión; no se escriben dentro del archivo ni se muestran en pantalla.")
+        st.text_input("Kalshi API Key ID", key="kalshi_api_key_input", placeholder="Pega tu API Key ID")
+        st.text_area(
+            "Kalshi Private Key",
+            key="kalshi_private_key_input",
+            placeholder="-----BEGIN PRIVATE KEY----- ...",
+            height=105,
+        )
 
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("🔐 Conectar Kalshi", use_container_width=True):
-            try:
-                _, bal = kalshi_test_connection()
-                st.session_state.kalshi_auth_ok = True
-                st.session_state.kalshi_auth_message = f"Conectado · Balance ${bal}" if bal else "Conectado"
-            except Exception as e:
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("🔐 Conectar Kalshi", use_container_width=True):
+                try:
+                    _, bal = kalshi_test_connection()
+                    st.session_state.kalshi_auth_ok = True
+                    st.session_state.kalshi_auth_message = f"Conectado · Balance ${bal}" if bal else "Conectado"
+                except Exception as e:
+                    st.session_state.kalshi_auth_ok = False
+                    st.session_state.auto_enabled = False
+                    st.session_state.kalshi_auth_message = "Error: " + str(e)[:160]
+        with c2:
+            if st.button("Desconectar", use_container_width=True):
                 st.session_state.kalshi_auth_ok = False
                 st.session_state.auto_enabled = False
-                st.session_state.kalshi_auth_message = "Error: " + str(e)[:160]
-    with c2:
-        if st.button("Desconectar", use_container_width=True):
-            st.session_state.kalshi_auth_ok = False
-            st.session_state.auto_enabled = False
-            st.session_state.kalshi_auth_message = "No conectado"
+                st.session_state.kalshi_auth_message = "No conectado"
 
-    if st.session_state.kalshi_auth_ok:
-        st.success("🟢 " + st.session_state.kalshi_auth_message)
-    else:
-        st.info("🔴 " + st.session_state.kalshi_auth_message)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Toggle Auto Trading principal dentro de tarjeta
-    st.markdown('<div class="critik-card">', unsafe_allow_html=True)
-    col_at1, col_at2 = st.columns([1, 1])
-    with col_at1:
-        st.markdown('<div class="row-label" style="padding-top:4px;"><b>AUTO TRADING</b></div>', unsafe_allow_html=True)
-    with col_at2:
-        requested_auto = st.toggle("🤖 AUTO TRADING", value=st.session_state.auto_enabled, label_visibility="collapsed")
-    
-    if requested_auto and not st.session_state.kalshi_auth_ok:
-        st.warning("Primero conecta Kalshi. AUTO permanece apagado.")
-        st.session_state.auto_enabled = False
-    else:
-        st.session_state.auto_enabled = requested_auto
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Orden Correcto: Capturar Primero Niveles y Martingala antes de Calcular Monto
-    st.markdown('<div class="critik-card">', unsafe_allow_html=True)
-
-    # Máximo de niveles (hasta 12 niveles)
-    col_ml1, col_ml2 = st.columns([1, 1])
-    with col_ml1:
-        st.markdown('<div class="row-label" style="padding-top:4px;"><b>Máximo de niveles</b></div>', unsafe_allow_html=True)
-    with col_ml2:
-        max_lvl_input = st.selectbox("Máximo de niveles", list(range(1, 13)), index=int(st.session_state.get("auto_max_levels", 9)) - 1, key="sb_max_niveles_critik", label_visibility="collapsed")
-        max_lvl = int(max_lvl_input)
-        st.session_state.auto_max_levels = max_lvl
-
-    # Martingala Toggle
-    col_mart1, col_mart2 = st.columns([1, 1])
-    with col_mart1:
-        st.markdown('<div class="row-label" style="padding-top:8px;"><b>Martingala</b></div>', unsafe_allow_html=True)
-    with col_mart2:
-        st.session_state.auto_martingale = st.toggle("Martingala", value=bool(st.session_state.auto_martingale), label_visibility="collapsed")
-
-    # Cálculo del monto (Manual / Automático)
-    col_m1, col_m2 = st.columns([1, 1])
-    with col_m1:
-        st.markdown('<div class="row-label" style="padding-top:4px;"><b>Cálculo del monto</b><br><span style="color:#888888; font-size:11px;">Automático distribuye el 90% del saldo real para cubrir todos los niveles seleccionados.</span></div>', unsafe_allow_html=True)
-    with col_m2:
-        modo_monto = st.selectbox("Cálculo del monto", ["Manual", "Automático"], key="auto_modo_monto", label_visibility="collapsed")
-
-    if modo_monto == "Manual":
-        col_mi1, col_mi2 = st.columns([1, 1])
-        with col_mi1:
-            st.markdown('<div class="row-label" style="padding-top:8px;">Monto inicial manual ($)</div>', unsafe_allow_html=True)
-        with col_mi2:
-            monto_inicial = st.number_input("Monto inicial manual ($)", min_value=0.01, max_value=1000.0, value=float(st.session_state.get("auto_amount", 0.50)), step=0.25, label_visibility="collapsed")
-            st.session_state.auto_amount = monto_inicial
-    else:
-        bal_live = _get_kalshi_balance_float()
-        bud = bal_live * 0.90
-        is_m_temp = bool(st.session_state.get("auto_martingale", False))
-        if is_m_temp:
-            f_sum = sum(2 ** i for i in range(max_lvl))
-            calc_init = bud / f_sum if f_sum > 0 else 0.50
+        if st.session_state.kalshi_auth_ok:
+            st.success("🟢 " + st.session_state.kalshi_auth_message)
         else:
-            calc_init = bud / max_lvl if max_lvl > 0 else 0.50
-        st.session_state.auto_amount = calc_init
+            st.info("🔴 " + st.session_state.kalshi_auth_message)
 
-    # Precio de orden límite
-    col_pl1, col_pl2 = st.columns([1, 1])
-    with col_pl1:
-        st.markdown('<div class="row-label" style="padding-top:4px;">Precio de orden límite (¢)</div>', unsafe_allow_html=True)
-    with col_pl2:
-        st.session_state.auto_limit_cents = st.slider("Precio de orden límite (¢)", 1, 99, int(st.session_state.auto_limit_cents), label_visibility="collapsed")
+    with st.container(border=True):
+        col_at1, col_at2 = st.columns([2, 1])
+        with col_at1:
+            st.markdown('<div class="row-label" style="padding-top:4px;"><b>AUTO TRADING</b></div>', unsafe_allow_html=True)
+        with col_at2:
+            requested_auto = st.toggle("🤖 AUTO TRADING", value=st.session_state.auto_enabled, label_visibility="collapsed")
+        
+        if requested_auto and not st.session_state.kalshi_auth_ok:
+            st.warning("Primero conecta Kalshi. AUTO permanece apagado.")
+            st.session_state.auto_enabled = False
+        else:
+            st.session_state.auto_enabled = requested_auto
 
-    # Tomar profit (máximo 100%)
-    col_tp1, col_tp2 = st.columns([1, 1])
-    with col_tp1:
-        st.markdown('<div class="row-label" style="padding-top:4px;">Tomar profit (%)</div>', unsafe_allow_html=True)
-    with col_tp2:
-        st.session_state.auto_take_profit = st.slider("Tomar profit (%)", 1, 100, int(min(100, st.session_state.auto_take_profit)), step=1, label_visibility="collapsed")
+    with st.container(border=True):
+        col_ml1, col_ml2 = st.columns([1, 1])
+        with col_ml1:
+            st.markdown('<div class="row-label" style="padding-top:4px;"><b>Máximo de niveles</b></div>', unsafe_allow_html=True)
+        with col_ml2:
+            max_lvl_input = st.selectbox("Máximo de niveles", list(range(1, 13)), index=int(st.session_state.get("auto_max_levels", 9)) - 1, key="sb_max_niveles_critik", label_visibility="collapsed")
+            max_lvl = int(max_lvl_input)
+            st.session_state.auto_max_levels = max_lvl
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        col_mart1, col_mart2 = st.columns([1, 1])
+        with col_mart1:
+            st.markdown('<div class="row-label" style="padding-top:8px;"><b>Martingala</b></div>', unsafe_allow_html=True)
+        with col_mart2:
+            st.session_state.auto_martingale = st.toggle("Martingala", value=bool(st.session_state.auto_martingale), label_visibility="collapsed")
 
-    # Caja verde de saldo y monto automático
+        col_m1, col_m2 = st.columns([1, 1])
+        with col_m1:
+            st.markdown('<div class="row-label" style="padding-top:4px;"><b>Cálculo del monto</b><br><span style="color:#888888; font-size:11px;">Automático distribuye el 90% del saldo real para cubrir todos los niveles seleccionados.</span></div>', unsafe_allow_html=True)
+        with col_m2:
+            modo_monto = st.selectbox("Cálculo del monto", ["Manual", "Automático"], key="auto_modo_monto", label_visibility="collapsed")
+
+        if modo_monto == "Manual":
+            col_mi1, col_mi2 = st.columns([1, 1])
+            with col_mi1:
+                st.markdown('<div class="row-label" style="padding-top:8px;">Monto inicial manual ($)</div>', unsafe_allow_html=True)
+            with col_mi2:
+                monto_inicial = st.number_input("Monto inicial manual ($)", min_value=0.01, max_value=1000.0, value=float(st.session_state.get("auto_amount", 0.50)), step=0.25, label_visibility="collapsed")
+                st.session_state.auto_amount = monto_inicial
+        else:
+            bal_live = _get_kalshi_balance_float()
+            bud = bal_live * 0.90
+            is_m_temp = bool(st.session_state.get("auto_martingale", False))
+            if is_m_temp:
+                f_sum = sum(2 ** i for i in range(max_lvl))
+                calc_init = bud / f_sum if f_sum > 0 else 0.50
+            else:
+                calc_init = bud / max_lvl if max_lvl > 0 else 0.50
+            st.session_state.auto_amount = calc_init
+
+        col_pl1, col_pl2 = st.columns([1, 1])
+        with col_pl1:
+            st.markdown('<div class="row-label" style="padding-top:4px;">Precio de orden límite (¢)</div>', unsafe_allow_html=True)
+        with col_pl2:
+            st.session_state.auto_limit_cents = st.slider("Precio de orden límite (¢)", 1, 99, int(st.session_state.auto_limit_cents), label_visibility="collapsed")
+
+        col_tp1, col_tp2 = st.columns([1, 1])
+        with col_tp1:
+            st.markdown('<div class="row-label" style="padding-top:4px;">Tomar profit (%)</div>', unsafe_allow_html=True)
+        with col_tp2:
+            st.session_state.auto_take_profit = st.slider("Tomar profit (%)", 1, 100, int(min(100, st.session_state.auto_take_profit)), step=1, label_visibility="collapsed")
+
     if modo_monto == "Automático":
         bal_live = _get_kalshi_balance_float()
         bud = bal_live * 0.90
@@ -2341,9 +2299,8 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         </div>
         ''', unsafe_allow_html=True)
 
-    # SECCIÓN: ELIGE LA DIRECCIÓN
     st.markdown('<div class="critik-subheading">ELIGE LA DIRECCIÓN</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size: 12px; color: #888888; margin-bottom: 10px;">Configura cada nivel por separado. Solo Up abre UP, Solo Down abre DOWN, Contraria invierte la señal.</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 11px; color: #888888; margin-bottom: 8px;">Configura cada nivel por separado. Solo Up abre UP, Solo Down abre DOWN, Contraria invierte la señal.</div>', unsafe_allow_html=True)
 
     current_base = st.session_state.auto_amount
     is_m = st.session_state.auto_martingale
@@ -2356,41 +2313,37 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         lvl_amt = current_base * (2 ** (_level - 1)) if is_m else current_base
         label_name = "Entrada inicial" if _level == 1 else f"Martingala {_level - 1}"
         
-        st.markdown('<div class="level-card">', unsafe_allow_html=True)
-        col_info, col_sel = st.columns([1, 1])
-        with col_info:
-            st.markdown(f'''
-            <div class="level-info-title">{label_name}</div>
-            <div class="level-info-subtitle">Nivel {_level} · ${lvl_amt:.2f}</div>
-            ''', unsafe_allow_html=True)
-        with col_sel:
-            st.selectbox(
-                f"Dirección Nivel {_level}",
-                ["Seguir señal", "Solo UP", "Solo DOWN", "Contraria a la señal"],
-                key=_key,
-                label_visibility="collapsed",
-            )
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            col_info, col_sel = st.columns([1, 1])
+            with col_info:
+                st.markdown(f'''
+                <div style="font-size: 12px; font-weight: 600; color: #FFFFFF;">{label_name}</div>
+                <div style="font-size: 10px; color: #888888; margin-top: 1px;">Nivel {_level} · ${lvl_amt:.2f}</div>
+                ''', unsafe_allow_html=True)
+            with col_sel:
+                st.selectbox(
+                    f"Dirección Nivel {_level}",
+                    ["Seguir señal", "Solo UP", "Solo DOWN", "Contraria a la señal"],
+                    key=_key,
+                    label_visibility="collapsed",
+                )
 
-    # SECCIÓN CONTINUIDAD
     st.markdown('<div class="critik-subheading">CONTINUIDAD</div>', unsafe_allow_html=True)
-    st.markdown('<div class="critik-card">', unsafe_allow_html=True)
-    col_c1, col_c2 = st.columns([1, 1])
-    with col_c1:
-        st.markdown('<div class="row-label" style="font-size:13px;"><b>Apagar bot en la próxima operación ganadora</b></div>', unsafe_allow_html=True)
-    with col_c2:
-        st.session_state.auto_stop_after_win = st.toggle("Apagar bot en la próxima operación ganadora", value=bool(st.session_state.auto_stop_after_win), label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        col_c1, col_c2 = st.columns([2, 1])
+        with col_c1:
+            st.markdown('<div class="row-label" style="font-size:12px;"><b>Apagar bot en la próxima operación ganadora</b></div>', unsafe_allow_html=True)
+        with col_c2:
+            st.session_state.auto_stop_after_win = st.toggle("Apagar bot en la próxima operación ganadora", value=bool(st.session_state.auto_stop_after_win), label_visibility="collapsed")
 
-    # Botón Reiniciar Progresión
-    st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     if st.button("↺ REINICIAR MARTINGALA", use_container_width=True):
         st.session_state.auto_level = 1
         st.session_state.auto_last_status = "PROGRESIÓN REINICIADA"
 
     _next_amount = _amount_for_level()
     st.markdown(f"""
-    <div style="margin-top:10px; font-size:12px; color:#888888; border-top:1px solid #222222; padding-top:8px;">
+    <div style="margin-top:8px; font-size:11px; color:#888888; border-top:1px solid #222222; padding-top:6px;">
         <b>Estado:</b> {'🟢 AUTO' if st.session_state.auto_enabled else '⚪ AUTO OFF'} | 
         <b>Nivel:</b> {st.session_state.auto_level}/{max_lvl} | 
         <b>Próximo:</b> ${_next_amount:.2f} | 
