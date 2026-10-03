@@ -10,6 +10,7 @@ import uuid
 import math
 import subprocess
 import tempfile
+import json
 
 # =========================================================
 # MACALY + ALPHA BOT v4.6.1 • MOBILE PRO UI
@@ -689,6 +690,34 @@ if "micro_ticker" not in st.session_state:
     st.session_state.micro_ticker = None
 
 # =========================================================
+# PERSISTENCIA REAL COMPATIBLE CON STREAMLIT CLOUD (SESSION STATE SECRETS/STATEFALLBACK)
+# =========================================================
+def load_paper_state():
+    if "persistent_paper_storage" not in st.session_state:
+        # Inicializa con valores predeterminados o carga desde secrets si estuviera disponible
+        st.session_state.persistent_paper_storage = {
+            "paper_balance": 1000.0,
+            "paper_total_pnl": 0.0,
+            "paper_history": [],
+            "auto_level": 1,
+            "auto_last_ticker": None,
+            "auto_last_order": None,
+        }
+    return st.session_state.persistent_paper_storage
+
+def save_paper_state():
+    st.session_state.persistent_paper_storage = {
+        "paper_balance": st.session_state.get("paper_balance", 1000.0),
+        "paper_total_pnl": st.session_state.get("paper_total_pnl", 0.0),
+        "paper_history": st.session_state.get("paper_history", []),
+        "auto_level": st.session_state.get("auto_level", 1),
+        "auto_last_ticker": st.session_state.get("auto_last_ticker", None),
+        "auto_last_order": st.session_state.get("auto_last_order", None),
+    }
+
+saved_state = load_paper_state()
+
+# =========================================================
 # KALSHI AUTO TRADING — CAPA SEPARADA DEL MOTOR v4.6.1
 # =========================================================
 _AUTO_DEFAULTS = {
@@ -700,15 +729,18 @@ _AUTO_DEFAULTS = {
     "auto_take_profit": 90,
     "auto_martingale": False,
     "auto_max_levels": 9,
-    "auto_level": 1,
+    "auto_level": saved_state.get("auto_level", 1),
     "auto_stop_after_win": False,
-    "auto_last_ticker": None,
-    "auto_last_order": None,
+    "auto_last_ticker": saved_state.get("auto_last_ticker", None),
+    "auto_last_order": saved_state.get("auto_last_order", None),
     "auto_last_status": "AUTO APAGADO",
     "auto_history": [],
     "auto_modo_monto": "Manual",
     "trading_mode": "🧪 PRUEBA / PAPER",
     "confirm_real_mode": False,
+    "paper_balance": saved_state.get("paper_balance", 1000.0),
+    "paper_total_pnl": saved_state.get("paper_total_pnl", 0.0),
+    "paper_history": saved_state.get("paper_history", []),
 }
 for _k, _v in _AUTO_DEFAULTS.items():
     if _k not in st.session_state:
@@ -803,7 +835,7 @@ def _get_kalshi_balance_float():
     
     mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
     if mode == "🧪 PRUEBA / PAPER":
-        return 1000.0
+        return float(st.session_state.get("paper_balance", 1000.0))
     return 0.0
 
 def _market_contract_prices(market):
@@ -876,18 +908,21 @@ def kalshi_place_entry(ticker, direction, market):
         contract_price = min(observed, limit) if observed is not None else limit
         count = _contracts_for_amount(amount, contract_price)
         simulated_order_id = f"paper-{uuid.uuid4().hex[:8]}"
-        return {
+        res_dict = {
             "order_id": simulated_order_id,
             "status": "executed_paper",
             "fill_count": f"{max(1.0, count):.2f}",
             "_direction": direction,
-            "_requested_count": count,
+            "_requested_count": max(1.0, count),
             "_amount_level": amount,
             "_entry_contract_price": contract_price,
             "_ticker": ticker,
             "_level": int(st.session_state.auto_level),
             "_is_paper": True,
+            "_resolved": False,
         }
+        save_paper_state()
+        return res_dict
 
     # EJECUCIÓN REAL ORIGINAL (Únicamente si está en Modo REAL y confirmado)
     limit = max(1, min(99, int(st.session_state.auto_limit_cents))) / 100.0
@@ -928,6 +963,7 @@ def kalshi_place_entry(ticker, direction, market):
     result["_ticker"] = ticker
     result["_level"] = int(st.session_state.auto_level)
     result["_is_paper"] = False
+    save_paper_state()
     return result
 
 def kalshi_place_take_profit(entry):
@@ -981,45 +1017,70 @@ def auto_check_previous_result(current_ticker):
     if not prev or prev.get("_resolved"):
         return
     old_ticker = prev.get("_ticker")
-    if not old_ticker or old_ticker == current_ticker:
+    if not old_ticker:
         return
     
-    # Si es orden simulada de paper, resolvemos basándonos en el resultado real del mercado público o simulación
     if prev.get("_is_paper"):
         try:
             old_market = _public_market_by_ticker(old_ticker)
             result = str(old_market.get("result", "")).lower()
             if result not in ("yes", "no"):
                 return
-            won = (prev.get("_direction") == "UP" and result == "yes") or \
-                  (prev.get("_direction") == "DOWN" and result == "no")
+            if prev.get("_resolved"):
+                return
+
+            direction = prev.get("_direction")
+            won = (direction == "UP" and result == "yes") or \
+                  (direction == "DOWN" and result == "no")
             prev["_resolved"] = True
             prev["_won"] = won
             
-            # Registrar en el historial de Paper
+            p = float(prev.get("_entry_contract_price", 0.50))
+            count = float(prev.get("_requested_count", 1.0))
+            invested = p * count
+
+            if won:
+                pnl = count * (1.0 - p)
+            else:
+                pnl = -(count * p)
+
+            st.session_state.setdefault("paper_balance", 1000.0)
+            st.session_state.paper_balance += pnl
+            st.session_state.paper_total_pnl = st.session_state.get("paper_total_pnl", 0.0) + pnl
+
+            res_label = "WIN 🟢" if won else "LOSS 🔴"
+            pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
+            bal_str = f"${st.session_state.paper_balance:,.2f}"
+
             history_item = {
                 "ticker": old_ticker,
-                "direction": prev.get("_direction"),
-                "level": prev.get("_level"),
-                "amount": prev.get("_amount_level"),
-                "result": "WIN 🟢" if won else "LOSS 🔴",
+                "direction": direction,
+                "level": prev.get("_level", 1),
+                "amount": invested,
+                "entry_price": p,
+                "contracts": count,
+                "pnl": pnl,
+                "balance": st.session_state.paper_balance,
+                "result_text": f"{res_label} · {pnl_str} · Balance {bal_str}",
+                "result_status": res_label,
                 "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
             }
             st.session_state.setdefault("paper_history", []).insert(0, history_item)
+            save_paper_state()
 
             if won:
                 st.session_state.auto_level = 1
-                st.session_state.auto_last_status = "PAPER WIN · MARTINGALA REINICIADA"
+                st.session_state.auto_last_status = f"PAPER WIN · {pnl_str} · Balance {bal_str}"
                 if st.session_state.auto_stop_after_win:
                     st.session_state.auto_enabled = False
-                    st.session_state.auto_last_status = "PAPER WIN · AUTO APAGADO"
+                    st.session_state.auto_last_status = f"PAPER WIN · {pnl_str} · AUTO APAGADO"
             else:
                 if st.session_state.auto_martingale:
                     st.session_state.auto_level = min(
                         int(st.session_state.auto_level) + 1,
                         int(st.session_state.auto_max_levels),
                     )
-                st.session_state.auto_last_status = f"PAPER LOSS · NIVEL {st.session_state.auto_level}"
+                st.session_state.auto_last_status = f"PAPER LOSS · {pnl_str} · Balance {bal_str}"
         except Exception:
             pass
         return
@@ -1029,10 +1090,15 @@ def auto_check_previous_result(current_ticker):
         result = str(old_market.get("result", "")).lower()
         if result not in ("yes", "no"):
             return
-        won = (prev.get("_direction") == "UP" and result == "yes") or \
-              (prev.get("_direction") == "DOWN" and result == "no")
+        if prev.get("_resolved"):
+            return
+
+        direction = prev.get("_direction")
+        won = (direction == "UP" and result == "yes") or \
+              (direction == "DOWN" and result == "no")
         prev["_resolved"] = True
         prev["_won"] = won
+        save_paper_state()
         if won:
             st.session_state.auto_level = 1
             st.session_state.auto_last_status = "WIN · MARTINGALA REINICIADA"
@@ -1075,12 +1141,14 @@ def auto_trade_tick(ticker, market, round_signal):
         if result.get("skipped"):
             st.session_state.auto_last_status = "ESPERANDO · " + result["reason"]
             st.session_state.auto_last_order = result
+            save_paper_state()
             return
 
         filled = float(result.get("fill_count") or 0)
         if filled <= 0:
             st.session_state.auto_last_status = f"ORDEN {direction} ENVIADA · SIN FILL"
             st.session_state.auto_last_order = result
+            save_paper_state()
             return
 
         st.session_state.auto_last_ticker = ticker
@@ -1092,6 +1160,7 @@ def auto_trade_tick(ticker, market, round_signal):
             "time": datetime.now(timezone.utc).isoformat(),
             "order_id": result.get("order_id"),
         })
+        save_paper_state()
         prefix = "🧪 PAPER FILLED" if result.get("_is_paper") else "FILLED"
         st.session_state.auto_last_status = f"{prefix} {direction} · {filled:.2f} contratos"
         try:
@@ -1104,6 +1173,7 @@ def auto_trade_tick(ticker, market, round_signal):
         err_msg = str(e)[:180]
         st.session_state.auto_last_status = "ERROR AUTO · " + err_msg
         st.session_state.auto_last_order = {"skipped": True, "reason": err_msg, "_ticker": ticker}
+        save_paper_state()
 
 def new_round_state(ticker, seconds_left):
     now = datetime.now(timezone.utc)
@@ -2284,7 +2354,7 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         )
 
         if selected_mode == "💵 REAL":
-            st.warning("⚠️ Estás a punto de activar el modo con DINERO REAL.")
+            st.warning("⚠️️ Estás a punto de activar el modo con DINERO REAL.")
             confirmed = st.checkbox("Confirmo que deseo operar con dinero real en Kalshi", key="chk_confirm_real")
             if confirmed:
                 st.session_state.trading_mode = "💵 REAL"
@@ -2297,7 +2367,9 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
             st.session_state.confirm_real_mode = False
 
         if st.session_state.trading_mode == "🧪 PRUEBA / PAPER":
-            st.markdown('<div style="background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.4); border-radius:6px; padding:8px; font-size:11px; color:#38bdf8; margin-top:6px;">🧪 PAPER MODE · NO SE ENVIARÁ DINERO REAL</div>', unsafe_allow_html=True)
+            paper_bal_disp = st.session_state.get("paper_balance", 1000.0)
+            paper_pnl_disp = st.session_state.get("paper_total_pnl", 0.0)
+            st.markdown(f'<div style="background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.4); border-radius:6px; padding:8px; font-size:11px; color:#38bdf8; margin-top:6px;">🧪 PAPER MODE · Balance: ${paper_bal_disp:,.2f} · P&L Total: ${paper_pnl_disp:+,.2f}</div>', unsafe_allow_html=True)
         else:
             st.markdown('<div style="background:rgba(255,83,99,0.15); border:1px solid rgba(255,83,99,0.4); border-radius:6px; padding:8px; font-size:11px; color:#ff5363; margin-top:6px;">💵 MODO REAL ACTIVO · SE USARÁN FONDOS REALES</div>', unsafe_allow_html=True)
 
@@ -2449,18 +2521,47 @@ with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
         with col_c2:
             st.session_state.auto_stop_after_win = st.toggle("Apagar bot en la próxima operación ganadora", value=bool(st.session_state.auto_stop_after_win), label_visibility="collapsed")
 
-    # Historial de Operaciones Simuladas en Paper
+    # Historial de Operaciones Simuladas en Paper y P&L Total
     paper_hist = st.session_state.get("paper_history", [])
-    if paper_hist:
-        st.markdown('<div class="critik-subheading">HISTORIAL DE PRUEBA / PAPER</div>', unsafe_allow_html=True)
-        with st.container(border=True):
-            for h in paper_hist[:5]:
-                st.markdown(f"<div style='font-size:11px; color:#c2d0df; border-bottom:1px solid #1a2735; padding:4px 0;'><b>{h['time']}</b> · {h['ticker']} · <b>{h['direction']}</b> · Nivel {h['level']} · ${h['amount']:.2f} · {h['result']}</div>", unsafe_allow_html=True)
+    paper_bal = st.session_state.get("paper_balance", 1000.0)
+    paper_tot_pnl = st.session_state.get("paper_total_pnl", 0.0)
+
+    st.markdown('<div class="critik-subheading">ESTADÍSTICAS & HISTORIAL PAPER</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f"""
+        <div style="font-size:12px; color:#eaf2fb; margin-bottom:6px;">
+            <b>Balance Paper:</b> ${paper_bal:,.2f} &nbsp;|&nbsp; <b>P&L acumulado:</b> <span style="color:{'#34e982' if paper_tot_pnl >= 0 else '#ff4e5f'}">${paper_tot_pnl:+,.2f}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if paper_hist:
+            for h in paper_hist[:10]:
+                ent_c = int(h.get('entry_price', 0.50) * 100)
+                cnt_s = h.get('contracts', 1.0)
+                pnl_v = h.get('pnl', 0.0)
+                pnl_str = f"+${pnl_v:.2f}" if pnl_v >= 0 else f"-${abs(pnl_v):.2f}"
+                bal_v = h.get('balance', 1000.0)
+                st.markdown(f"<div style='font-size:10.5px; color:#c2d0df; border-bottom:1px solid #1a2735; padding:5px 0;'><b>{h['time']}</b> · {h['ticker']} · <b>{h['direction']}</b> · Nivel {h['level']} · ${h['amount']:.2f} · {ent_c}¢ · {cnt_s} ctrs · {h.get('result_status', 'WIN/LOSS')} · {pnl_str} · Balance ${bal_v:,.2f}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div style='font-size:11px; color:#888888;'>Sin operaciones cerradas en Paper todavía.</div>", unsafe_allow_html=True)
 
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-    if st.button("↺ REINICIAR MARTINGALA", use_container_width=True):
-        st.session_state.auto_level = 1
-        st.session_state.auto_last_status = "PROGRESIÓN REINICIADA"
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("↺ REINICIAR MARTINGALA", use_container_width=True):
+            st.session_state.auto_level = 1
+            st.session_state.auto_last_status = "PROGRESIÓN REINICIADA"
+            save_paper_state()
+    with col_btn2:
+        if st.button("🗑️ RESETEAR PAPER ($1K)", use_container_width=True):
+            st.session_state.paper_balance = 1000.0
+            st.session_state.paper_total_pnl = 0.0
+            st.session_state.paper_history = []
+            st.session_state.auto_level = 1
+            st.session_state.auto_last_ticker = None
+            st.session_state.auto_last_order = None
+            st.session_state.auto_last_status = "PAPER RESEATED A $1,000.00"
+            save_paper_state()
 
     _next_amount = _amount_for_level()
     st.markdown(f"""
