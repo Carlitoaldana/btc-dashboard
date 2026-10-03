@@ -1074,7 +1074,6 @@ def auto_trade_tick(ticker, market, round_signal):
         result = kalshi_place_entry(ticker, direction, market)
         if result.get("skipped"):
             st.session_state.auto_last_status = "ESPERANDO · " + result["reason"]
-            # Guardamos el intento skipped para reflejarlo en el panel principal
             st.session_state.auto_last_ticker = ticker
             st.session_state.auto_last_order = result
             return
@@ -2642,7 +2641,7 @@ def live_dashboard():
     time_pct = max(0, min(100, int((seconds_left or 0) / 900 * 100)))
 
     # =========================================================
-    # CONSTRUCCIÓN DEL PANEL DE ESTADO DE EJECUCIÓN AUTO TRADING
+    # ESTADO DE EJECUCIÓN AUTO TRADING — DENTRO DE LA UI PRINCIPAL
     # =========================================================
     auto_enabled = bool(st.session_state.get("auto_enabled", False))
     trading_mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
@@ -2666,11 +2665,10 @@ def live_dashboard():
         exec_border = "rgba(56,189,248,.35)"
         exec_bg = "linear-gradient(180deg,#0c1622,#091119)"
     else:
-        # Ya hay una orden/intento para la ronda actual
         skipped = last_order.get("skipped", False)
         if skipped:
             reason = last_order.get("reason", "Sin detalles")
-            exec_title = f"{prefix_mode} · ENTRADA OMITIDA (SKIPPED)"
+            exec_title = f"{prefix_mode} · ENTRADA OMITIDA"
             exec_desc = f"Razón: {reason}"
             exec_color = "#f7bd4d"
             exec_border = "rgba(247,189,77,.45)"
@@ -2680,7 +2678,6 @@ def live_dashboard():
             d_lvl = last_order.get("_level", st.session_state.get("auto_level", 1))
             d_amt = last_order.get("_amount_level", 0.50)
             
-            # Cantidad y precio de entrada reales guardados
             fill_cnt = last_order.get("fill_count") or last_order.get("_requested_count") or 0.0
             try:
                 fill_cnt_f = float(fill_cnt)
@@ -2697,12 +2694,12 @@ def live_dashboard():
             exec_bg = "linear-gradient(180deg,#0a2016,#06100b)" if d_dir == "UP" else "linear-gradient(180deg,#200a0d,#100608)"
 
     execution_panel_html = f"""
-    <div style="margin-top:8px; padding:9px 11px; border-radius:9px; border:1px solid {exec_border}; background:{exec_bg}; box-shadow:0 0 12px rgba(0,0,0,.2);">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:9.5px; font-weight:1000; color:{exec_color}; letter-spacing:.5px;">
+    <div style="margin:6px 0 8px 0; padding:10px 12px; border-radius:9px; border:1px solid {exec_border}; background:{exec_bg}; box-shadow:0 0 12px rgba(0,0,0,.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; font-weight:1000; color:{exec_color}; letter-spacing:.5px;">
             <span>{exec_title}</span>
-            <span style="font-size:7.5px; color:#8da0b4;">{'● ACTIVO' if auto_enabled else '○ APAGADO'}</span>
+            <span style="font-size:8px; color:#8da0b4;">{'● ACTIVO' if auto_enabled else '○ APAGADO'}</span>
         </div>
-        <div style="margin-top:5px; font-size:11px; color:#eaf2fb; line-height:1.25; font-weight:700;">
+        <div style="margin-top:6px; font-size:11.5px; color:#eaf2fb; line-height:1.3; font-weight:700;">
             {exec_desc}
         </div>
     </div>
