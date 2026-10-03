@@ -1074,7 +1074,12 @@ def auto_trade_tick(ticker, market, round_signal):
         result = kalshi_place_entry(ticker, direction, market)
         if result.get("skipped"):
             st.session_state.auto_last_status = "ESPERANDO · " + result["reason"]
-            st.session_state.auto_last_ticker = ticker
+            st.session_state.auto_last_order = result
+            return
+
+        filled = float(result.get("fill_count") or 0)
+        if filled <= 0:
+            st.session_state.auto_last_status = f"ORDEN {direction} ENVIADA · SIN FILL"
             st.session_state.auto_last_order = result
             return
 
@@ -1087,22 +1092,17 @@ def auto_trade_tick(ticker, market, round_signal):
             "time": datetime.now(timezone.utc).isoformat(),
             "order_id": result.get("order_id"),
         })
-        filled = float(result.get("fill_count") or 0)
-        if filled > 0:
-            prefix = "🧪 PAPER FILLED" if result.get("_is_paper") else "FILLED"
-            st.session_state.auto_last_status = f"{prefix} {direction} · {filled:.2f} contratos"
-            try:
-                tp_order = kalshi_place_take_profit(result)
-                if tp_order:
-                    result["_tp_order_id"] = tp_order.get("order_id")
-            except Exception as e:
-                result["_tp_error"] = str(e)
-        else:
-            st.session_state.auto_last_status = f"ORDEN {direction} ENVIADA · SIN FILL"
+        prefix = "🧪 PAPER FILLED" if result.get("_is_paper") else "FILLED"
+        st.session_state.auto_last_status = f"{prefix} {direction} · {filled:.2f} contratos"
+        try:
+            tp_order = kalshi_place_take_profit(result)
+            if tp_order:
+                result["_tp_order_id"] = tp_order.get("order_id")
+        except Exception as e:
+            result["_tp_error"] = str(e)
     except Exception as e:
         err_msg = str(e)[:180]
         st.session_state.auto_last_status = "ERROR AUTO · " + err_msg
-        st.session_state.auto_last_ticker = ticker
         st.session_state.auto_last_order = {"skipped": True, "reason": err_msg, "_ticker": ticker}
 
 def new_round_state(ticker, seconds_left):
@@ -2693,17 +2693,7 @@ def live_dashboard():
             exec_border = "rgba(52,233,130,.45)" if d_dir == "UP" else "rgba(255,78,95,.45)"
             exec_bg = "linear-gradient(180deg,#0a2016,#06100b)" if d_dir == "UP" else "linear-gradient(180deg,#200a0d,#100608)"
 
-    execution_panel_html = f"""
-    <div style="margin:6px 0 8px 0; padding:10px 12px; border-radius:9px; border:1px solid {exec_border}; background:{exec_bg}; box-shadow:0 0 12px rgba(0,0,0,.25);">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; font-weight:1000; color:{exec_color}; letter-spacing:.5px;">
-            <span>{exec_title}</span>
-            <span style="font-size:8px; color:#8da0b4;">{'● ACTIVO' if auto_enabled else '○ APAGADO'}</span>
-        </div>
-        <div style="margin-top:6px; font-size:11.5px; color:#eaf2fb; line-height:1.3; font-weight:700;">
-            {exec_desc}
-        </div>
-    </div>
-    """
+    execution_panel_html = f"""<div style="margin:6px 0 8px 0; padding:10px 12px; border-radius:9px; border:1px solid {exec_border}; background:{exec_bg}; box-shadow:0 0 12px rgba(0,0,0,.25);"><div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; font-weight:1000; color:{exec_color}; letter-spacing:.5px;"><span>{exec_title}</span><span style="font-size:8px; color:#8da0b4;">{'● ACTIVO' if auto_enabled else '○ APAGADO'}</span></div><div style="margin-top:6px; font-size:11.5px; color:#eaf2fb; line-height:1.3; font-weight:700;">{exec_desc}</div></div>"""
 
     st.markdown(
         f"""
