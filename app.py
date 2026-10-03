@@ -1074,6 +1074,9 @@ def auto_trade_tick(ticker, market, round_signal):
         result = kalshi_place_entry(ticker, direction, market)
         if result.get("skipped"):
             st.session_state.auto_last_status = "ESPERANDO · " + result["reason"]
+            # Guardamos el intento skipped para reflejarlo en el panel principal
+            st.session_state.auto_last_ticker = ticker
+            st.session_state.auto_last_order = result
             return
 
         st.session_state.auto_last_ticker = ticker
@@ -1098,7 +1101,10 @@ def auto_trade_tick(ticker, market, round_signal):
         else:
             st.session_state.auto_last_status = f"ORDEN {direction} ENVIADA · SIN FILL"
     except Exception as e:
-        st.session_state.auto_last_status = "ERROR AUTO · " + str(e)[:180]
+        err_msg = str(e)[:180]
+        st.session_state.auto_last_status = "ERROR AUTO · " + err_msg
+        st.session_state.auto_last_ticker = ticker
+        st.session_state.auto_last_order = {"skipped": True, "reason": err_msg, "_ticker": ticker}
 
 def new_round_state(ticker, seconds_left):
     now = datetime.now(timezone.utc)
@@ -2635,6 +2641,73 @@ def live_dashboard():
     mom_class = "green" if sig["mom3"] > 0 else "red" if sig["mom3"] < 0 else ""
     time_pct = max(0, min(100, int((seconds_left or 0) / 900 * 100)))
 
+    # =========================================================
+    # CONSTRUCCIÓN DEL PANEL DE ESTADO DE EJECUCIÓN AUTO TRADING
+    # =========================================================
+    auto_enabled = bool(st.session_state.get("auto_enabled", False))
+    trading_mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
+    is_paper = (trading_mode == "🧪 PRUEBA / PAPER")
+    prefix_mode = "🧪 PAPER" if is_paper else "💵 REAL"
+
+    last_order = st.session_state.get("auto_last_order")
+    last_ticker = st.session_state.get("auto_last_ticker")
+    current_round_executed = (last_order is not None and last_ticker == ticker and ticker != "--")
+
+    if not auto_enabled:
+        exec_title = "⚪ AUTO TRADING APAGADO"
+        exec_desc = "Activa el bot en Ajustes para operar automáticamente."
+        exec_color = "#647184"
+        exec_border = "#1b2735"
+        exec_bg = "linear-gradient(180deg,#0d141d,#09131c)"
+    elif not current_round_executed:
+        exec_title = f"{prefix_mode} · ESPERANDO ENTRADA"
+        exec_desc = f"Buscando configuración o confirmación para {ticker if ticker != '--' else 'la ronda'}..."
+        exec_color = "#38bdf8"
+        exec_border = "rgba(56,189,248,.35)"
+        exec_bg = "linear-gradient(180deg,#0c1622,#091119)"
+    else:
+        # Ya hay una orden/intento para la ronda actual
+        skipped = last_order.get("skipped", False)
+        if skipped:
+            reason = last_order.get("reason", "Sin detalles")
+            exec_title = f"{prefix_mode} · ENTRADA OMITIDA (SKIPPED)"
+            exec_desc = f"Razón: {reason}"
+            exec_color = "#f7bd4d"
+            exec_border = "rgba(247,189,77,.45)"
+            exec_bg = "linear-gradient(180deg,#1e1909,#100e05)"
+        else:
+            d_dir = last_order.get("_direction", "UP")
+            d_lvl = last_order.get("_level", st.session_state.get("auto_level", 1))
+            d_amt = last_order.get("_amount_level", 0.50)
+            
+            # Cantidad y precio de entrada reales guardados
+            fill_cnt = last_order.get("fill_count") or last_order.get("_requested_count") or 0.0
+            try:
+                fill_cnt_f = float(fill_cnt)
+            except Exception:
+                fill_cnt_f = 0.0
+            
+            eprice = last_order.get("_entry_contract_price")
+            price_str = f" · Entrada {eprice*100:.0f}¢" if eprice is not None else ""
+
+            exec_title = f"{prefix_mode} · ENTRADA EJECUTADA"
+            exec_desc = f"<b>{d_dir}</b> · Nivel {d_lvl} · ${d_amt:.2f}<br>{fill_cnt_f:.2f} contratos{price_str}"
+            exec_color = "#34e982" if d_dir == "UP" else "#ff4e5f"
+            exec_border = "rgba(52,233,130,.45)" if d_dir == "UP" else "rgba(255,78,95,.45)"
+            exec_bg = "linear-gradient(180deg,#0a2016,#06100b)" if d_dir == "UP" else "linear-gradient(180deg,#200a0d,#100608)"
+
+    execution_panel_html = f"""
+    <div style="margin-top:8px; padding:9px 11px; border-radius:9px; border:1px solid {exec_border}; background:{exec_bg}; box-shadow:0 0 12px rgba(0,0,0,.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:9.5px; font-weight:1000; color:{exec_color}; letter-spacing:.5px;">
+            <span>{exec_title}</span>
+            <span style="font-size:7.5px; color:#8da0b4;">{'● ACTIVO' if auto_enabled else '○ APAGADO'}</span>
+        </div>
+        <div style="margin-top:5px; font-size:11px; color:#eaf2fb; line-height:1.25; font-weight:700;">
+            {exec_desc}
+        </div>
+    </div>
+    """
+
     st.markdown(
         f"""
 <div class="refapp dir-{active.lower() if active in ("UP","DOWN") else "wait"}" style="--accent:{accent};--glow:{glow};--soft:{soft};">
@@ -2649,6 +2722,8 @@ def live_dashboard():
     <div class="rsignal"><span class="cssarrow"></span><span>{hero_word}</span></div>
     <div class="rconf">{'CONFIANZA ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
   </section>
+
+  {execution_panel_html}
 
   <div class="rgrid">
     <div class="rcard keycard">
