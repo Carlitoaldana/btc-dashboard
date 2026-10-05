@@ -1186,7 +1186,6 @@ def process_round_signal(ticker, sig, market, seconds_left):
         st.session_state.rounds[ticker] = new_round_state(ticker, seconds_left)
 
     state = st.session_state.rounds[ticker]
-    age = (now - state["detected_at"]).total_seconds()
     score = float(sig.get("final_score", 0.0))
     price = float(sig.get("price", 0.0))
 
@@ -1200,77 +1199,16 @@ def process_round_signal(ticker, sig, market, seconds_left):
     state["last_score"] = score
     score_change = score - previous_score
 
-    # Store ONLY observations collected after this ticker was detected.
-    samples = state.setdefault("fresh_samples", [])
-    if not samples or (now.timestamp() - samples[-1]["t"]) >= 1.5:
-        samples.append({
-            "t": now.timestamp(), "p": price,
-            "candidate": sig.get("candidate"),
-            "trend3": sig.get("trend3"), "trend5": sig.get("trend5"),
-            "mom3": float(sig.get("mom3", 0.0)),
-            "rsi": float(sig.get("rsi", 50.0)),
-        })
-    state["fresh_samples"] = samples[-12:]
-
+    # build_signal() is the signal brain. No extra waiting/voting/distance gate here.
     candidate = sig.get("candidate")
-    history = state.setdefault("candidate_history", [])
-    if candidate in ("UP","DOWN"):
-        history.append(candidate)
-    else:
-        history.append("WAIT")
-    state["candidate_history"] = history[-6:]
-
-    # IMPORTANT: 8 seconds alone is NOT enough anymore.
-    # Need at least 4 fresh observations spanning >=6 seconds in this NEW round.
-    span = samples[-1]["t"] - samples[0]["t"] if len(samples) >= 2 else 0.0
-    enough_fresh = len(samples) >= 4 and span >= 6.0
-
-    # First direction must repeat; a one-frame UP/DOWN cannot become the signal.
-    recent = state["candidate_history"][-4:]
-    up_votes = recent.count("UP")
-    down_votes = recent.count("DOWN")
-    confirmed_candidate = None
-    if up_votes >= 3 and down_votes == 0:
-        confirmed_candidate = "UP"
-    elif down_votes >= 3 and up_votes == 0:
-        confirmed_candidate = "DOWN"
-
-    # Reject inherited trend: require price/momentum evidence produced during THIS round.
-    round_move = price - samples[0]["p"] if samples else 0.0
-    if confirmed_candidate == "UP":
-        fresh_support = (
-            round_move >= 4.0
-            or (sig.get("mom3",0) > 0.015 and sig.get("rsi",50) >= 52)
-        )
-        hard_conflict = sig.get("trend5") == "DOWN" and sig.get("trend3") == "DOWN"
-    elif confirmed_candidate == "DOWN":
-        fresh_support = (
-            round_move <= -4.0
-            or (sig.get("mom3",0) < -0.015 and sig.get("rsi",50) <= 48)
-        )
-        hard_conflict = sig.get("trend5") == "UP" and sig.get("trend3") == "UP"
-    else:
-        fresh_support = False
-        hard_conflict = False
-
-    if age < NEW_ROUND_WAIT or not enough_fresh:
-        state["reversal_warning"] = False
-        state["reversal_text"] = ""
-        return {
-            "decision":"ANALIZANDO NUEVA RONDA","signal":"ESPERANDO DATOS NUEVOS",
-            "icon":"⌛","color":"#38bdf8","round_state":state,"reversal":False,
-            "reversal_text":"","entry_price":None,"entry_quality":"ESPERANDO",
-            "entry_quality_color":"#38bdf8",
-        }
-
     lock_new_entries = seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK
 
     if state["active_direction"] is None and not lock_new_entries:
-        if confirmed_candidate is not None and fresh_support and not hard_conflict:
-            direction_price = get_yes_ask(market) if confirmed_candidate == "UP" else get_no_ask(market)
-            state["active_direction"] = confirmed_candidate
+        if candidate in ("UP", "DOWN"):
+            direction_price = get_yes_ask(market) if candidate == "UP" else get_no_ask(market)
+            state["active_direction"] = candidate
             state["active_since"] = now
-            state["first_direction"] = confirmed_candidate
+            state["first_direction"] = candidate
             state["first_signal_time"] = now
             state["first_signal_seconds"] = seconds_left
             state["first_signal_price"] = direction_price
@@ -1291,6 +1229,7 @@ def process_round_signal(ticker, sig, market, seconds_left):
         if weakness_points >= 2:
             reversal = True
             reversal_text = "UP PERDIENDO FUERZA • PRESIÓN CONTRARIA DETECTADA"
+
     elif active == "DOWN":
         weakness_points = 0
         if score > 0: weakness_points += 1
@@ -1307,8 +1246,6 @@ def process_round_signal(ticker, sig, market, seconds_left):
     state["reversal_text"] = reversal_text
 
     # Keep the FIRST signal fixed. Do not turn a bad first entry into a later opposite entry.
-    # The app warns about deterioration, but does not pretend a later flip was the original call.
-
     if active == "UP":
         decision, signal, icon, color = "UP","SEÑAL UP","⬆","#34e982"
         current_entry_price = get_yes_ask(market)
@@ -1329,7 +1266,6 @@ def process_round_signal(ticker, sig, market, seconds_left):
         "entry_price":current_entry_price,"entry_quality":quality,
         "entry_quality_color":quality_color,
     }
-
 
 # =========================================================
 # LECTOR DE CIERRE PRO — MICRO LECTURA ~2 SEGUNDOS
