@@ -3,14 +3,6 @@ import requests
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
-from pathlib import Path
-import base64
-import time
-import uuid
-import math
-import subprocess
-import tempfile
-import json
 
 # =========================================================
 # MACALY + ALPHA BOT v4.6.1 • MOBILE PRO UI
@@ -474,6 +466,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 }
 .nav-item{font-size:6.8px !important;}
 
+
 /* FINAL REFERENCE MATCH */
 .block-container{max-width:430px!important;padding:7px 10px 22px!important}
 .topbar{min-height:48px!important;padding:4px 2px 5px!important;text-align:center!important}
@@ -508,6 +501,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .tech-head{display:flex;justify-content:space-between;align-items:center}
 .tech-chevron{font-size:13px;color:#b6c6da}
 
+
 /* ===== REBUILT REFERENCE FRONTEND ===== */
 .block-container{max-width:430px!important;padding:4px 9px 18px!important}
 .refapp{font-family:Arial,sans-serif;color:#eaf2fb}
@@ -533,11 +527,12 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .readerhead{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--rr)}.readerhead .pulse{font-size:18px}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#45ec8e}
 .readerbody{display:grid;grid-template-columns:1fr 65px;align-items:center;margin-top:7px}.readerbody strong{display:block;font-size:15px;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:7px;margin-top:5px}
 .rring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:48px;height:48px;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:15px;font-weight:900}
-.tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small, .techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
+.tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
 .rnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #203448;border-bottom:1px solid #203448;margin-top:7px;padding:7px 0}.rnav div{text-align:center;color:#9db0c5;font-size:8px}.rnav b{display:block;font-size:17px;margin-bottom:2px}.rnav .active{color:var(--accent)}
 .features{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 1px}.features>div{display:flex;gap:5px;align-items:center}.features>div>b{width:25px;height:25px;border:1px solid #28e57f;border-radius:50%;display:grid;place-items:center;color:#35e986;font-size:13px}.features p{margin:0}.features strong{display:block;font-size:5.7px;color:#e1e8f0}.features span{display:block;font-size:5.4px;color:#8c9db0;margin-top:2px}
 .refapp footer{border-top:1px solid #182a3a;padding:5px 1px;display:flex;justify-content:space-between;color:#708197;font-size:5.2px}
 .ticker{text-align:center;color:#53667d;font-size:6px;margin-top:5px}
+
 
 /* ===== FINAL PHONE REFERENCE PROPORTIONS ===== */
 .block-container{max-width:365px!important;padding:3px 7px 14px!important}
@@ -573,6 +568,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 
 /* Make arrows chunky like the reference rather than thin text arrows */
 .rarrow{font-family:Arial Black,Arial,sans-serif!important;font-weight:1000!important}
+
 
 /* ===== TRUE FINAL: CSS ARROW + VISIBLE HEADER ===== */
 .rhead{
@@ -627,47 +623,9 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .rgrid{margin-top:1px!important}
 .reader{min-height:0!important}
 
+
 .chartbox{margin-top:10px;background:linear-gradient(180deg,#08121d,#060c14);border:1px solid #203a51;border-radius:12px;padding:10px 8px 8px;box-shadow:inset 0 0 28px rgba(20,80,110,.08)}
 .charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
-
-/* =========================================================
-   ESTILOS CRITIK2 PARA LA SECCIÓN DE AJUSTES
-   ========================================================= */
-.critik-container {
-    background-color: #000000;
-    color: #FFFFFF;
-    padding: 2px 0;
-}
-.critik-header {
-    font-size: 18px;
-    font-weight: 700;
-    color: #FFFFFF;
-    margin-bottom: 10px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #222222;
-}
-.critik-subheading {
-    font-size: 13px;
-    font-weight: 700;
-    color: #FFFFFF;
-    margin: 12px 0 6px 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.critik-green-box {
-    background-color: #0c2314;
-    border: 1px solid #1a5c32;
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    color: #d4edda;
-    font-size: 12px;
-}
-.row-label {
-    font-size: 12px;
-    color: #E0E0E0;
-    font-weight: 500;
-}
 </style>
 """,
     unsafe_allow_html=True,
@@ -689,491 +647,6 @@ if "micro_prices" not in st.session_state:
 if "micro_ticker" not in st.session_state:
     st.session_state.micro_ticker = None
 
-# =========================================================
-# PERSISTENCIA REAL COMPATIBLE CON STREAMLIT CLOUD (SESSION STATE SECRETS/STATEFALLBACK)
-# =========================================================
-def load_paper_state():
-    if "persistent_paper_storage" not in st.session_state:
-        # Inicializa con valores predeterminados o carga desde secrets si estuviera disponible
-        st.session_state.persistent_paper_storage = {
-            "paper_balance": 1000.0,
-            "paper_total_pnl": 0.0,
-            "paper_history": [],
-            "auto_level": 1,
-            "auto_last_ticker": None,
-            "auto_last_order": None,
-        }
-    return st.session_state.persistent_paper_storage
-
-def save_paper_state():
-    st.session_state.persistent_paper_storage = {
-        "paper_balance": st.session_state.get("paper_balance", 1000.0),
-        "paper_total_pnl": st.session_state.get("paper_total_pnl", 0.0),
-        "paper_history": st.session_state.get("paper_history", []),
-        "auto_level": st.session_state.get("auto_level", 1),
-        "auto_last_ticker": st.session_state.get("auto_last_ticker", None),
-        "auto_last_order": st.session_state.get("auto_last_order", None),
-    }
-
-saved_state = load_paper_state()
-
-# =========================================================
-# KALSHI AUTO TRADING — CAPA SEPARADA DEL MOTOR v4.6.1
-# =========================================================
-_AUTO_DEFAULTS = {
-    "kalshi_auth_ok": False,
-    "kalshi_auth_message": "No conectado",
-    "auto_enabled": False,
-    "auto_amount": 0.50,
-    "auto_limit_cents": 50,
-    "auto_take_profit": 90,
-    "auto_martingale": False,
-    "auto_max_levels": 9,
-    "auto_level": saved_state.get("auto_level", 1),
-    "auto_stop_after_win": False,
-    "auto_last_ticker": saved_state.get("auto_last_ticker", None),
-    "auto_last_order": saved_state.get("auto_last_order", None),
-    "auto_last_status": "AUTO APAGADO",
-    "auto_history": [],
-    "auto_modo_monto": "Manual",
-    "trading_mode": "🧪 PRUEBA / PAPER",
-    "confirm_real_mode": False,
-    "paper_balance": saved_state.get("paper_balance", 1000.0),
-    "paper_total_pnl": saved_state.get("paper_total_pnl", 0.0),
-    "paper_history": saved_state.get("paper_history", []),
-}
-for _k, _v in _AUTO_DEFAULTS.items():
-    if _k not in st.session_state:
-        st.session_state[_k] = _v
-
-KALSHI_API_BASE = "https://external-api.kalshi.com"
-KALSHI_API_PREFIX = "/trade-api/v2"
-
-def _kalshi_sign(message):
-    pem = st.session_state.get("kalshi_private_key_input", "")
-    if not pem:
-        raise ValueError("Falta la Private Key.")
-    key_path = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
-            f.write(pem.strip() + "\n")
-            key_path = f.name
-        proc = subprocess.run(
-            [
-                "openssl", "dgst", "-sha256",
-                "-sigopt", "rsa_padding_mode:pss",
-                "-sigopt", "rsa_pss_saltlen:digest",
-                "-sign", key_path,
-            ],
-            input=message,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=5,
-        )
-        if proc.returncode != 0:
-            raise ValueError("Private Key inválida o OpenSSL no pudo firmar.")
-        return proc.stdout
-    finally:
-        if key_path:
-            try:
-                Path(key_path).unlink(missing_ok=True)
-            except Exception:
-                pass
-
-def _kalshi_headers(method, path):
-    key_id = st.session_state.get("kalshi_api_key_input", "").strip()
-    if not key_id:
-        raise ValueError("Falta el API Key ID.")
-    ts = str(int(time.time() * 1000))
-    clean_path = path.split("?", 1)[0]
-    msg = f"{ts}{method.upper()}{clean_path}".encode("utf-8")
-    signature = _kalshi_sign(msg)
-    return {
-        "KALSHI-ACCESS-KEY": key_id,
-        "KALSHI-ACCESS-TIMESTAMP": ts,
-        "KALSHI-ACCESS-SIGNATURE": base64.b64encode(signature).decode("ascii"),
-        "Content-Type": "application/json",
-    }
-
-def kalshi_private_request(method, endpoint, payload=None, params=None):
-    path = KALSHI_API_PREFIX + endpoint
-    headers = _kalshi_headers(method, path)
-    r = requests.request(
-        method.upper(),
-        KALSHI_API_BASE + path,
-        headers=headers,
-        json=payload,
-        params=params,
-        timeout=8,
-    )
-    if r.status_code >= 400:
-        try:
-            detail = r.json()
-        except Exception:
-            detail = r.text[:300]
-        raise RuntimeError(f"Kalshi {r.status_code}: {detail}")
-    return r.json() if r.text else {}
-
-def kalshi_test_connection():
-    data = kalshi_private_request("GET", "/portfolio/balance")
-    dollars = data.get("balance_dollars")
-    if dollars is None and data.get("balance") is not None:
-        dollars = f"{float(data['balance']) / 100:.2f}"
-    return data, dollars
-
-def _get_kalshi_balance_float():
-    try:
-        data = kalshi_private_request("GET", "/portfolio/balance")
-        b = data.get("balance_dollars")
-        if b is not None:
-            return float(b)
-        bal_cents = data.get("balance")
-        if bal_cents is not None:
-            return float(bal_cents) / 100.0
-    except Exception:
-        pass
-    
-    mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
-    if mode == "🧪 PRUEBA / PAPER":
-        return float(st.session_state.get("paper_balance", 1000.0))
-    return 0.0
-
-def _market_contract_prices(market):
-    if not market:
-        return None, None
-    def f(name):
-        try:
-            v = market.get(name)
-            return float(v) if v not in (None, "") else None
-        except Exception:
-            return None
-    yes_ask = f("yes_ask_dollars")
-    no_ask = f("no_ask_dollars")
-    if yes_ask is None:
-        y = f("yes_ask")
-        yes_ask = y / 100.0 if y and y > 1 else y
-    if no_ask is None:
-        n = f("no_ask")
-        no_ask = n / 100.0 if n and n > 1 else n
-    return yes_ask, no_ask
-
-def _amount_for_level():
-    level = max(1, int(st.session_state.auto_level))
-    max_lvl = int(st.session_state.get("auto_max_levels", 9))
-    lvl_idx = max(0, min(level - 1, max_lvl - 1))
-    
-    modo = st.session_state.get("auto_modo_monto", "Manual")
-    is_martingale = bool(st.session_state.get("auto_martingale", False))
-
-    if modo == "Automático":
-        balance = _get_kalshi_balance_float()
-        budget = balance * 0.90
-        if is_martingale:
-            factor_sum = sum(2 ** i for i in range(max_lvl))
-            base_init = budget / factor_sum if factor_sum > 0 else 0.50
-        else:
-            base_init = budget / max_lvl if max_lvl > 0 else 0.50
-    else:
-        base_init = float(st.session_state.get("auto_amount", 0.50))
-
-    if is_martingale:
-        return base_init * (2 ** lvl_idx)
-    else:
-        return base_init
-
-def _direction_for_level(signal_direction):
-    level = max(1, int(st.session_state.auto_level))
-    choice = st.session_state.get(f"auto_level_direction_{level}", "Seguir señal")
-    if choice == "Solo UP":
-        return "UP"
-    if choice == "Solo DOWN":
-        return "DOWN"
-    if choice == "Contraria a la señal":
-        return "DOWN" if signal_direction == "UP" else "UP"
-    return signal_direction
-
-def _contracts_for_amount(amount, contract_price):
-    if contract_price is None or contract_price <= 0:
-        return 0.0
-    return math.floor((amount / contract_price) * 100) / 100.0
-
-def kalshi_place_entry(ticker, direction, market):
-    # CAPA DE SEGURIDAD ABSOLUTA PARA MODO PRUEBA / PAPER
-    mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
-    if mode == "🧪 PRUEBA / PAPER":
-        amount = _amount_for_level()
-        limit = max(1, min(99, int(st.session_state.auto_limit_cents))) / 100.0
-        yes_ask, no_ask = _market_contract_prices(market)
-        observed = yes_ask if direction == "UP" else no_ask
-        contract_price = min(observed, limit) if observed is not None else limit
-        count = _contracts_for_amount(amount, contract_price)
-        simulated_order_id = f"paper-{uuid.uuid4().hex[:8]}"
-        res_dict = {
-            "order_id": simulated_order_id,
-            "status": "executed_paper",
-            "fill_count": f"{max(1.0, count):.2f}",
-            "_direction": direction,
-            "_requested_count": max(1.0, count),
-            "_amount_level": amount,
-            "_entry_contract_price": contract_price,
-            "_ticker": ticker,
-            "_level": int(st.session_state.auto_level),
-            "_is_paper": True,
-            "_resolved": False,
-        }
-        save_paper_state()
-        return res_dict
-
-    # EJECUCIÓN REAL ORIGINAL (Únicamente si está en Modo REAL y confirmado)
-    limit = max(1, min(99, int(st.session_state.auto_limit_cents))) / 100.0
-    yes_ask, no_ask = _market_contract_prices(market)
-    observed = yes_ask if direction == "UP" else no_ask
-    if observed is not None and observed > limit:
-        return {"skipped": True, "reason": f"{direction} está a {observed*100:.1f}¢ > límite {limit*100:.0f}¢"}
-
-    amount = _amount_for_level()
-    contract_price = min(observed, limit) if observed is not None else limit
-    count = _contracts_for_amount(amount, contract_price)
-    if count < 0.01:
-        return {"skipped": True, "reason": "Monto demasiado pequeño para el precio actual."}
-
-    if direction == "UP":
-        side = "bid"
-        yes_price = limit
-    else:
-        side = "ask"
-        yes_price = 1.0 - limit
-
-    client_id = f"btc461-{ticker}-{direction}-L{st.session_state.auto_level}"
-    payload = {
-        "ticker": ticker,
-        "client_order_id": client_id[:64],
-        "side": side,
-        "count": f"{count:.2f}",
-        "price": f"{yes_price:.4f}",
-        "time_in_force": "immediate_or_cancel",
-        "self_trade_prevention_type": "taker_at_cross",
-        "cancel_order_on_pause": True,
-    }
-    result = kalshi_private_request("POST", "/portfolio/events/orders", payload)
-    result["_direction"] = direction
-    result["_requested_count"] = count
-    result["_amount_level"] = amount
-    result["_entry_contract_price"] = contract_price
-    result["_ticker"] = ticker
-    result["_level"] = int(st.session_state.auto_level)
-    result["_is_paper"] = False
-    save_paper_state()
-    return result
-
-def kalshi_place_take_profit(entry):
-    if entry.get("_is_paper"):
-        return {"order_id": f"paper-tp-{uuid.uuid4().hex[:8]}"}
-
-    try:
-        filled = float(entry.get("fill_count") or entry.get("fill_count_fp") or 0)
-    except Exception:
-        filled = 0.0
-    if filled <= 0:
-        return None
-
-    direction = entry["_direction"]
-    p = float(entry["_entry_contract_price"])
-    tp = max(0, float(st.session_state.auto_take_profit)) / 100.0
-    desired_contract_exit = min(0.99, p * (1.0 + tp))
-
-    if direction == "UP":
-        side = "ask"
-        yes_exit = desired_contract_exit
-    else:
-        side = "bid"
-        yes_exit = max(0.01, 1.0 - desired_contract_exit)
-
-    payload = {
-        "ticker": entry["_ticker"],
-        "client_order_id": (f"tp-{entry['_ticker']}-{entry['_direction']}-L{entry['_level']}")[:64],
-        "side": side,
-        "count": f"{filled:.2f}",
-        "price": f"{yes_exit:.4f}",
-        "time_in_force": "good_till_canceled",
-        "self_trade_prevention_type": "taker_at_cross",
-        "reduce_only": True,
-        "cancel_order_on_pause": True,
-    }
-    return kalshi_private_request("POST", "/portfolio/events/orders", payload)
-
-def _public_market_by_ticker(ticker):
-    r = requests.get(
-        f"{KALSHI_API_BASE}{KALSHI_API_PREFIX}/markets/{ticker}",
-        timeout=6,
-        headers={"User-Agent": "BTCSignal/4.6.1"},
-    )
-    r.raise_for_status()
-    j = r.json()
-    return j.get("market", j)
-
-def auto_check_previous_result(current_ticker):
-    prev = st.session_state.get("auto_last_order")
-    if not prev or prev.get("_resolved"):
-        return
-    old_ticker = prev.get("_ticker")
-    if not old_ticker:
-        return
-    
-    if prev.get("_is_paper"):
-        try:
-            old_market = _public_market_by_ticker(old_ticker)
-            result = str(old_market.get("result", "")).lower()
-            if result not in ("yes", "no"):
-                return
-            if prev.get("_resolved"):
-                return
-
-            direction = prev.get("_direction")
-            won = (direction == "UP" and result == "yes") or \
-                  (direction == "DOWN" and result == "no")
-            prev["_resolved"] = True
-            prev["_won"] = won
-            
-            p = float(prev.get("_entry_contract_price", 0.50))
-            count = float(prev.get("_requested_count", 1.0))
-            invested = p * count
-
-            if won:
-                pnl = count * (1.0 - p)
-            else:
-                pnl = -(count * p)
-
-            st.session_state.setdefault("paper_balance", 1000.0)
-            st.session_state.paper_balance += pnl
-            st.session_state.paper_total_pnl = st.session_state.get("paper_total_pnl", 0.0) + pnl
-
-            res_label = "WIN 🟢" if won else "LOSS 🔴"
-            pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
-            bal_str = f"${st.session_state.paper_balance:,.2f}"
-
-            history_item = {
-                "ticker": old_ticker,
-                "direction": direction,
-                "level": prev.get("_level", 1),
-                "amount": invested,
-                "entry_price": p,
-                "contracts": count,
-                "pnl": pnl,
-                "balance": st.session_state.paper_balance,
-                "result_text": f"{res_label} · {pnl_str} · Balance {bal_str}",
-                "result_status": res_label,
-                "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
-            }
-            st.session_state.setdefault("paper_history", []).insert(0, history_item)
-            save_paper_state()
-
-            if won:
-                st.session_state.auto_level = 1
-                st.session_state.auto_last_status = f"PAPER WIN · {pnl_str} · Balance {bal_str}"
-                if st.session_state.auto_stop_after_win:
-                    st.session_state.auto_enabled = False
-                    st.session_state.auto_last_status = f"PAPER WIN · {pnl_str} · AUTO APAGADO"
-            else:
-                if st.session_state.auto_martingale:
-                    st.session_state.auto_level = min(
-                        int(st.session_state.auto_level) + 1,
-                        int(st.session_state.auto_max_levels),
-                    )
-                st.session_state.auto_last_status = f"PAPER LOSS · {pnl_str} · Balance {bal_str}"
-        except Exception:
-            pass
-        return
-
-    try:
-        old_market = _public_market_by_ticker(old_ticker)
-        result = str(old_market.get("result", "")).lower()
-        if result not in ("yes", "no"):
-            return
-        if prev.get("_resolved"):
-            return
-
-        direction = prev.get("_direction")
-        won = (direction == "UP" and result == "yes") or \
-              (direction == "DOWN" and result == "no")
-        prev["_resolved"] = True
-        prev["_won"] = won
-        save_paper_state()
-        if won:
-            st.session_state.auto_level = 1
-            st.session_state.auto_last_status = "WIN · MARTINGALA REINICIADA"
-            if st.session_state.auto_stop_after_win:
-                st.session_state.auto_enabled = False
-                st.session_state.auto_last_status = "WIN · AUTO APAGADO"
-        else:
-            if st.session_state.auto_martingale:
-                st.session_state.auto_level = min(
-                    int(st.session_state.auto_level) + 1,
-                    int(st.session_state.auto_max_levels),
-                )
-            st.session_state.auto_last_status = f"LOSS · NIVEL {st.session_state.auto_level}"
-    except Exception:
-        pass
-
-def auto_trade_tick(ticker, market, round_signal):
-    if not st.session_state.get("auto_enabled"):
-        return
-    mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
-    if mode == "💵 REAL" and not st.session_state.get("kalshi_auth_ok"):
-        st.session_state.auto_enabled = False
-        st.session_state.auto_last_status = "AUTO APAGADO · KALSHI NO CONECTADO"
-        return
-    if not ticker or ticker == "--":
-        return
-
-    auto_check_previous_result(ticker)
-
-    direction = round_signal.get("decision")
-    if direction not in ("UP", "DOWN"):
-        return
-    direction = _direction_for_level(direction)
-
-    if st.session_state.get("auto_last_ticker") == ticker:
-        return
-
-    try:
-        result = kalshi_place_entry(ticker, direction, market)
-        if result.get("skipped"):
-            st.session_state.auto_last_status = "ESPERANDO · " + result["reason"]
-            st.session_state.auto_last_order = result
-            save_paper_state()
-            return
-
-        filled = float(result.get("fill_count") or 0)
-        if filled <= 0:
-            st.session_state.auto_last_status = f"ORDEN {direction} ENVIADA · SIN FILL"
-            st.session_state.auto_last_order = result
-            save_paper_state()
-            return
-
-        st.session_state.auto_last_ticker = ticker
-        st.session_state.auto_last_order = result
-        st.session_state.auto_history.append({
-            "ticker": ticker,
-            "direction": direction,
-            "level": int(st.session_state.auto_level),
-            "time": datetime.now(timezone.utc).isoformat(),
-            "order_id": result.get("order_id"),
-        })
-        save_paper_state()
-        prefix = "🧪 PAPER FILLED" if result.get("_is_paper") else "FILLED"
-        st.session_state.auto_last_status = f"{prefix} {direction} · {filled:.2f} contratos"
-        try:
-            tp_order = kalshi_place_take_profit(result)
-            if tp_order:
-                result["_tp_order_id"] = tp_order.get("order_id")
-        except Exception as e:
-            result["_tp_error"] = str(e)
-    except Exception as e:
-        err_msg = str(e)[:180]
-        st.session_state.auto_last_status = "ERROR AUTO · " + err_msg
-        st.session_state.auto_last_order = {"skipped": True, "reason": err_msg, "_ticker": ticker}
-        save_paper_state()
 
 def new_round_state(ticker, seconds_left):
     now = datetime.now(timezone.utc)
@@ -1195,6 +668,7 @@ def new_round_state(ticker, seconds_left):
         "reversal_warning": False,
         "reversal_text": "",
     }
+
 
 # =========================================================
 # COINBASE — VELAS ORIGINALES DE 1 MINUTO
@@ -1224,40 +698,30 @@ def get_btc_data():
     df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
     return df.dropna().sort_values("time").reset_index(drop=True)
 
+
 def get_coinbase_whale_flow():
+    """
+    Flujo agresivo BTC/USD EN VIVO.
+    No deja alertas pegadas: cada refresco representa el flujo ACTUAL.
+    Usa ventanas rápidas y exige aceleración + desequilibrio + tamaño material.
+    """
+    response = requests.get(
+        "https://api.exchange.coinbase.com/products/BTC-USD/trades",
+        params={"limit": 100},
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"},
+        timeout=5,
+    )
+    response.raise_for_status()
+    rows = response.json()
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("Coinbase no devolvió operaciones recientes.")
+
     now = pd.Timestamp.now(tz="UTC").timestamp()
     tape = st.session_state.setdefault("whale_flow_tape", [])
     seen = st.session_state.setdefault("whale_seen_ids", {})
-    headers = {"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"}
 
-    all_rows, before = [], None
-    for _ in range(5):
-        params = {"limit": 100}
-        if before:
-            params["before"] = before
-        r = requests.get(
-            "https://api.exchange.coinbase.com/products/BTC-USD/trades",
-            params=params, headers=headers, timeout=5
-        )
-        r.raise_for_status()
-        rows = r.json()
-        if not isinstance(rows, list) or not rows:
-            break
-        all_rows.extend(rows)
-        before = r.headers.get("cb-before")
-        try:
-            oldest = pd.to_datetime(rows[-1].get("time"), utc=True, errors="coerce")
-            if not pd.isna(oldest) and now - oldest.timestamp() >= 35:
-                break
-        except Exception:
-            pass
-        if not before:
-            break
-
-    if not all_rows:
-        raise ValueError("Coinbase no devolvió operaciones recientes.")
-
-    for row in reversed(all_rows):
+    # Añadir únicamente trades nuevos.
+    for row in reversed(rows):
         try:
             trade_id = str(row.get("trade_id", ""))
             if not trade_id or trade_id in seen:
@@ -1266,71 +730,101 @@ def get_coinbase_whale_flow():
             size = float(row.get("size", 0))
             notional = price * size
             maker_side = str(row.get("side", "")).lower()
+            # Coinbase devuelve el lado maker; el agresor es el contrario.
             aggressor = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
             ts = pd.to_datetime(row.get("time"), utc=True, errors="coerce")
             t = ts.timestamp() if not pd.isna(ts) else now
-            if notional > 0 and aggressor and now - t <= 40:
+            if notional > 0 and aggressor:
                 tape.append({"id": trade_id, "t": t, "notional": notional, "side": aggressor})
                 seen[trade_id] = t
         except Exception:
             continue
 
-    tape[:] = [x for x in tape if now - x["t"] <= 40]
-    for k in [k for k, t in seen.items() if now - t > 55]:
+    tape[:] = [x for x in tape if now - x["t"] <= 45]
+    for k in [k for k, t in seen.items() if now - t > 60]:
         seen.pop(k, None)
 
-    def stats(lo, hi=0):
+    def window_stats(lo, hi=0):
         xs = [x for x in tape if hi < now - x["t"] <= lo]
-        bx = [x for x in xs if x["side"] == "COMPRA"]
-        sx = [x for x in xs if x["side"] == "VENTA"]
-        buy = sum(x["notional"] for x in bx)
-        sell = sum(x["notional"] for x in sx)
-        return buy, sell, buy + sell, buy - sell, len(xs), \
-               sum(x["notional"] >= 50000 for x in bx), \
-               sum(x["notional"] >= 50000 for x in sx)
+        buy = sum(x["notional"] for x in xs if x["side"] == "COMPRA")
+        sell = sum(x["notional"] for x in xs if x["side"] == "VENTA")
+        total = buy + sell
+        net = buy - sell
+        dom = abs(net) / total if total > 0 else 0.0
+        return buy, sell, total, net, dom
 
-    buy, sell, total, net, trade_count, big_buy, big_sell = stats(5)
-    _, _, old_total, _, _, _, _ = stats(25, 5)
+    # "Ahora" = últimos 4 s. Baseline = 4-20 s anteriores, separado para no
+    # contaminar el baseline con el mismo impulso que intentamos detectar.
+    buy, sell, total, net, net_dom = window_stats(4)
+    pb, ps, prev_total, prev_net, prev_dom = window_stats(20, 4)
 
-    rate = total / 5.0
-    old_rate = old_total / 20.0 if old_total > 0 else 0.0
-    acceleration = rate / old_rate if old_rate > 0 else (9.0 if total > 0 else 0.0)
-    gross_dom = max(buy, sell) / total if total > 0 else 0.0
-    net_dom = abs(net) / total if total > 0 else 0.0
+    current_rate = total / 4.0
+    baseline_rate = prev_total / 16.0 if prev_total > 0 else 0.0
+    acceleration = current_rate / baseline_rate if baseline_rate > 0 else 0.0
+
     direction = "UP" if net > 0 else "DOWN" if net < 0 else None
-    big_same = big_buy if direction == "UP" else big_sell if direction == "DOWN" else 0
 
-    score = 0
-    if total >= 150000: score += 1
-    if total >= 300000: score += 1
-    if total >= 600000: score += 1
-    if gross_dom >= .62: score += 1
-    if gross_dom >= .72: score += 1
-    if net_dom >= .35: score += 1
-    if acceleration >= 1.8: score += 1
-    if acceleration >= 3.0: score += 1
-    if trade_count >= 80: score += 1
-    if big_same >= 2: score += 1
+    # Umbral adaptativo: no dispara por una simple ráfaga pequeña.
+    # Si el mercado está muy activo, el umbral sube automáticamente.
+    dynamic_total = max(400_000.0, baseline_rate * 4.0 * 2.25)
+    strong_net = abs(net) >= max(250_000.0, dynamic_total * 0.55)
 
-    detected = bool(direction and total >= 200000 and abs(net) >= 100000
-                    and gross_dom >= .62 and score >= 5)
-    if direction and total >= 500000 and abs(net) >= 250000 and gross_dom >= .68:
-        detected = True
+    qualifies = bool(
+        direction
+        and total >= dynamic_total
+        and net_dom >= 0.58
+        and strong_net
+        and (baseline_rate == 0 or acceleration >= 2.25)
+    )
 
-    strength = "EXTREMO" if score >= 8 else "FUERTE" if score >= 6 else "ANORMAL"
+    # Confirmación muy rápida, SIN latch temporal.
+    # Un impulso extremadamente fuerte puede avisar en la primera lectura;
+    # uno normal necesita dos lecturas consecutivas del mismo lado.
+    extreme_now = bool(
+        qualifies
+        and total >= max(750_000.0, dynamic_total * 1.35)
+        and net_dom >= 0.68
+        and (baseline_rate == 0 or acceleration >= 3.0)
+    )
+
+    pending = st.session_state.get("whale_flow_pending")
+    if qualifies:
+        if pending and pending.get("direction") == direction and now - float(pending.get("time", 0)) <= 4.5:
+            count = int(pending.get("count", 0)) + 1
+        else:
+            count = 1
+        st.session_state["whale_flow_pending"] = {
+            "direction": direction, "time": now, "count": count
+        }
+    else:
+        count = 0
+        st.session_state["whale_flow_pending"] = None
+
+    detected = bool(qualifies and (extreme_now or count >= 2))
+
+    # IMPORTANTE: la alerta es SOLO del flujo actual. No se conserva una señal vieja.
     alert = None
     if detected:
         alert = {
-            "direction": direction, "time": now, "buy": buy, "sell": sell,
-            "total": total, "imbalance": gross_dom, "net": abs(net),
-            "acceleration": acceleration, "trades": trade_count,
-            "big_trades": big_same, "score": score, "strength": strength,
+            "direction": direction,
+            "time": now,
+            "buy": buy,
+            "sell": sell,
+            "total": total,
+            "imbalance": (max(buy, sell) / total) if total > 0 else 0.0,
+            "net": abs(net),
+            "acceleration": acceleration,
         }
 
     return {
-        "detected": detected, "alert": alert, "live_buy": buy,
-        "live_sell": sell, "live_total": total, "imbalance": gross_dom,
-        "acceleration": acceleration, "trades": trade_count, "score": score,
+        "detected": detected,
+        "alert": alert,
+        "live_buy": buy,
+        "live_sell": sell,
+        "live_total": total,
+        "imbalance": (max(buy, sell) / total) if total > 0 else 0.0,
+        "threshold": dynamic_total,
+        "acceleration": acceleration,
     }
 
 def compact_usd(value):
@@ -1341,6 +835,7 @@ def compact_usd(value):
         return f"${value/1_000:.0f}K"
     return f"${value:,.0f}"
 
+
 def render_whale_panel(whale, active):
     base = "margin:8px 0;padding:12px;border:1px solid #26384b;border-radius:13px;background:linear-gradient(180deg,#0c1724,#09111b)"
     if not whale or not whale.get("detected"):
@@ -1348,9 +843,9 @@ def render_whale_panel(whale, active):
         sell = compact_usd((whale or {}).get("live_sell", 0))
         return f'''<section style="{base}">
           <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
-          <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">FLUJO NORMAL / SIN CONFIRMACIÓN</div>
-          <div style="margin-top:6px;font-size:9px;color:#8da0b4">5s · COMPRAS {buy} · VENTAS {sell}</div>
-          <div style="margin-top:4px;font-size:8px;color:#6f8195">Lee hasta 500 trades recientes y compara presión, aceleración y desequilibrio.</div>
+          <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN FLUJO EXTREMO AHORA</div>
+          <div style="margin-top:6px;font-size:9px;color:#8da0b4">AHORA · COMPRAS {buy} · VENTAS {sell}</div>
+          <div style="margin-top:4px;font-size:8px;color:#6f8195">Analiza ráfagas anormales; no alerta por una operación aislada.</div>
         </section>'''
 
     a = whale["alert"]
@@ -1370,6 +865,7 @@ def render_whale_panel(whale, active):
       <div style="margin-top:4px;font-size:8px;color:#7f91a5">Alerta temprana de presión extraordinaria en el flujo real de BTC/USD.</div>
     </section>'''
 
+
 def get_btc_live_price():
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/ticker",
@@ -1385,6 +881,7 @@ def get_btc_live_price():
     if price in [None, ""]:
         raise ValueError("Coinbase ticker no devolvió precio.")
     return float(price)
+
 
 # =========================================================
 # KALSHI BTC 15 MIN
@@ -1409,6 +906,7 @@ def get_kalshi_btc_market():
     markets.sort(key=lambda m: str(m.get("close_time") or "9999"))
     return markets[0]
 
+
 def get_event_ticker_from_market(market):
     if not market:
         return None
@@ -1420,6 +918,7 @@ def get_event_ticker_from_market(market):
         return None
     parts = str(ticker).split("-")
     return "-".join(parts[:-1]) if len(parts) >= 2 else None
+
 
 def extract_kalshi_btc_price(data):
     if not isinstance(data, dict):
@@ -1475,6 +974,7 @@ def extract_kalshi_btc_price(data):
     walk_pairs(details)
     return float(pair_candidates[-1]) if pair_candidates else None
 
+
 def get_kalshi_live_btc(market):
     event_ticker = get_event_ticker_from_market(market)
     if not event_ticker:
@@ -1498,6 +998,7 @@ def get_kalshi_live_btc(market):
     if price is None:
         raise ValueError("Kalshi live respondió sin precio BTC válido.")
     return float(price)
+
 
 # =========================================================
 # INDICADORES ORIGINALES
@@ -1532,6 +1033,7 @@ def add_indicators(df):
     df["vol_ratio"] = df["volume"] / avg_volume.replace(0, np.nan)
     return df
 
+
 def get_target_from_market(market):
     if not market:
         return None
@@ -1547,6 +1049,7 @@ def get_target_from_market(market):
                 pass
     return None
 
+
 def get_seconds_remaining(market):
     if not market or not market.get("close_time"):
         return None
@@ -1561,10 +1064,12 @@ def get_seconds_remaining(market):
     except Exception:
         return None
 
+
 def format_countdown(seconds):
     if seconds is None:
         return "--:--"
     return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
 
 def numeric_kalshi_price(dollar_value, cent_value):
     if dollar_value not in [None, ""]:
@@ -1579,12 +1084,14 @@ def numeric_kalshi_price(dollar_value, cent_value):
             pass
     return None
 
+
 def get_yes_ask(market):
     if not market:
         return None
     return numeric_kalshi_price(
         market.get("yes_ask_dollars"), market.get("yes_ask")
     )
+
 
 def get_no_ask(market):
     if not market:
@@ -1602,6 +1109,7 @@ def get_no_ask(market):
     if yes_bid is not None:
         return max(0.0, min(1.0, 1.0 - yes_bid))
     return None
+
 
 # =========================================================
 # PROBABILIDAD ORIGINAL
@@ -1635,6 +1143,7 @@ def estimated_probabilities(
 
     up_prob = float(np.clip(up_prob, 5, 95))
     return round(up_prob), round(100 - up_prob)
+
 
 # =========================================================
 # MOTOR ORIGINAL v4.6.1
@@ -1750,6 +1259,7 @@ def build_signal(df, target, seconds_left, live_price=None):
         "down_probability": down_probability,
     }
 
+
 def entry_quality(price, seconds_left):
     if price is None:
         return "PRECIO NO DISPONIBLE", "#94a3b8"
@@ -1760,6 +1270,7 @@ def entry_quality(price, seconds_left):
     if price <= 0.70:
         return "PRECAUCIÓN", "#fbbf24"
     return "CARA / TARDE", "#fb7185"
+
 
 # =========================================================
 # CONTROL DE RONDA ORIGINAL
@@ -1988,14 +1499,19 @@ def process_round_signal(ticker, sig, market, seconds_left):
         "entry_quality_color": quality_color,
     }
 
+
 # =========================================================
 # LECTOR DE CIERRE PRO — MICRO LECTURA ~2 SEGUNDOS
+# Mantiene intacto el motor v4.6.1 y sus señales.
+# No inventa velas REST de 1 segundo: construye una cinta
+# de muestras del BTC live que ya recibe el dashboard.
 # =========================================================
 
 def update_micro_tape(ticker, live_price):
     if not ticker or ticker == "--" or live_price is None:
         return
 
+    # Cada ronda empieza con su propia cinta.
     if st.session_state.micro_ticker != ticker:
         st.session_state.micro_ticker = ticker
         st.session_state.micro_prices = []
@@ -2003,13 +1519,16 @@ def update_micro_tape(ticker, live_price):
     now_ts = datetime.now(timezone.utc).timestamp()
     tape = st.session_state.micro_prices
 
+    # Evita duplicar muestras dentro del mismo refresco.
     if not tape or now_ts - tape[-1]["t"] >= 1.0:
         tape.append({"t": now_ts, "p": float(live_price)})
 
+    # Conserva aproximadamente los últimos 90 segundos.
     cutoff = now_ts - 90
     st.session_state.micro_prices = [
         x for x in tape if x["t"] >= cutoff
     ]
+
 
 def micro_reading():
     tape = st.session_state.micro_prices
@@ -2047,6 +1566,7 @@ def micro_reading():
         if nonzero else 0.5
     )
 
+    # Regresión simple precio/tiempo para medir dirección micro.
     xs = np.array([x["t"] - tape[0]["t"] for x in tape], dtype=float)
     ys = np.array([x["p"] for x in tape], dtype=float)
     slope = float(np.polyfit(xs, ys, 1)[0]) if len(xs) >= 3 and xs[-1] > 0 else 0.0
@@ -2070,7 +1590,15 @@ def micro_reading():
         "pressure": pressure,
     }
 
+
 def closing_reader(sig, round_signal, seconds_left, micro):
+    """
+    Lector independiente de cierre.
+    - La señal principal v4.6.1 NO se modifica.
+    - En los últimos segundos, tiempo + distancia al target dominan sobre
+      una pequeña contradicción de momentum/microlectura.
+    - Nunca llama "confirmado" a un resultado antes del cierre.
+    """
     state = round_signal.get("round_state")
     active_direction = state.get("active_direction") if state else None
 
@@ -2090,6 +1618,8 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     terminal_override = False
     terminal_too_close = False
 
+    # En cierre extremo, la posición REAL respecto al target manda.
+    # Umbrales deliberadamente conservadores para no llamar un flip por $2-$10.
     if seconds_left is not None and distance is not None:
         abs_d = abs(distance)
         market_side = "UP" if distance > 0 else "DOWN"
@@ -2143,6 +1673,7 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         micro_score += 4 if slope > 0.45 else (-5 if slope < -0.45 else 0)
         micro_score += 4 if ratio >= 0.62 else (-5 if ratio <= 0.38 else 0)
 
+        # La microlectura pesa menos cuando quedan segundos y la distancia es amplia.
         weight = 1.0
         if seconds_left is not None:
             if seconds_left <= 30:
@@ -2157,6 +1688,7 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         confidence += float(np.clip(micro_score * weight, -28, 20))
         strong_contradiction = (c10 < -5 and c30 < -10)
 
+        # Solo limitar por contradicción si tiempo/distancia NO hacen el cierre dominante.
         if strong_contradiction and not terminal_override:
             confidence = min(confidence, 69)
 
@@ -2169,6 +1701,7 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     if seconds_left is not None and seconds_left <= 180:
         confidence += 2
 
+    # Refuerzo específico de tiempo + distancia.
     if terminal_override and distance is not None:
         abs_d = abs(distance)
         if seconds_left <= 15:
@@ -2226,7 +1759,12 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         "bg": bg,
     }
 
+
+
+
 def render_live_candles(df, live_price, target, active, timeframe="1m"):
+    # Renderiza velas BTC/USD para visualización sin cambiar el motor v4.6.1.
+    # 3m y 5m se construyen agrupando las velas reales de Coinbase de 1 minuto.
     if df is None or len(df) < 5:
         return f'<div class="chartbox"><div class="charttitle">BTC/USD · {timeframe}</div><div class="chartempty">Esperando velas…</div></div>'
 
@@ -2250,6 +1788,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         d = source_df[["time", "open", "high", "low", "close", "volume"]].copy()
 
     d = d.tail(42).reset_index(drop=True)
+    # La última vela se mantiene visualmente al precio live recibido por el dashboard.
     if live_price is not None and len(d):
         i = d.index[-1]
         d.loc[i, "close"] = float(live_price)
@@ -2273,14 +1812,17 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     n=len(d); step=pw/max(n,1); body=max(3.2, min(8, step*.58))
 
     svg=[]
+    # horizontal grid + prices
     for k in range(5):
         yy=top+ph*k/4; price=hi-(hi-lo)*k/4
         svg.append(f'<line x1="{left}" y1="{yy:.1f}" x2="{W-right}" y2="{yy:.1f}" stroke="#182536" stroke-width="1"/>')
         svg.append(f'<text x="{W-right+8}" y="{yy+4:.1f}" fill="#8392a7" font-size="12">{price:,.0f}</text>')
+    # vertical grid
     for k in range(5):
         xx=left+pw*k/4
         svg.append(f'<line x1="{xx:.1f}" y1="{top}" x2="{xx:.1f}" y2="{top+ph}" stroke="#121e2d" stroke-width="1"/>')
 
+    # volume scaled into bottom 52 px of plot
     vmax=max(float(d["volume"].max()),1)
     vbase=top+ph
     for i,row in d.iterrows():
@@ -2288,6 +1830,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         col='#16b97a' if float(row['close'])>=float(row['open']) else '#c43d59'
         svg.append(f'<rect x="{x-body/2:.1f}" y="{vbase-vh:.1f}" width="{body:.1f}" height="{vh:.1f}" fill="{col}" opacity=".55"/>')
 
+    # candles
     for i,row in d.iterrows():
         x=left+(i+.5)*step
         o,c,h,l=map(float,[row['open'],row['close'],row['high'],row['low']])
@@ -2296,24 +1839,28 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         yy=min(y(o),y(c)); hh=max(2.0,abs(y(o)-y(c)))
         svg.append(f'<rect x="{x-body/2:.1f}" y="{yy:.1f}" width="{body:.1f}" height="{hh:.1f}" rx=".7" fill="{col}"/>')
 
+    # EMA paths
     def path(series,color):
         pts=' '.join(f'{left+(i+.5)*step:.1f},{y(v):.1f}' for i,v in enumerate(series))
         return f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
     svg.append(path(ema9,'#df42e7'))
     svg.append(path(ema21,'#32d7ef'))
 
+    # target line
     if target is not None and lo <= float(target) <= hi:
         ty=y(target)
         svg.append(f'<line x1="{left}" y1="{ty:.1f}" x2="{W-right}" y2="{ty:.1f}" stroke="#23e7c1" stroke-width="1.8" stroke-dasharray="7 6"/>')
+        # La etiqueta queda en el margen derecho, fuera del área de velas.
         svg.append(f'<rect x="{W-right+18}" y="{ty-12:.1f}" width="96" height="23" rx="3" fill="#20e7bd"/>')
         svg.append(f'<text x="{W-right+25}" y="{ty+4:.1f}" fill="#061510" font-size="10" font-weight="800">TARGET</text>')
-
+    # live price line + label
     if live_price is not None and lo <= float(live_price) <= hi:
         ly=y(live_price); lc='#31e889' if active=='UP' else '#ff5367' if active=='DOWN' else '#38bdf8'
         svg.append(f'<line x1="{left}" y1="{ly:.1f}" x2="{W-right}" y2="{ly:.1f}" stroke="{lc}" stroke-width="1.3" stroke-dasharray="3 4"/>')
         svg.append(f'<rect x="{W-right+18}" y="{ly-12:.1f}" width="96" height="23" rx="3" fill="{lc}"/>')
         svg.append(f'<text x="{W-right+25}" y="{ly+4:.1f}" fill="#061510" font-size="11" font-weight="900">{float(live_price):,.0f}</text>')
 
+    # time labels
     picks=[0, max(0,n//3), max(0,2*n//3), n-1]
     for idx in picks:
         tm=d.iloc[idx]['time'].to_pydatetime().astimezone().strftime('%H:%M')
@@ -2332,248 +1879,6 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
       <svg class="candlesvg" viewBox="0 0 {W} {H}" preserveAspectRatio="none">{''.join(svg)}</svg>
       <div class="chartfoot"><span class="selected">{timeframe}</span><span>VELAS REALES COINBASE</span><span>ACTUALIZACIÓN LIVE</span></div>
     </section>'''
-
-# =========================================================
-# AJUSTES KALSHI + AUTO TRADING (ESTILO CRITIK2 RECONSTRUIDO)
-# =========================================================
-with st.expander("⚙ AJUSTES · KALSHI + AUTO TRADING", expanded=False):
-    st.markdown('<div class="critik-container">', unsafe_allow_html=True)
-    st.markdown('<div class="critik-header">Ajustes del bot</div>', unsafe_allow_html=True)
-
-    with st.container(border=True):
-        st.markdown('<div class="row-label" style="padding-bottom:4px;"><b>MODO DE OPERACIÓN</b></div>', unsafe_allow_html=True)
-        
-        # Selector de Modo con Paper por defecto absoluto
-        selected_mode = st.radio(
-            "Modo de operación",
-            ["🧪 PRUEBA / PAPER", "💵 REAL"],
-            index=0 if st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER") == "🧪 PRUEBA / PAPER" else 1,
-            key="radio_trading_mode",
-            label_visibility="collapsed",
-            horizontal=True
-        )
-
-        if selected_mode == "💵 REAL":
-            st.warning("⚠️️ Estás a punto de activar el modo con DINERO REAL.")
-            confirmed = st.checkbox("Confirmo que deseo operar con dinero real en Kalshi", key="chk_confirm_real")
-            if confirmed:
-                st.session_state.trading_mode = "💵 REAL"
-                st.session_state.confirm_real_mode = True
-            else:
-                st.session_state.trading_mode = "🧪 PRUEBA / PAPER"
-                st.session_state.confirm_real_mode = False
-        else:
-            st.session_state.trading_mode = "🧪 PRUEBA / PAPER"
-            st.session_state.confirm_real_mode = False
-
-        if st.session_state.trading_mode == "🧪 PRUEBA / PAPER":
-            paper_bal_disp = st.session_state.get("paper_balance", 1000.0)
-            paper_pnl_disp = st.session_state.get("paper_total_pnl", 0.0)
-            st.markdown(f'<div style="background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.4); border-radius:6px; padding:8px; font-size:11px; color:#38bdf8; margin-top:6px;">🧪 PAPER MODE · Balance: ${paper_bal_disp:,.2f} · P&L Total: ${paper_pnl_disp:+,.2f}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<div style="background:rgba(255,83,99,0.15); border:1px solid rgba(255,83,99,0.4); border-radius:6px; padding:8px; font-size:11px; color:#ff5363; margin-top:6px;">💵 MODO REAL ACTIVO · SE USARÁN FONDOS REALES</div>', unsafe_allow_html=True)
-
-    with st.container(border=True):
-        st.caption("Las credenciales quedan en esta sesión; no se escriben dentro del archivo ni se muestran en pantalla.")
-        st.text_input("Kalshi API Key ID", key="kalshi_api_key_input", placeholder="Pega tu API Key ID")
-        st.text_area(
-            "Kalshi Private Key",
-            key="kalshi_private_key_input",
-            placeholder="-----BEGIN PRIVATE KEY----- ...",
-            height=105,
-        )
-
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("🔐 Conectar Kalshi", use_container_width=True):
-                try:
-                    _, bal = kalshi_test_connection()
-                    st.session_state.kalshi_auth_ok = True
-                    st.session_state.kalshi_auth_message = f"Conectado · Balance ${bal}" if bal else "Conectado"
-                except Exception as e:
-                    st.session_state.kalshi_auth_ok = False
-                    st.session_state.auto_enabled = False
-                    st.session_state.kalshi_auth_message = "Error: " + str(e)[:160]
-        with c2:
-            if st.button("Desconectar", use_container_width=True):
-                st.session_state.kalshi_auth_ok = False
-                st.session_state.auto_enabled = False
-                st.session_state.kalshi_auth_message = "No conectado"
-
-        if st.session_state.kalshi_auth_ok:
-            st.success("🟢 " + st.session_state.kalshi_auth_message)
-        else:
-            st.info("🔴 " + st.session_state.kalshi_auth_message)
-
-    with st.container(border=True):
-        col_at1, col_at2 = st.columns([2, 1])
-        with col_at1:
-            st.markdown('<div class="row-label" style="padding-top:4px;"><b>AUTO TRADING</b></div>', unsafe_allow_html=True)
-        with col_at2:
-            requested_auto = st.toggle("🤖 AUTO TRADING", value=st.session_state.auto_enabled, label_visibility="collapsed")
-        
-        if requested_auto and st.session_state.trading_mode == "💵 REAL" and not st.session_state.kalshi_auth_ok:
-            st.warning("Primero conecta Kalshi para modo REAL. AUTO permanece apagado.")
-            st.session_state.auto_enabled = False
-        else:
-            st.session_state.auto_enabled = requested_auto
-
-    with st.container(border=True):
-        col_ml1, col_ml2 = st.columns([1, 1])
-        with col_ml1:
-            st.markdown('<div class="row-label" style="padding-top:4px;"><b>Máximo de niveles</b></div>', unsafe_allow_html=True)
-        with col_ml2:
-            max_lvl_input = st.selectbox("Máximo de niveles", list(range(1, 13)), index=int(st.session_state.get("auto_max_levels", 9)) - 1, key="sb_max_niveles_critik", label_visibility="collapsed")
-            max_lvl = int(max_lvl_input)
-            st.session_state.auto_max_levels = max_lvl
-
-        col_mart1, col_mart2 = st.columns([1, 1])
-        with col_mart1:
-            st.markdown('<div class="row-label" style="padding-top:8px;"><b>Martingala</b></div>', unsafe_allow_html=True)
-        with col_mart2:
-            st.session_state.auto_martingale = st.toggle("Martingala", value=bool(st.session_state.auto_martingale), label_visibility="collapsed")
-
-        col_m1, col_m2 = st.columns([1, 1])
-        with col_m1:
-            st.markdown('<div class="row-label" style="padding-top:4px;"><b>Cálculo del monto</b><br><span style="color:#888888; font-size:11px;">Automático distribuye el 90% del saldo real para cubrir todos los niveles seleccionados.</span></div>', unsafe_allow_html=True)
-        with col_m2:
-            modo_monto = st.selectbox("Cálculo del monto", ["Manual", "Automático"], key="auto_modo_monto", label_visibility="collapsed")
-
-        if modo_monto == "Manual":
-            col_mi1, col_mi2 = st.columns([1, 1])
-            with col_mi1:
-                st.markdown('<div class="row-label" style="padding-top:8px;">Monto inicial manual ($)</div>', unsafe_allow_html=True)
-            with col_mi2:
-                monto_inicial = st.number_input("Monto inicial manual ($)", min_value=0.01, max_value=1000.0, value=float(st.session_state.get("auto_amount", 0.50)), step=0.25, label_visibility="collapsed")
-                st.session_state.auto_amount = monto_inicial
-        else:
-            bal_live = _get_kalshi_balance_float()
-            bud = bal_live * 0.90
-            is_m_temp = bool(st.session_state.get("auto_martingale", False))
-            if is_m_temp:
-                f_sum = sum(2 ** i for i in range(max_lvl))
-                calc_init = bud / f_sum if f_sum > 0 else 0.50
-            else:
-                calc_init = bud / max_lvl if max_lvl > 0 else 0.50
-            st.session_state.auto_amount = calc_init
-
-        col_pl1, col_pl2 = st.columns([1, 1])
-        with col_pl1:
-            st.markdown('<div class="row-label" style="padding-top:4px;">Precio de orden límite (¢)</div>', unsafe_allow_html=True)
-        with col_pl2:
-            st.session_state.auto_limit_cents = st.slider("Precio de orden límite (¢)", 1, 99, int(st.session_state.auto_limit_cents), label_visibility="collapsed")
-
-        col_tp1, col_tp2 = st.columns([1, 1])
-        with col_tp1:
-            st.markdown('<div class="row-label" style="padding-top:4px;">Tomar profit (%)</div>', unsafe_allow_html=True)
-        with col_tp2:
-            st.session_state.auto_take_profit = st.slider("Tomar profit (%)", 1, 100, int(min(100, st.session_state.auto_take_profit)), step=1, label_visibility="collapsed")
-
-    if modo_monto == "Automático":
-        bal_live = _get_kalshi_balance_float()
-        bud = bal_live * 0.90
-        is_m_temp = bool(st.session_state.get("auto_martingale", False))
-        if is_m_temp:
-            f_sum = sum(2 ** i for i in range(max_lvl))
-            calc_init = bud / f_sum if f_sum > 0 else 0.50
-        else:
-            calc_init = bud / max_lvl if max_lvl > 0 else 0.50
-        st.markdown(f'''
-        <div class="critik-green-box">
-            <b>Saldo disponible:</b> ${bal_live:.2f} · <b>Monto inicial automático (90% / {max_lvl} niveles):</b> ${calc_init:.2f}
-        </div>
-        ''', unsafe_allow_html=True)
-
-    st.markdown('<div class="critik-subheading">ELIGE LA DIRECCIÓN</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size: 11px; color: #888888; margin-bottom: 8px;">Configura cada nivel por separado. Solo Up abre UP, Solo Down abre DOWN, Contraria invierte la señal.</div>', unsafe_allow_html=True)
-
-    current_base = st.session_state.auto_amount
-    is_m = st.session_state.auto_martingale
-
-    for _level in range(1, max_lvl + 1):
-        _key = f"auto_level_direction_{_level}"
-        if _key not in st.session_state:
-            st.session_state[_key] = "Seguir señal"
-        
-        lvl_amt = current_base * (2 ** (_level - 1)) if is_m else current_base
-        label_name = "Entrada inicial" if _level == 1 else f"Martingala {_level - 1}"
-        
-        with st.container(border=True):
-            col_info, col_sel = st.columns([1, 1])
-            with col_info:
-                st.markdown(f'''
-                <div style="font-size: 12px; font-weight: 600; color: #FFFFFF;">{label_name}</div>
-                <div style="font-size: 10px; color: #888888; margin-top: 1px;">Nivel {_level} · ${lvl_amt:.2f}</div>
-                ''', unsafe_allow_html=True)
-            with col_sel:
-                st.selectbox(
-                    f"Dirección Nivel {_level}",
-                    ["Seguir señal", "Solo UP", "Solo DOWN", "Contraria a la señal"],
-                    key=_key,
-                    label_visibility="collapsed",
-                )
-
-    st.markdown('<div class="critik-subheading">CONTINUIDAD</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        col_c1, col_c2 = st.columns([2, 1])
-        with col_c1:
-            st.markdown('<div class="row-label" style="font-size:12px;"><b>Apagar bot en la próxima operación ganadora</b></div>', unsafe_allow_html=True)
-        with col_c2:
-            st.session_state.auto_stop_after_win = st.toggle("Apagar bot en la próxima operación ganadora", value=bool(st.session_state.auto_stop_after_win), label_visibility="collapsed")
-
-    # Historial de Operaciones Simuladas en Paper y P&L Total
-    paper_hist = st.session_state.get("paper_history", [])
-    paper_bal = st.session_state.get("paper_balance", 1000.0)
-    paper_tot_pnl = st.session_state.get("paper_total_pnl", 0.0)
-
-    st.markdown('<div class="critik-subheading">ESTADÍSTICAS & HISTORIAL PAPER</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        st.markdown(f"""
-        <div style="font-size:12px; color:#eaf2fb; margin-bottom:6px;">
-            <b>Balance Paper:</b> ${paper_bal:,.2f} &nbsp;|&nbsp; <b>P&L acumulado:</b> <span style="color:{'#34e982' if paper_tot_pnl >= 0 else '#ff4e5f'}">${paper_tot_pnl:+,.2f}</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if paper_hist:
-            for h in paper_hist[:10]:
-                ent_c = int(h.get('entry_price', 0.50) * 100)
-                cnt_s = h.get('contracts', 1.0)
-                pnl_v = h.get('pnl', 0.0)
-                pnl_str = f"+${pnl_v:.2f}" if pnl_v >= 0 else f"-${abs(pnl_v):.2f}"
-                bal_v = h.get('balance', 1000.0)
-                st.markdown(f"<div style='font-size:10.5px; color:#c2d0df; border-bottom:1px solid #1a2735; padding:5px 0;'><b>{h['time']}</b> · {h['ticker']} · <b>{h['direction']}</b> · Nivel {h['level']} · ${h['amount']:.2f} · {ent_c}¢ · {cnt_s} ctrs · {h.get('result_status', 'WIN/LOSS')} · {pnl_str} · Balance ${bal_v:,.2f}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown("<div style='font-size:11px; color:#888888;'>Sin operaciones cerradas en Paper todavía.</div>", unsafe_allow_html=True)
-
-    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button("↺ REINICIAR MARTINGALA", use_container_width=True):
-            st.session_state.auto_level = 1
-            st.session_state.auto_last_status = "PROGRESIÓN REINICIADA"
-            save_paper_state()
-    with col_btn2:
-        if st.button("🗑️ RESETEAR PAPER ($1K)", use_container_width=True):
-            st.session_state.paper_balance = 1000.0
-            st.session_state.paper_total_pnl = 0.0
-            st.session_state.paper_history = []
-            st.session_state.auto_level = 1
-            st.session_state.auto_last_ticker = None
-            st.session_state.auto_last_order = None
-            st.session_state.auto_last_status = "PAPER RESEATED A $1,000.00"
-            save_paper_state()
-
-    _next_amount = _amount_for_level()
-    st.markdown(f"""
-    <div style="margin-top:8px; font-size:11px; color:#888888; border-top:1px solid #222222; padding-top:6px;">
-        <b>Modo:</b> {st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")} | 
-        <b>Estado:</b> {'🟢 AUTO' if st.session_state.auto_enabled else '⚪ AUTO OFF'} | 
-        <b>Nivel:</b> {st.session_state.auto_level}/{max_lvl} | 
-        <b>Próximo:</b> ${_next_amount:.2f} | 
-        <b>Status:</b> {st.session_state.auto_last_status}
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 @st.fragment(run_every="2s")
 def live_dashboard():
@@ -2666,12 +1971,12 @@ def live_dashboard():
         ticker, sig, market, seconds_left
     )
 
-    auto_trade_tick(ticker, market, round_signal)
-
+    # Cinta live de segundos para el Lector de Cierre.
     update_micro_tape(ticker, live_btc_price)
     micro = micro_reading()
     reader = closing_reader(sig, round_signal, seconds_left, micro)
 
+    # Ballenas: capa visual independiente; NO modifica señales ni probabilidades v4.6.1.
     try:
         whale = get_coinbase_whale_flow()
     except Exception:
@@ -2684,6 +1989,7 @@ def live_dashboard():
         else None
     )
 
+    # Render del panel de ballenas. Solo visual; no altera el motor v4.6.1.
     whale_html = render_whale_panel(whale, active)
 
     if active == "UP":
@@ -2741,61 +2047,6 @@ def live_dashboard():
     mom_class = "green" if sig["mom3"] > 0 else "red" if sig["mom3"] < 0 else ""
     time_pct = max(0, min(100, int((seconds_left or 0) / 900 * 100)))
 
-    # =========================================================
-    # ESTADO DE EJECUCIÓN AUTO TRADING — DENTRO DE LA UI PRINCIPAL
-    # =========================================================
-    auto_enabled = bool(st.session_state.get("auto_enabled", False))
-    trading_mode = st.session_state.get("trading_mode", "🧪 PRUEBA / PAPER")
-    is_paper = (trading_mode == "🧪 PRUEBA / PAPER")
-    prefix_mode = "🧪 PAPER" if is_paper else "💵 REAL"
-
-    last_order = st.session_state.get("auto_last_order")
-    last_ticker = st.session_state.get("auto_last_ticker")
-    current_round_executed = (last_order is not None and last_ticker == ticker and ticker != "--")
-
-    if not auto_enabled:
-        exec_title = "⚪ AUTO TRADING APAGADO"
-        exec_desc = "Activa el bot en Ajustes para operar automáticamente."
-        exec_color = "#647184"
-        exec_border = "#1b2735"
-        exec_bg = "linear-gradient(180deg,#0d141d,#09131c)"
-    elif not current_round_executed:
-        exec_title = f"{prefix_mode} · ESPERANDO ENTRADA"
-        exec_desc = f"Buscando configuración o confirmación para {ticker if ticker != '--' else 'la ronda'}..."
-        exec_color = "#38bdf8"
-        exec_border = "rgba(56,189,248,.35)"
-        exec_bg = "linear-gradient(180deg,#0c1622,#091119)"
-    else:
-        skipped = last_order.get("skipped", False)
-        if skipped:
-            reason = last_order.get("reason", "Sin detalles")
-            exec_title = f"{prefix_mode} · ENTRADA OMITIDA"
-            exec_desc = f"Razón: {reason}"
-            exec_color = "#f7bd4d"
-            exec_border = "rgba(247,189,77,.45)"
-            exec_bg = "linear-gradient(180deg,#1e1909,#100e05)"
-        else:
-            d_dir = last_order.get("_direction", "UP")
-            d_lvl = last_order.get("_level", st.session_state.get("auto_level", 1))
-            d_amt = last_order.get("_amount_level", 0.50)
-            
-            fill_cnt = last_order.get("fill_count") or last_order.get("_requested_count") or 0.0
-            try:
-                fill_cnt_f = float(fill_cnt)
-            except Exception:
-                fill_cnt_f = 0.0
-            
-            eprice = last_order.get("_entry_contract_price")
-            price_str = f" · Entrada {eprice*100:.0f}¢" if eprice is not None else ""
-
-            exec_title = f"{prefix_mode} · ENTRADA EJECUTADA"
-            exec_desc = f"<b>{d_dir}</b> · Nivel {d_lvl} · ${d_amt:.2f}<br>{fill_cnt_f:.2f} contratos{price_str}"
-            exec_color = "#34e982" if d_dir == "UP" else "#ff4e5f"
-            exec_border = "rgba(52,233,130,.45)" if d_dir == "UP" else "rgba(255,78,95,.45)"
-            exec_bg = "linear-gradient(180deg,#0a2016,#06100b)" if d_dir == "UP" else "linear-gradient(180deg,#200a0d,#100608)"
-
-    execution_panel_html = f"""<div style="margin:6px 0 8px 0; padding:10px 12px; border-radius:9px; border:1px solid {exec_border}; background:{exec_bg}; box-shadow:0 0 12px rgba(0,0,0,.25);"><div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; font-weight:1000; color:{exec_color}; letter-spacing:.5px;"><span>{exec_title}</span><span style="font-size:8px; color:#8da0b4;">{'● ACTIVO' if auto_enabled else '○ APAGADO'}</span></div><div style="margin-top:6px; font-size:11.5px; color:#eaf2fb; line-height:1.3; font-weight:700;">{exec_desc}</div></div>"""
-
     st.markdown(
         f"""
 <div class="refapp dir-{active.lower() if active in ("UP","DOWN") else "wait"}" style="--accent:{accent};--glow:{glow};--soft:{soft};">
@@ -2810,8 +2061,6 @@ def live_dashboard():
     <div class="rsignal"><span class="cssarrow"></span><span>{hero_word}</span></div>
     <div class="rconf">{'CONFIANZA ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
   </section>
-
-  {execution_panel_html}
 
   <div class="rgrid">
     <div class="rcard keycard">
@@ -2877,6 +2126,7 @@ def live_dashboard():
 <div class="ticker">{ticker} • SCORE {sig["final_score"]:+.2f}</div>
 """, unsafe_allow_html=True)
 
+    # Gráfico real BTC/USD de 1 minuto. No modifica ninguna señal del motor.
     if btc_ok:
         chart_timeframe = st.radio(
             "Temporalidad del gráfico",
@@ -2912,5 +2162,6 @@ def live_dashboard():
         )
     if kalshi_error:
         st.error("Error Kalshi: " + kalshi_error)
+
 
 live_dashboard()
