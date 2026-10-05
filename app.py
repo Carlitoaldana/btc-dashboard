@@ -1152,17 +1152,15 @@ def build_signal(df, target, seconds_left, live_price=None):
 def entry_quality(price, seconds_left):
     if price is None:
         return "PRECIO NO DISPONIBLE", "#94a3b8"
-    if seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK:
-        return "TARDE", "#fb7185"
     if price <= 0.60:
         return "BUENA", "#34d399"
     if price <= 0.70:
         return "PRECAUCIÓN", "#fbbf24"
-    return "CARA / TARDE", "#fb7185"
+    return "CARA", "#fb7185"
 
 
 # =========================================================
-# CONTROL DE RONDA ORIGINAL
+# CONTROL DE RONDA — EL CEREBRO MANDA
 # =========================================================
 
 def process_round_signal(ticker, sig, market, seconds_left):
@@ -1171,7 +1169,6 @@ def process_round_signal(ticker, sig, market, seconds_left):
     if ticker and ticker != "--" and st.session_state.active_ticker != ticker:
         st.session_state.active_ticker = ticker
         st.session_state.rounds[ticker] = new_round_state(ticker, seconds_left)
-        # Hard reset of second-by-second tape so the previous round cannot leak in.
         st.session_state.micro_ticker = ticker
         st.session_state.micro_prices = []
 
@@ -1189,35 +1186,44 @@ def process_round_signal(ticker, sig, market, seconds_left):
     score = float(sig.get("final_score", 0.0))
     price = float(sig.get("price", 0.0))
 
-    previous_live_price = state["last_live_price"]
+    previous_live_price = state.get("last_live_price")
     state["previous_live_price"] = previous_live_price
     state["last_live_price"] = price
     price_change = price - previous_live_price if previous_live_price is not None else 0.0
 
-    previous_score = state["last_score"]
+    previous_score = float(state.get("last_score", 0.0))
     state["previous_score"] = previous_score
     state["last_score"] = score
     score_change = score - previous_score
 
-    # build_signal() is the signal brain. No extra waiting/voting/distance gate here.
+    # build_signal() es el cerebro. No hay espera fija, bloqueo final,
+    # votos externos, fresh_support ni distancia mínima externa.
     candidate = sig.get("candidate")
-    lock_new_entries = seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK
 
-    if state["active_direction"] is None and not lock_new_entries:
-        if candidate in ("UP", "DOWN"):
-            direction_price = get_yes_ask(market) if candidate == "UP" else get_no_ask(market)
-            state["active_direction"] = candidate
+    if candidate in ("UP", "DOWN"):
+        previous_active = state.get("active_direction")
+        state["active_direction"] = candidate
+
+        if previous_active != candidate:
             state["active_since"] = now
+
+        # La primera señal se guarda SOLO como historial; no congela la señal actual.
+        if state.get("first_direction") is None:
+            direction_price = get_yes_ask(market) if candidate == "UP" else get_no_ask(market)
             state["first_direction"] = candidate
             state["first_signal_time"] = now
             state["first_signal_seconds"] = seconds_left
             state["first_signal_price"] = direction_price
-            state["opposite_count"] = 0
+    else:
+        # Si el cerebro deja de confirmar, no mantenemos una señal vieja artificialmente.
+        state["active_direction"] = None
+        state["active_since"] = None
 
-    active = state["active_direction"]
+    active = state.get("active_direction")
     reversal = False
     reversal_text = ""
 
+    # Aviso informativo solamente; nunca bloquea ni congela la señal.
     if active == "UP":
         weakness_points = 0
         if score < 0: weakness_points += 1
@@ -1225,7 +1231,6 @@ def process_round_signal(ticker, sig, market, seconds_left):
         if sig.get("mom3",0) < -0.02: weakness_points += 1
         if sig.get("mom5",0) < 0: weakness_points += 1
         if price_change < -8: weakness_points += 1
-        if sig.get("candidate") == "DOWN": weakness_points += 1
         if weakness_points >= 2:
             reversal = True
             reversal_text = "UP PERDIENDO FUERZA • PRESIÓN CONTRARIA DETECTADA"
@@ -1237,7 +1242,6 @@ def process_round_signal(ticker, sig, market, seconds_left):
         if sig.get("mom3",0) > 0.02: weakness_points += 1
         if sig.get("mom5",0) > 0: weakness_points += 1
         if price_change > 8: weakness_points += 1
-        if sig.get("candidate") == "UP": weakness_points += 1
         if weakness_points >= 2:
             reversal = True
             reversal_text = "DOWN PERDIENDO FUERZA • PRESIÓN CONTRARIA DETECTADA"
@@ -1245,7 +1249,6 @@ def process_round_signal(ticker, sig, market, seconds_left):
     state["reversal_warning"] = reversal
     state["reversal_text"] = reversal_text
 
-    # Keep the FIRST signal fixed. Do not turn a bad first entry into a later opposite entry.
     if active == "UP":
         decision, signal, icon, color = "UP","SEÑAL UP","⬆","#34e982"
         current_entry_price = get_yes_ask(market)
@@ -1253,11 +1256,8 @@ def process_round_signal(ticker, sig, market, seconds_left):
         decision, signal, icon, color = "DOWN","SEÑAL DOWN","⬇","#ff4e5f"
         current_entry_price = get_no_ask(market)
     else:
+        decision, signal, icon, color = "ESPERANDO","SIN CONFIRMACIÓN","•","#38bdf8"
         current_entry_price = None
-        if lock_new_entries:
-            decision, signal, icon, color = "NO NUEVA ENTRADA","FINAL DE RONDA","⏱","#fbbf24"
-        else:
-            decision, signal, icon, color = "ESPERANDO","SIN CONFIRMACIÓN","•","#38bdf8"
 
     quality, quality_color = entry_quality(current_entry_price, seconds_left)
     return {
