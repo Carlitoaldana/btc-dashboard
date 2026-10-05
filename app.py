@@ -20,7 +20,7 @@ st.set_page_config(
 # CONFIGURACIÓN ORIGINAL
 # =========================================================
 
-NEW_ROUND_WAIT = 30
+NEW_ROUND_WAIT = 8
 NEW_ENTRY_LOCK = 75
 
 UP_THRESHOLD = 4.0
@@ -700,16 +700,12 @@ def get_btc_data():
 
 
 def get_coinbase_whale_flow():
-    """
-    Flujo agresivo BTC/USD EN VIVO.
-    No deja alertas pegadas: cada refresco representa el flujo ACTUAL.
-    Usa ventanas rápidas y exige aceleración + desequilibrio + tamaño material.
-    """
+    """Detecta ráfagas de flujo agresivo BTC/USD, no simples tickets grandes."""
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/trades",
         params={"limit": 100},
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"},
-        timeout=5,
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
+        timeout=6,
     )
     response.raise_for_status()
     rows = response.json()
@@ -720,7 +716,7 @@ def get_coinbase_whale_flow():
     tape = st.session_state.setdefault("whale_flow_tape", [])
     seen = st.session_state.setdefault("whale_seen_ids", {})
 
-    # Añadir únicamente trades nuevos.
+    # Coinbase informa el lado del maker; el agresor es el lado opuesto.
     for row in reversed(rows):
         try:
             trade_id = str(row.get("trade_id", ""))
@@ -730,7 +726,6 @@ def get_coinbase_whale_flow():
             size = float(row.get("size", 0))
             notional = price * size
             maker_side = str(row.get("side", "")).lower()
-            # Coinbase devuelve el lado maker; el agresor es el contrario.
             aggressor = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
             ts = pd.to_datetime(row.get("time"), utc=True, errors="coerce")
             t = ts.timestamp() if not pd.isna(ts) else now
@@ -740,92 +735,40 @@ def get_coinbase_whale_flow():
         except Exception:
             continue
 
-    tape[:] = [x for x in tape if now - x["t"] <= 45]
-    for k in [k for k, t in seen.items() if now - t > 60]:
+    tape[:] = [x for x in tape if now - x["t"] <= 35]
+    for k in [k for k, t in seen.items() if now - t > 45]:
         seen.pop(k, None)
 
-    def window_stats(lo, hi=0):
-        xs = [x for x in tape if hi < now - x["t"] <= lo]
-        buy = sum(x["notional"] for x in xs if x["side"] == "COMPRA")
-        sell = sum(x["notional"] for x in xs if x["side"] == "VENTA")
-        total = buy + sell
-        net = buy - sell
-        dom = abs(net) / total if total > 0 else 0.0
-        return buy, sell, total, net, dom
+    burst = [x for x in tape if now - x["t"] <= 4]
+    baseline = [x for x in tape if 4 < now - x["t"] <= 24]
+    buy = sum(x["notional"] for x in burst if x["side"] == "COMPRA")
+    sell = sum(x["notional"] for x in burst if x["side"] == "VENTA")
+    total = buy + sell
+    dominant = max(buy, sell)
+    imbalance = dominant / total if total > 0 else 0.0
+    direction = "UP" if buy > sell else "DOWN" if sell > buy else None
 
-    # "Ahora" = últimos 4 s. Baseline = 4-20 s anteriores, separado para no
-    # contaminar el baseline con el mismo impulso que intentamos detectar.
-    buy, sell, total, net, net_dom = window_stats(4)
-    pb, ps, prev_total, prev_net, prev_dom = window_stats(20, 4)
+    baseline_total = sum(x["notional"] for x in baseline)
+    baseline_rate = baseline_total / 20.0 if baseline_total > 0 else 0.0
+    burst_rate = total / 4.0 if total > 0 else 0.0
+    dynamic_min = max(1_500_000.0, baseline_rate * 4.0 * 2.5)
 
-    current_rate = total / 4.0
-    baseline_rate = prev_total / 16.0 if prev_total > 0 else 0.0
-    acceleration = current_rate / baseline_rate if baseline_rate > 0 else 0.0
+    qualifies = bool(direction and total >= dynamic_min and imbalance >= 0.75 and
+                     (baseline_rate == 0 or burst_rate >= baseline_rate * 2.5))
 
-    direction = "UP" if net > 0 else "DOWN" if net < 0 else None
-
-    # Umbral adaptativo: no dispara por una simple ráfaga pequeña.
-    # Si el mercado está muy activo, el umbral sube automáticamente.
-    dynamic_total = max(400_000.0, baseline_rate * 4.0 * 2.25)
-    strong_net = abs(net) >= max(250_000.0, dynamic_total * 0.55)
-
-    qualifies = bool(
-        direction
-        and total >= dynamic_total
-        and net_dom >= 0.58
-        and strong_net
-        and (baseline_rate == 0 or acceleration >= 2.25)
-    )
-
-    # Confirmación muy rápida, SIN latch temporal.
-    # Un impulso extremadamente fuerte puede avisar en la primera lectura;
-    # uno normal necesita dos lecturas consecutivas del mismo lado.
-    extreme_now = bool(
-        qualifies
-        and total >= max(750_000.0, dynamic_total * 1.35)
-        and net_dom >= 0.68
-        and (baseline_rate == 0 or acceleration >= 3.0)
-    )
-
-    pending = st.session_state.get("whale_flow_pending")
+    alert = st.session_state.get("whale_flow_alert")
     if qualifies:
-        if pending and pending.get("direction") == direction and now - float(pending.get("time", 0)) <= 4.5:
-            count = int(pending.get("count", 0)) + 1
-        else:
-            count = 1
-        st.session_state["whale_flow_pending"] = {
-            "direction": direction, "time": now, "count": count
-        }
-    else:
-        count = 0
-        st.session_state["whale_flow_pending"] = None
+        alert = {"direction": direction, "time": now, "buy": buy, "sell": sell,
+                 "total": total, "imbalance": imbalance}
+        st.session_state["whale_flow_alert"] = alert
+    elif alert and now - float(alert.get("time", 0)) > 8:
+        alert = None
+        st.session_state["whale_flow_alert"] = None
 
-    detected = bool(qualifies and (extreme_now or count >= 2))
+    return {"detected": alert is not None, "alert": alert, "live_buy": buy,
+            "live_sell": sell, "live_total": total, "imbalance": imbalance,
+            "threshold": dynamic_min}
 
-    # IMPORTANTE: la alerta es SOLO del flujo actual. No se conserva una señal vieja.
-    alert = None
-    if detected:
-        alert = {
-            "direction": direction,
-            "time": now,
-            "buy": buy,
-            "sell": sell,
-            "total": total,
-            "imbalance": (max(buy, sell) / total) if total > 0 else 0.0,
-            "net": abs(net),
-            "acceleration": acceleration,
-        }
-
-    return {
-        "detected": detected,
-        "alert": alert,
-        "live_buy": buy,
-        "live_sell": sell,
-        "live_total": total,
-        "imbalance": (max(buy, sell) / total) if total > 0 else 0.0,
-        "threshold": dynamic_total,
-        "acceleration": acceleration,
-    }
 
 def compact_usd(value):
     value = float(value or 0)
@@ -844,7 +787,7 @@ def render_whale_panel(whale, active):
         return f'''<section style="{base}">
           <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
           <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN FLUJO EXTREMO AHORA</div>
-          <div style="margin-top:6px;font-size:9px;color:#8da0b4">AHORA · COMPRAS {buy} · VENTAS {sell}</div>
+          <div style="margin-top:6px;font-size:9px;color:#8da0b4">Últimos 4 s · COMPRAS {buy} · VENTAS {sell}</div>
           <div style="margin-top:4px;font-size:8px;color:#6f8195">Analiza ráfagas anormales; no alerta por una operación aislada.</div>
         </section>'''
 
@@ -860,7 +803,7 @@ def render_whale_panel(whale, active):
     return f'''<section style="{base};border-color:{color};box-shadow:0 0 20px {color}33">
       <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:{color}">● ALERTA</span></div>
       <div style="margin-top:8px;font-size:15px;font-weight:950;color:{color}">⚡ {arrow} FLUJO EXTREMO {label}</div>
-      <div style="margin-top:6px;font-size:12px;font-weight:900;color:#f3f7fb">{compact_usd(dominant)} dominantes AHORA</div>
+      <div style="margin-top:6px;font-size:12px;font-weight:900;color:#f3f7fb">{compact_usd(dominant)} dominantes en ~4 s</div>
       <div style="margin-top:5px;font-size:9px;color:#aab8c7">COMPRAS {compact_usd(a['buy'])} · VENTAS {compact_usd(a['sell'])} · DOMINIO {a['imbalance']*100:.0f}%{relation}</div>
       <div style="margin-top:4px;font-size:8px;color:#7f91a5">Alerta temprana de presión extraordinaria en el flujo real de BTC/USD.</div>
     </section>'''
@@ -1004,35 +947,36 @@ def get_kalshi_live_btc(market):
 # INDICADORES ORIGINALES
 # =========================================================
 
+def _indicator_frame(df):
+    x = df.copy().sort_values("time").reset_index(drop=True)
+    close, high, low = x["close"], x["high"], x["low"]
+    x["ema9"] = close.ewm(span=9, adjust=False).mean()
+    x["ema21"] = close.ewm(span=21, adjust=False).mean()
+    delta = close.diff(); gain = delta.clip(lower=0); loss = -delta.clip(upper=0)
+    ag = gain.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
+    al = loss.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
+    x["rsi"] = (100-(100/(1+(ag/al.replace(0,np.nan))))).fillna(50)
+    e12=close.ewm(span=12,adjust=False).mean(); e26=close.ewm(span=26,adjust=False).mean()
+    x["macd"]=e12-e26; x["macd_signal"]=x["macd"].ewm(span=9,adjust=False).mean(); x["macd_hist"]=x["macd"]-x["macd_signal"]
+    prev=close.shift(1); tr=pd.concat([(high-low),(high-prev).abs(),(low-prev).abs()],axis=1).max(axis=1)
+    x["atr"]=tr.ewm(alpha=1/14,adjust=False,min_periods=14).mean()
+    up=high.diff(); dn=-low.diff(); plus=up.where((up>dn)&(up>0),0.0); minus=dn.where((dn>up)&(dn>0),0.0)
+    atr=x["atr"].replace(0,np.nan); pdi=100*plus.ewm(alpha=1/14,adjust=False).mean()/atr; mdi=100*minus.ewm(alpha=1/14,adjust=False).mean()/atr
+    dx=100*(pdi-mdi).abs()/(pdi+mdi).replace(0,np.nan)
+    x["plus_di"]=pdi; x["minus_di"]=mdi; x["adx"]=dx.ewm(alpha=1/14,adjust=False).mean()
+    typical=(high+low+close)/3; vol=x["volume"].fillna(0); x["vwap"]=(typical*vol).rolling(60,min_periods=1).sum()/vol.rolling(60,min_periods=1).sum().replace(0,np.nan)
+    x["vol_ratio"]=vol/vol.rolling(20).mean().replace(0,np.nan)
+    return x
+
+def _resample_indicators(df, minutes):
+    if minutes == 1: return _indicator_frame(df)
+    x=df.set_index("time").resample(f"{minutes}min").agg({"open":"first","high":"max","low":"min","close":"last","volume":"sum"}).dropna().reset_index()
+    return _indicator_frame(x)
+
 def add_indicators(df):
-    df = df.copy()
-    close = df["close"]
-
-    df["ema9"] = close.ewm(span=9, adjust=False).mean()
-    df["ema21"] = close.ewm(span=21, adjust=False).mean()
-
-    delta = close.diff()
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-
-    avg_gain = gain.ewm(
-        alpha=1 / 14, adjust=False, min_periods=14
-    ).mean()
-    avg_loss = loss.ewm(
-        alpha=1 / 14, adjust=False, min_periods=14
-    ).mean()
-
-    rs = avg_gain / avg_loss.replace(0, np.nan)
-    df["rsi"] = (100 - (100 / (1 + rs))).fillna(50)
-
-    df["mom3"] = close.pct_change(3) * 100
-    df["mom5"] = close.pct_change(5) * 100
-    df["mom15"] = close.pct_change(15) * 100
-
-    avg_volume = df["volume"].rolling(20).mean()
-    df["vol_ratio"] = df["volume"] / avg_volume.replace(0, np.nan)
-    return df
-
+    x=_indicator_frame(df)
+    x["mom3"]=x["close"].pct_change(3)*100; x["mom5"]=x["close"].pct_change(5)*100; x["mom15"]=x["close"].pct_change(15)*100
+    return x
 
 def get_target_from_market(market):
     if not market:
@@ -1150,115 +1094,49 @@ def estimated_probabilities(
 # =========================================================
 
 def build_signal(df, target, seconds_left, live_price=None):
-    last = df.iloc[-1]
-    candle_price = float(last["close"])
-    price = float(live_price) if live_price is not None else candle_price
-
-    rsi = float(last["rsi"])
-    mom3 = float(last["mom3"]) if pd.notna(last["mom3"]) else 0.0
-    mom5 = float(last["mom5"]) if pd.notna(last["mom5"]) else 0.0
-    mom15 = float(last["mom15"]) if pd.notna(last["mom15"]) else 0.0
-    vol_ratio = (
-        float(last["vol_ratio"]) if pd.notna(last["vol_ratio"]) else 0.0
-    )
-
-    technical_score = 0.0
-
-    if last["ema9"] > last["ema21"]:
-        technical_score += 2.0
-        ema_text = "BULL"
-    else:
-        technical_score -= 2.0
-        ema_text = "BEAR"
-
-    if rsi >= 55:
-        technical_score += 1.0
-    elif rsi <= 45:
-        technical_score -= 1.0
-
-    if mom3 > 0.02:
-        technical_score += 1.25
-    elif mom3 < -0.02:
-        technical_score -= 1.25
-
-    if mom5 > 0.03:
-        technical_score += 1.0
-    elif mom5 < -0.03:
-        technical_score -= 1.0
-
-    if mom15 > 0.05:
-        technical_score += 0.75
-    elif mom15 < -0.05:
-        technical_score -= 0.75
-
-    if vol_ratio > 1.20:
-        if mom3 > 0:
-            technical_score += 0.50
-        elif mom3 < 0:
-            technical_score -= 0.50
-
-    distance = None
-    distance_pct = None
-    target_score = 0.0
-
-    if target is not None:
-        distance = price - target
-        distance_pct = distance / target * 100
-
-        if distance > 0:
-            target_score += 2.0
-        elif distance < 0:
-            target_score -= 2.0
-
-        if seconds_left is not None:
-            abs_distance = abs(distance)
-
-            if seconds_left <= 30:
-                target_score += 4.0 if distance > 0 else -4.0 if distance < 0 else 0
-            elif seconds_left <= 60:
-                target_score += 3.0 if distance > 0 else -3.0 if distance < 0 else 0
-            elif seconds_left <= 180:
-                target_score += 2.0 if distance > 0 else -2.0 if distance < 0 else 0
-            elif seconds_left <= 300:
-                target_score += 1.0 if distance > 0 else -1.0 if distance < 0 else 0
-
-            if abs_distance < 10:
-                target_score *= 0.60
-            elif abs_distance < 20:
-                target_score *= 0.80
-
-    final_score = technical_score + target_score
-
-    if mom3 > 0.02:
-        momentum = "ALCISTA"
-    elif mom3 < -0.02:
-        momentum = "BAJISTA"
-    else:
-        momentum = "NEUTRAL"
-
-    up_probability, down_probability = estimated_probabilities(
-        final_score, distance, seconds_left, mom3, mom5
-    )
-
-    return {
-        "price": price,
-        "candle_price": candle_price,
-        "rsi": rsi,
-        "mom3": mom3,
-        "mom5": mom5,
-        "mom15": mom15,
-        "vol_ratio": vol_ratio,
-        "ema": ema_text,
-        "technical_score": technical_score,
-        "target_score": target_score,
-        "final_score": final_score,
-        "distance": distance,
-        "distance_pct": distance_pct,
-        "momentum": momentum,
-        "up_probability": up_probability,
-        "down_probability": down_probability,
-    }
-
+    one=add_indicators(df); three=_resample_indicators(df,3); five=_resample_indicators(df,5)
+    l1,l3,l5=one.iloc[-1],three.iloc[-1],five.iloc[-1]
+    candle_price=float(l1["close"]); price=float(live_price) if live_price is not None else candle_price
+    def direction(row):
+        bull=(row["ema9"]>row["ema21"] and row["macd_hist"]>=0 and row["plus_di"]>=row["minus_di"])
+        bear=(row["ema9"]<row["ema21"] and row["macd_hist"]<=0 and row["minus_di"]>=row["plus_di"])
+        return "UP" if bull else "DOWN" if bear else "NEUTRAL"
+    d3,d5=direction(l3),direction(l5); aligned=d3 if d3==d5 and d3!="NEUTRAL" else "NEUTRAL"
+    atr=float(l1["atr"]) if pd.notna(l1["atr"]) and l1["atr"]>0 else max(price*.0005,1)
+    distance=(price-target) if target is not None else None; distance_pct=(distance/target*100) if target else None
+    target_atr=(distance/atr) if distance is not None else 0.0
+    vwap=float(l1["vwap"]) if pd.notna(l1["vwap"]) else price; vwap_atr=(price-vwap)/atr
+    adx5=float(l5["adx"]) if pd.notna(l5["adx"]) else 0.0; rsi1=float(l1["rsi"]); rsi3=float(l3["rsi"]); rsi5=float(l5["rsi"])
+    rvol=float(l1["vol_ratio"]) if pd.notna(l1["vol_ratio"]) else 1.0
+    mom3=float(l1["mom3"]) if pd.notna(l1["mom3"]) else 0.0; mom5=float(l1["mom5"]) if pd.notna(l1["mom5"]) else 0.0; mom15=float(l1["mom15"]) if pd.notna(l1["mom15"]) else 0.0
+    trend_strong=adx5>=20; near_noise=abs(vwap_atr)<0.18 and (distance is None or abs(target_atr)<0.22)
+    candidate=None; quality="SIN CONFIRMACIÓN"
+    if aligned=="UP" and (trend_strong or (rsi3>=52 and rsi5>=50)) and vwap_atr>-0.15:
+        candidate="UP"
+    elif aligned=="DOWN" and (trend_strong or (rsi3<=48 and rsi5<=50)) and vwap_atr<0.15:
+        candidate="DOWN"
+    # Señal temprana: no espera alineación perfecta de 3M/5M cuando 5M no se opone
+    # y el impulso de 1M/3M + VWAP/participación ya apuntan a la misma dirección.
+    elif d5 != "DOWN" and l3["macd_hist"] > 0 and rsi1 >= 53 and rsi3 >= 50 and vwap_atr >= 0.05 and (rvol >= 0.90 or mom3 > 0.025):
+        candidate="UP"
+        quality="TEMPRANA"
+    elif d5 != "UP" and l3["macd_hist"] < 0 and rsi1 <= 47 and rsi3 <= 50 and vwap_atr <= -0.05 and (rvol >= 0.90 or mom3 < -0.025):
+        candidate="DOWN"
+        quality="TEMPRANA"
+    # Near expiry, the contract target can dominate only when BTC has a meaningful ATR cushion.
+    if seconds_left is not None and seconds_left<=180 and distance is not None:
+        if target_atr>=0.35 and d5!="DOWN": candidate="UP"
+        elif target_atr<=-0.35 and d5!="UP": candidate="DOWN"
+    if near_noise and not trend_strong: candidate=None
+    if candidate:
+        confirmations=(d3==candidate)+(d5==candidate)+((l3["macd_hist"]>0) if candidate=="UP" else (l3["macd_hist"]<0))+((l5["plus_di"]>l5["minus_di"]) if candidate=="UP" else (l5["minus_di"]>l5["plus_di"]))
+        if quality != "TEMPRANA":
+            quality="CONFIRMADA" if confirmations>=3 else "EN FORMACIÓN"
+    # Compatibility score: descriptive evidence for existing UI/closing reader; no longer gates entries at +/-4.
+    evidence=(1 if d3=="UP" else -1 if d3=="DOWN" else 0)+(1.5 if d5=="UP" else -1.5 if d5=="DOWN" else 0)+(0.75 if l3["macd_hist"]>0 else -0.75)+(0.75 if l5["plus_di"]>l5["minus_di"] else -0.75)+float(np.clip(target_atr,-2,2))
+    up_probability=float(np.clip(50+evidence*7,5,95)); down_probability=100-up_probability
+    momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
+    return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr}
 
 def entry_quality(price, seconds_left):
     if price is None:
@@ -1347,11 +1225,7 @@ def process_round_signal(ticker, sig, market, seconds_left):
         seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK
     )
 
-    candidate = None
-    if score >= UP_THRESHOLD:
-        candidate = "UP"
-    elif score <= DOWN_THRESHOLD:
-        candidate = "DOWN"
+    candidate = sig.get("candidate")
 
     if (
         state["active_direction"] is None
@@ -1432,7 +1306,7 @@ def process_round_signal(ticker, sig, market, seconds_left):
     state["reversal_text"] = reversal_text
 
     if active == "UP":
-        if score <= FLIP_DOWN_THRESHOLD and sig["mom3"] < 0:
+        if sig.get("candidate") == "DOWN" and sig.get("trend5") != "UP":
             state["opposite_count"] += 1
         else:
             state["opposite_count"] = 0
@@ -1444,7 +1318,7 @@ def process_round_signal(ticker, sig, market, seconds_left):
             state["opposite_count"] = 0
 
     elif active == "DOWN":
-        if score >= FLIP_UP_THRESHOLD and sig["mom3"] > 0:
+        if sig.get("candidate") == "UP" and sig.get("trend5") != "DOWN":
             state["opposite_count"] += 1
         else:
             state["opposite_count"] = 0
