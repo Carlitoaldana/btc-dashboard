@@ -3,6 +3,8 @@ import requests
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
+import sqlite3
+import json
 
 # =========================================================
 # MACALY + ALPHA BOT v4.6.1 • MOBILE PRO UI
@@ -671,6 +673,57 @@ def new_round_state(ticker, seconds_left):
         "candidate_history": [],
     }
 
+# =========================================================
+# PERSISTENCIA DE RONDA — SOBREVIVE SALIR/ENTRAR A LA APP
+# Solo guarda el estado de la ronda; NO cambia el cerebro.
+# =========================================================
+
+ROUND_STATE_DB = "btc_signal_round_state.db"
+
+def _round_db():
+    conn = sqlite3.connect(ROUND_STATE_DB, timeout=5)
+    conn.execute("CREATE TABLE IF NOT EXISTS round_state (ticker TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL)")
+    return conn
+
+def save_round_state(state):
+    if not state or not state.get("ticker"):
+        return
+    keep = dict(state)
+    for key in ("detected_at", "first_signal_time", "active_since"):
+        value = keep.get(key)
+        if isinstance(value, datetime):
+            keep[key] = value.isoformat()
+    try:
+        with _round_db() as conn:
+            conn.execute(
+                "INSERT INTO round_state(ticker,payload,updated_at) VALUES(?,?,?) "
+                "ON CONFLICT(ticker) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at",
+                (state["ticker"], json.dumps(keep), datetime.now(timezone.utc).isoformat()),
+            )
+    except Exception:
+        pass
+
+def load_round_state(ticker):
+    if not ticker or ticker == "--":
+        return None
+    try:
+        with _round_db() as conn:
+            row = conn.execute("SELECT payload FROM round_state WHERE ticker=?", (ticker,)).fetchone()
+        if not row:
+            return None
+        state = json.loads(row[0])
+        for key in ("detected_at", "first_signal_time", "active_since"):
+            value = state.get(key)
+            if isinstance(value, str) and value:
+                try:
+                    state[key] = datetime.fromisoformat(value)
+                except Exception:
+                    state[key] = None
+        state["_restored_from_disk"] = True
+        return state
+    except Exception:
+        return None
+
 
 # =========================================================
 # COINBASE — VELAS ORIGINALES DE 1 MINUTO
@@ -1168,7 +1221,8 @@ def process_round_signal(ticker, sig, market, seconds_left):
 
     if ticker and ticker != "--" and st.session_state.active_ticker != ticker:
         st.session_state.active_ticker = ticker
-        st.session_state.rounds[ticker] = new_round_state(ticker, seconds_left)
+        restored = load_round_state(ticker)
+        st.session_state.rounds[ticker] = restored if restored is not None else new_round_state(ticker, seconds_left)
         st.session_state.micro_ticker = ticker
         st.session_state.micro_prices = []
 
@@ -1180,9 +1234,11 @@ def process_round_signal(ticker, sig, market, seconds_left):
         }
 
     if ticker not in st.session_state.rounds:
-        st.session_state.rounds[ticker] = new_round_state(ticker, seconds_left)
+        restored = load_round_state(ticker)
+        st.session_state.rounds[ticker] = restored if restored is not None else new_round_state(ticker, seconds_left)
 
     state = st.session_state.rounds[ticker]
+    restored_from_disk = bool(state.pop("_restored_from_disk", False))
     score = float(sig.get("final_score", 0.0))
     price = float(sig.get("price", 0.0))
 
@@ -1215,9 +1271,11 @@ def process_round_signal(ticker, sig, market, seconds_left):
             state["first_signal_seconds"] = seconds_left
             state["first_signal_price"] = direction_price
     else:
-        # Si el cerebro deja de confirmar, no mantenemos una señal vieja artificialmente.
-        state["active_direction"] = None
-        state["active_since"] = None
+        # Al volver a abrir la app, conserva la señal que ya tenía ESA ronda.
+        # En los siguientes ciclos el cerebro vuelve a mandar normalmente.
+        if not restored_from_disk:
+            state["active_direction"] = None
+            state["active_since"] = None
 
     active = state.get("active_direction")
     reversal = False
@@ -1260,6 +1318,7 @@ def process_round_signal(ticker, sig, market, seconds_left):
         current_entry_price = None
 
     quality, quality_color = entry_quality(current_entry_price, seconds_left)
+    save_round_state(state)
     return {
         "decision":decision,"signal":signal,"icon":icon,"color":color,
         "round_state":state,"reversal":reversal,"reversal_text":reversal_text,
