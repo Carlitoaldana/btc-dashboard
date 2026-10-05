@@ -667,6 +667,8 @@ def new_round_state(ticker, seconds_left):
         "previous_live_price": None,
         "reversal_warning": False,
         "reversal_text": "",
+        "fresh_samples": [],
+        "candidate_history": [],
     }
 
 
@@ -700,7 +702,7 @@ def get_btc_data():
 
 
 def get_coinbase_whale_flow():
-    """Detecta ráfagas de flujo agresivo BTC/USD, no simples tickets grandes."""
+    """Lee presión agresiva de Coinbase en ventanas 10s/30s/60s y conserva alertas breves."""
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/trades",
         params={"limit": 100},
@@ -716,7 +718,6 @@ def get_coinbase_whale_flow():
     tape = st.session_state.setdefault("whale_flow_tape", [])
     seen = st.session_state.setdefault("whale_seen_ids", {})
 
-    # Coinbase informa el lado del maker; el agresor es el lado opuesto.
     for row in reversed(rows):
         try:
             trade_id = str(row.get("trade_id", ""))
@@ -735,39 +736,49 @@ def get_coinbase_whale_flow():
         except Exception:
             continue
 
-    tape[:] = [x for x in tape if now - x["t"] <= 35]
-    for k in [k for k, t in seen.items() if now - t > 45]:
+    tape[:] = [x for x in tape if now - x["t"] <= 75]
+    for k in [k for k, t in seen.items() if now - t > 90]:
         seen.pop(k, None)
 
-    burst = [x for x in tape if now - x["t"] <= 4]
-    baseline = [x for x in tape if 4 < now - x["t"] <= 24]
-    buy = sum(x["notional"] for x in burst if x["side"] == "COMPRA")
-    sell = sum(x["notional"] for x in burst if x["side"] == "VENTA")
-    total = buy + sell
-    dominant = max(buy, sell)
-    imbalance = dominant / total if total > 0 else 0.0
-    direction = "UP" if buy > sell else "DOWN" if sell > buy else None
+    def window(seconds):
+        w = [x for x in tape if now - x["t"] <= seconds]
+        buy = sum(x["notional"] for x in w if x["side"] == "COMPRA")
+        sell = sum(x["notional"] for x in w if x["side"] == "VENTA")
+        total = buy + sell
+        imbalance = abs(buy - sell) / total if total else 0.0
+        direction = "UP" if buy > sell else "DOWN" if sell > buy else None
+        return buy, sell, total, imbalance, direction
 
-    baseline_total = sum(x["notional"] for x in baseline)
-    baseline_rate = baseline_total / 20.0 if baseline_total > 0 else 0.0
-    burst_rate = total / 4.0 if total > 0 else 0.0
-    dynamic_min = max(1_500_000.0, baseline_rate * 4.0 * 2.5)
+    b10,s10,t10,i10,d10 = window(10)
+    b30,s30,t30,i30,d30 = window(30)
+    b60,s60,t60,i60,d60 = window(60)
 
-    qualifies = bool(direction and total >= dynamic_min and imbalance >= 0.75 and
-                     (baseline_rate == 0 or burst_rate >= baseline_rate * 2.5))
+    # Alert only when flow is materially one-sided AND supported beyond a tiny 4s snapshot.
+    burst = t10 >= 750_000 and i10 >= 0.28
+    sustained = t30 >= 1_750_000 and i30 >= 0.18
+    same_side = d10 is not None and d10 == d30
+    qualifies = bool(same_side and (burst or sustained))
 
     alert = st.session_state.get("whale_flow_alert")
     if qualifies:
-        alert = {"direction": direction, "time": now, "buy": buy, "sell": sell,
-                 "total": total, "imbalance": imbalance}
+        alert = {
+            "direction": d10, "time": now,
+            "buy": b30, "sell": s30, "total": t30,
+            "imbalance": i30, "buy10": b10, "sell10": s10,
+        }
         st.session_state["whale_flow_alert"] = alert
-    elif alert and now - float(alert.get("time", 0)) > 8:
+    elif alert and now - float(alert.get("time", 0)) > 12:
         alert = None
         st.session_state["whale_flow_alert"] = None
 
-    return {"detected": alert is not None, "alert": alert, "live_buy": buy,
-            "live_sell": sell, "live_total": total, "imbalance": imbalance,
-            "threshold": dynamic_min}
+    return {
+        "detected": alert is not None, "alert": alert,
+        "live_buy": b10, "live_sell": s10, "live_total": t10,
+        "imbalance": i10, "buy30": b30, "sell30": s30,
+        "buy60": b60, "sell60": s60,
+        "flow_direction": d10 if same_side else None,
+        "flow_strength": max(i10, i30 if same_side else 0.0),
+    }
 
 
 def compact_usd(value):
@@ -787,8 +798,8 @@ def render_whale_panel(whale, active):
         return f'''<section style="{base}">
           <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#35e986">● COINBASE</span></div>
           <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN FLUJO EXTREMO AHORA</div>
-          <div style="margin-top:6px;font-size:9px;color:#8da0b4">Últimos 4 s · COMPRAS {buy} · VENTAS {sell}</div>
-          <div style="margin-top:4px;font-size:8px;color:#6f8195">Analiza ráfagas anormales; no alerta por una operación aislada.</div>
+          <div style="margin-top:6px;font-size:9px;color:#8da0b4">Últimos 10 s · COMPRAS {buy} · VENTAS {sell}</div>
+          <div style="margin-top:4px;font-size:8px;color:#6f8195">Confirma presión con ventanas de 10 s y 30 s; no alerta por una operación aislada.</div>
         </section>'''
 
     a = whale["alert"]
@@ -803,7 +814,7 @@ def render_whale_panel(whale, active):
     return f'''<section style="{base};border-color:{color};box-shadow:0 0 20px {color}33">
       <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:{color}">● ALERTA</span></div>
       <div style="margin-top:8px;font-size:15px;font-weight:950;color:{color}">⚡ {arrow} FLUJO EXTREMO {label}</div>
-      <div style="margin-top:6px;font-size:12px;font-weight:900;color:#f3f7fb">{compact_usd(dominant)} dominantes en ~4 s</div>
+      <div style="margin-top:6px;font-size:12px;font-weight:900;color:#f3f7fb">{compact_usd(dominant)} dominantes en ~30 s</div>
       <div style="margin-top:5px;font-size:9px;color:#aab8c7">COMPRAS {compact_usd(a['buy'])} · VENTAS {compact_usd(a['sell'])} · DOMINIO {a['imbalance']*100:.0f}%{relation}</div>
       <div style="margin-top:4px;font-size:8px;color:#7f91a5">Alerta temprana de presión extraordinaria en el flujo real de BTC/USD.</div>
     </section>'''
@@ -1157,94 +1168,113 @@ def entry_quality(price, seconds_left):
 def process_round_signal(ticker, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
 
-    if (
-        ticker
-        and ticker != "--"
-        and st.session_state.active_ticker != ticker
-    ):
+    if ticker and ticker != "--" and st.session_state.active_ticker != ticker:
         st.session_state.active_ticker = ticker
-        st.session_state.rounds[ticker] = new_round_state(
-            ticker, seconds_left
-        )
+        st.session_state.rounds[ticker] = new_round_state(ticker, seconds_left)
+        # Hard reset of second-by-second tape so the previous round cannot leak in.
+        st.session_state.micro_ticker = ticker
+        st.session_state.micro_prices = []
 
     if not ticker or ticker == "--":
         return {
-            "decision": "NO TRADE",
-            "signal": "SIN RONDA",
-            "icon": "•",
-            "color": "#fbbf24",
-            "round_state": None,
-            "reversal": False,
-            "reversal_text": "",
-            "entry_price": None,
-            "entry_quality": "SIN DATOS",
-            "entry_quality_color": "#94a3b8",
+            "decision":"NO TRADE","signal":"SIN RONDA","icon":"•","color":"#fbbf24",
+            "round_state":None,"reversal":False,"reversal_text":"","entry_price":None,
+            "entry_quality":"SIN DATOS","entry_quality_color":"#94a3b8",
         }
 
     if ticker not in st.session_state.rounds:
-        st.session_state.rounds[ticker] = new_round_state(
-            ticker, seconds_left
-        )
+        st.session_state.rounds[ticker] = new_round_state(ticker, seconds_left)
 
     state = st.session_state.rounds[ticker]
     age = (now - state["detected_at"]).total_seconds()
-    score = sig["final_score"]
+    score = float(sig.get("final_score", 0.0))
+    price = float(sig.get("price", 0.0))
 
     previous_live_price = state["last_live_price"]
     state["previous_live_price"] = previous_live_price
-    state["last_live_price"] = sig["price"]
-
-    price_change = (
-        sig["price"] - previous_live_price
-        if previous_live_price is not None
-        else 0.0
-    )
+    state["last_live_price"] = price
+    price_change = price - previous_live_price if previous_live_price is not None else 0.0
 
     previous_score = state["last_score"]
     state["previous_score"] = previous_score
-    score_change = score - previous_score
     state["last_score"] = score
+    score_change = score - previous_score
 
-    if age < NEW_ROUND_WAIT:
+    # Store ONLY observations collected after this ticker was detected.
+    samples = state.setdefault("fresh_samples", [])
+    if not samples or (now.timestamp() - samples[-1]["t"]) >= 1.5:
+        samples.append({
+            "t": now.timestamp(), "p": price,
+            "candidate": sig.get("candidate"),
+            "trend3": sig.get("trend3"), "trend5": sig.get("trend5"),
+            "mom3": float(sig.get("mom3", 0.0)),
+            "rsi": float(sig.get("rsi", 50.0)),
+        })
+    state["fresh_samples"] = samples[-12:]
+
+    candidate = sig.get("candidate")
+    history = state.setdefault("candidate_history", [])
+    if candidate in ("UP","DOWN"):
+        history.append(candidate)
+    else:
+        history.append("WAIT")
+    state["candidate_history"] = history[-6:]
+
+    # IMPORTANT: 8 seconds alone is NOT enough anymore.
+    # Need at least 4 fresh observations spanning >=6 seconds in this NEW round.
+    span = samples[-1]["t"] - samples[0]["t"] if len(samples) >= 2 else 0.0
+    enough_fresh = len(samples) >= 4 and span >= 6.0
+
+    # First direction must repeat; a one-frame UP/DOWN cannot become the signal.
+    recent = state["candidate_history"][-4:]
+    up_votes = recent.count("UP")
+    down_votes = recent.count("DOWN")
+    confirmed_candidate = None
+    if up_votes >= 3 and down_votes == 0:
+        confirmed_candidate = "UP"
+    elif down_votes >= 3 and up_votes == 0:
+        confirmed_candidate = "DOWN"
+
+    # Reject inherited trend: require price/momentum evidence produced during THIS round.
+    round_move = price - samples[0]["p"] if samples else 0.0
+    if confirmed_candidate == "UP":
+        fresh_support = (
+            round_move >= 4.0
+            or (sig.get("mom3",0) > 0.015 and sig.get("rsi",50) >= 52)
+        )
+        hard_conflict = sig.get("trend5") == "DOWN" and sig.get("trend3") == "DOWN"
+    elif confirmed_candidate == "DOWN":
+        fresh_support = (
+            round_move <= -4.0
+            or (sig.get("mom3",0) < -0.015 and sig.get("rsi",50) <= 48)
+        )
+        hard_conflict = sig.get("trend5") == "UP" and sig.get("trend3") == "UP"
+    else:
+        fresh_support = False
+        hard_conflict = False
+
+    if age < NEW_ROUND_WAIT or not enough_fresh:
         state["reversal_warning"] = False
         state["reversal_text"] = ""
         return {
-            "decision": "ANALIZANDO NUEVA RONDA",
-            "signal": "ESPERANDO CONFIRMACIÓN",
-            "icon": "⌛",
-            "color": "#38bdf8",
-            "round_state": state,
-            "reversal": False,
-            "reversal_text": "",
-            "entry_price": None,
-            "entry_quality": "ESPERANDO",
-            "entry_quality_color": "#38bdf8",
+            "decision":"ANALIZANDO NUEVA RONDA","signal":"ESPERANDO DATOS NUEVOS",
+            "icon":"⌛","color":"#38bdf8","round_state":state,"reversal":False,
+            "reversal_text":"","entry_price":None,"entry_quality":"ESPERANDO",
+            "entry_quality_color":"#38bdf8",
         }
 
-    lock_new_entries = (
-        seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK
-    )
+    lock_new_entries = seconds_left is not None and seconds_left <= NEW_ENTRY_LOCK
 
-    candidate = sig.get("candidate")
-
-    if (
-        state["active_direction"] is None
-        and candidate is not None
-        and not lock_new_entries
-    ):
-        direction_price = (
-            get_yes_ask(market)
-            if candidate == "UP"
-            else get_no_ask(market)
-        )
-
-        state["active_direction"] = candidate
-        state["active_since"] = now
-        state["first_direction"] = candidate
-        state["first_signal_time"] = now
-        state["first_signal_seconds"] = seconds_left
-        state["first_signal_price"] = direction_price
-        state["opposite_count"] = 0
+    if state["active_direction"] is None and not lock_new_entries:
+        if confirmed_candidate is not None and fresh_support and not hard_conflict:
+            direction_price = get_yes_ask(market) if confirmed_candidate == "UP" else get_no_ask(market)
+            state["active_direction"] = confirmed_candidate
+            state["active_since"] = now
+            state["first_direction"] = confirmed_candidate
+            state["first_signal_time"] = now
+            state["first_signal_seconds"] = seconds_left
+            state["first_signal_price"] = direction_price
+            state["opposite_count"] = 0
 
     active = state["active_direction"]
     reversal = False
@@ -1252,125 +1282,52 @@ def process_round_signal(ticker, sig, market, seconds_left):
 
     if active == "UP":
         weakness_points = 0
-
-        if score < 3:
-            weakness_points += 1
-        if score_change <= -1.25:
-            weakness_points += 1
-        if sig["mom3"] < -0.02:
-            weakness_points += 1
-        if sig["mom5"] < 0:
-            weakness_points += 1
-        if price_change < -8:
-            weakness_points += 1
-        if (
-            sig["distance"] is not None
-            and seconds_left is not None
-            and seconds_left <= 180
-            and sig["distance"] < 25
-            and price_change < 0
-        ):
-            weakness_points += 1
-
+        if score < 0: weakness_points += 1
+        if score_change <= -1.25: weakness_points += 1
+        if sig.get("mom3",0) < -0.02: weakness_points += 1
+        if sig.get("mom5",0) < 0: weakness_points += 1
+        if price_change < -8: weakness_points += 1
+        if sig.get("candidate") == "DOWN": weakness_points += 1
         if weakness_points >= 2:
             reversal = True
-            reversal_text = "UP PERDIENDO FUERZA • POSIBLE REVERSIÓN A DOWN"
-
+            reversal_text = "UP PERDIENDO FUERZA • PRESIÓN CONTRARIA DETECTADA"
     elif active == "DOWN":
         weakness_points = 0
-
-        if score > -3:
-            weakness_points += 1
-        if score_change >= 1.25:
-            weakness_points += 1
-        if sig["mom3"] > 0.02:
-            weakness_points += 1
-        if sig["mom5"] > 0:
-            weakness_points += 1
-        if price_change > 8:
-            weakness_points += 1
-        if (
-            sig["distance"] is not None
-            and seconds_left is not None
-            and seconds_left <= 180
-            and sig["distance"] > -25
-            and price_change > 0
-        ):
-            weakness_points += 1
-
+        if score > 0: weakness_points += 1
+        if score_change >= 1.25: weakness_points += 1
+        if sig.get("mom3",0) > 0.02: weakness_points += 1
+        if sig.get("mom5",0) > 0: weakness_points += 1
+        if price_change > 8: weakness_points += 1
+        if sig.get("candidate") == "UP": weakness_points += 1
         if weakness_points >= 2:
             reversal = True
-            reversal_text = "DOWN PERDIENDO FUERZA • POSIBLE REBOTE A UP"
+            reversal_text = "DOWN PERDIENDO FUERZA • PRESIÓN CONTRARIA DETECTADA"
 
     state["reversal_warning"] = reversal
     state["reversal_text"] = reversal_text
 
-    if active == "UP":
-        if sig.get("candidate") == "DOWN" and sig.get("trend5") != "UP":
-            state["opposite_count"] += 1
-        else:
-            state["opposite_count"] = 0
-
-        if state["opposite_count"] >= FLIP_CONFIRMATIONS:
-            if not lock_new_entries:
-                state["active_direction"] = "DOWN"
-                state["active_since"] = now
-            state["opposite_count"] = 0
-
-    elif active == "DOWN":
-        if sig.get("candidate") == "UP" and sig.get("trend5") != "DOWN":
-            state["opposite_count"] += 1
-        else:
-            state["opposite_count"] = 0
-
-        if state["opposite_count"] >= FLIP_CONFIRMATIONS:
-            if not lock_new_entries:
-                state["active_direction"] = "UP"
-                state["active_since"] = now
-            state["opposite_count"] = 0
-
-    active = state["active_direction"]
+    # Keep the FIRST signal fixed. Do not turn a bad first entry into a later opposite entry.
+    # The app warns about deterioration, but does not pretend a later flip was the original call.
 
     if active == "UP":
-        decision = "UP"
-        signal = "SEÑAL UP"
-        icon = "⬆"
-        color = "#34e982"
+        decision, signal, icon, color = "UP","SEÑAL UP","⬆","#34e982"
         current_entry_price = get_yes_ask(market)
     elif active == "DOWN":
-        decision = "DOWN"
-        signal = "SEÑAL DOWN"
-        icon = "⬇"
-        color = "#ff4e5f"
+        decision, signal, icon, color = "DOWN","SEÑAL DOWN","⬇","#ff4e5f"
         current_entry_price = get_no_ask(market)
     else:
         current_entry_price = None
         if lock_new_entries:
-            decision = "NO NUEVA ENTRADA"
-            signal = "FINAL DE RONDA"
-            icon = "⏱"
-            color = "#fbbf24"
+            decision, signal, icon, color = "NO NUEVA ENTRADA","FINAL DE RONDA","⏱","#fbbf24"
         else:
-            decision = "ESPERANDO"
-            signal = "ESPERAR"
-            icon = "•"
-            color = "#38bdf8"
+            decision, signal, icon, color = "ESPERANDO","SIN CONFIRMACIÓN","•","#38bdf8"
 
-    quality, quality_color = entry_quality(
-        current_entry_price, seconds_left
-    )
-
+    quality, quality_color = entry_quality(current_entry_price, seconds_left)
     return {
-        "decision": decision,
-        "signal": signal,
-        "icon": icon,
-        "color": color,
-        "round_state": state,
-        "reversal": reversal,
-        "reversal_text": reversal_text,
-        "entry_price": current_entry_price,
-        "entry_quality": quality,
-        "entry_quality_color": quality_color,
+        "decision":decision,"signal":signal,"icon":icon,"color":color,
+        "round_state":state,"reversal":reversal,"reversal_text":reversal_text,
+        "entry_price":current_entry_price,"entry_quality":quality,
+        "entry_quality_color":quality_color,
     }
 
 
@@ -1475,6 +1432,22 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     """
     state = round_signal.get("round_state")
     active_direction = state.get("active_direction") if state else None
+
+    if seconds_left is not None and seconds_left <= 0:
+        distance = sig.get("distance")
+        if distance is None or abs(distance) < 1:
+            headline, color = "RONDA FINALIZADA", "#94a3b8"
+        elif distance > 0:
+            headline, color = "RONDA FINALIZADA • UP", "#34e982"
+        else:
+            headline, color = "RONDA FINALIZADA • DOWN", "#ff4e5f"
+        return {
+            "percent":100, "headline":headline,
+            "note":"La ronda terminó. Ya no se muestra una predicción de cierre.",
+            "micro":"RONDA CERRADA","color":color,
+            "border":"rgba(148,163,184,.45)",
+            "bg":"linear-gradient(135deg,rgba(30,41,59,.45),rgba(9,23,34,.72))",
+        }
 
     if active_direction not in ("UP", "DOWN"):
         return {
@@ -1898,9 +1871,11 @@ def live_dashboard():
 
     if distance is None:
         distance_text, distance_sub = "--", "SIN TARGET"
+        distance_color = "#94a3b8"
     else:
         distance_text = f"${abs(distance):,.0f}"
         distance_sub = f"{abs(distance_pct):.2f}%"
+        distance_color = "#34e982" if distance > 0 else "#ff4e5f" if distance < 0 else "#94a3b8"
     first_signal = (state.get("first_direction") if state else None) or "--"
     first_time = "--"
     if state and state.get("first_signal_time"):
@@ -1947,9 +1922,9 @@ def live_dashboard():
       <div><div class="rlabel">TARGET</div><div class="rvalue">{target_text}</div></div>
     </div>
     <div class="rcard keycard">
-      <div class="bars"><b></b><b></b><b></b></div>
-      <div><div class="rlabel">DISTANCIA AL TARGET</div><div class="rvalue">{distance_text}</div>
-      <div class="rdelta" style="color:var(--accent)">{distance_sub}</div></div>
+      <div class="bars" style="--accent:{distance_color}"><b></b><b></b><b></b></div>
+      <div><div class="rlabel">DISTANCIA AL TARGET</div><div class="rvalue" style="color:{distance_color}">{distance_text}</div>
+      <div class="rdelta" style="color:{distance_color}">{distance_sub}</div></div>
     </div>
     <div class="rcard keycard">
       <div class="clock">◷</div>
