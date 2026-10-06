@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import sqlite3
 import json
 
@@ -625,6 +626,18 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .rgrid{margin-top:1px!important}
 .reader{min-height:0!important}
 
+
+/* ===== PRESEÑAL — CAPA VISUAL, NO TOCA EL MOTOR ===== */
+.presignal{margin:0 0 6px;padding:9px 10px;border:1px solid var(--precolor);border-radius:10px;background:linear-gradient(135deg,var(--prebg),rgba(8,18,27,.88));box-shadow:0 0 18px var(--preglow)}
+.prehead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pretitle{font-size:8px;font-weight:950;letter-spacing:.55px;color:#b9c9db}
+.prebadge{font-size:6.5px;font-weight:900;color:var(--precolor);border:1px solid var(--precolor);border-radius:10px;padding:3px 7px}
+.premain{display:flex;justify-content:space-between;align-items:flex-end;margin-top:7px;gap:8px}
+.predirection{font-size:17px;font-weight:1000;color:var(--precolor);letter-spacing:-.3px}
+.prepercent{font-size:18px;font-weight:1000;color:var(--precolor)}
+.prebar{height:5px;background:#1b2938;border-radius:6px;overflow:hidden;margin-top:7px}
+.prebar b{display:block;height:100%;background:var(--precolor);border-radius:6px;box-shadow:0 0 9px var(--preglow)}
+.prenote{font-size:6.7px;color:#91a2b5;margin-top:5px;line-height:1.25}
 
 .chartbox{margin-top:10px;background:linear-gradient(180deg,#08121d,#060c14);border:1px solid #203a51;border-radius:12px;padding:10px 8px 8px;box-shadow:inset 0 0 28px rgba(20,80,110,.08)}
 .charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
@@ -1705,7 +1718,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     # time labels
     picks=[0, max(0,n//3), max(0,2*n//3), n-1]
     for idx in picks:
-        tm=d.iloc[idx]['time'].to_pydatetime().astimezone().strftime('%H:%M')
+        tm=d.iloc[idx]['time'].to_pydatetime().astimezone(ZoneInfo("America/New_York")).strftime('%-I:%M %p')
         xx=left+(idx+.5)*step
         svg.append(f'<text x="{xx:.1f}" y="{H-52}" text-anchor="middle" fill="#8392a7" font-size="11">{tm}</text>')
 
@@ -1874,7 +1887,37 @@ def live_dashboard():
     first_signal = (state.get("first_direction") if state else None) or "--"
     first_time = "--"
     if state and state.get("first_signal_time"):
-        first_time = state["first_signal_time"].astimezone().strftime("%H:%M")
+        signal_dt = state["first_signal_time"]
+        if signal_dt.tzinfo is None:
+            signal_dt = signal_dt.replace(tzinfo=timezone.utc)
+        first_time = signal_dt.astimezone(ZoneInfo("America/New_York")).strftime("%-I:%M %p")
+
+    # Etiqueta visual en español; el motor conserva internamente BULL/BEAR.
+    ema_display = "ALCISTA" if sig.get("ema") == "BULL" else "BAJISTA" if sig.get("ema") == "BEAR" else sig.get("ema", "N/A")
+
+    # PRESEÑAL: lectura visual de la inclinación que YA calcula el cerebro.
+    # No modifica candidate, active_direction, probabilidades ni confirmación final.
+    if active not in ("UP", "DOWN"):
+        if up > down:
+            pre_direction, pre_percent = "UP", up
+            pre_color, pre_bg, pre_glow = "#34e982", "rgba(18,91,57,.26)", "rgba(52,233,130,.20)"
+            pre_note = "Presión alcista detectada. Esperando confirmación del motor."
+        elif down > up:
+            pre_direction, pre_percent = "DOWN", down
+            pre_color, pre_bg, pre_glow = "#ff4e5f", "rgba(104,25,37,.28)", "rgba(255,78,95,.20)"
+            pre_note = "Presión bajista detectada. Esperando confirmación del motor."
+        else:
+            pre_direction, pre_percent = "NEUTRAL", 50
+            pre_color, pre_bg, pre_glow = "#38bdf8", "rgba(24,73,101,.24)", "rgba(56,189,248,.18)"
+            pre_note = "Todavía no hay inclinación suficiente. Esperando al motor."
+        pre_html = f'''<section class="presignal" style="--precolor:{pre_color};--prebg:{pre_bg};--preglow:{pre_glow}">
+          <div class="prehead"><span class="pretitle">PRESEÑAL · TENDENCIA EN FORMACIÓN</span><span class="prebadge">NO CONFIRMADA</span></div>
+          <div class="premain"><span class="predirection">POSIBLE {pre_direction}</span><span class="prepercent">{pre_percent}%</span></div>
+          <div class="prebar"><b style="width:{pre_percent}%"></b></div>
+          <div class="prenote">{pre_note}</div>
+        </section>'''
+    else:
+        pre_html = ""
 
     if active == "UP":
         hero_arrow, hero_word = "", "UP"
@@ -1905,6 +1948,8 @@ def live_dashboard():
     <div class="rsignal"><span class="cssarrow"></span><span>{hero_word}</span></div>
     <div class="rconf">{'CONFIANZA ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
   </section>
+
+  {pre_html}
 
   <div class="rgrid">
     <div class="rcard keycard">
@@ -1947,7 +1992,7 @@ def live_dashboard():
     <div class="techrow">
       <div><small>1ª SEÑAL</small><b style="color:var(--accent)">{first_signal}</b><i>{first_time}</i></div>
       <div><small>KALSHI</small><b>{confidence}%</b><i>{round_signal["entry_quality"]}</i></div>
-      <div><small>EMA</small><b class="{ema_class}">{sig["ema"]}</b><i>9 / 21</i></div>
+      <div><small>EMA</small><b class="{ema_class}">{ema_display}</b><i>9 / 21</i></div>
       <div><small>RSI</small><b class="{rsi_class}">{sig["rsi"]:.0f}</b><i>14</i></div>
       <div><small>MOMENTUM</small><b class="{mom_class}">{sig["mom3"]:+.2f}</b><i>3 MIN</i></div>
     </div>
