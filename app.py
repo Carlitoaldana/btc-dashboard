@@ -1215,6 +1215,101 @@ def build_signal(df, target, seconds_left, live_price=None):
     momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
     return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr}
 
+
+def build_presignal(sig, seconds_left):
+    """
+    PRESEÑAL INDEPENDIENTE.
+    No usa up_probability/down_probability y no cambia candidate ni la señal oficial.
+    Lee señales tempranas que el motor ya expone: EMA, RSI, momentum, 3M/5M,
+    MACD, DI, VWAP y posición respecto al target.
+    """
+    bull = 0.0
+    bear = 0.0
+
+    ema = sig.get("ema")
+    rsi1 = float(sig.get("rsi", 50) or 50)
+    rsi3 = float(sig.get("rsi3", 50) or 50)
+    rsi5 = float(sig.get("rsi5", 50) or 50)
+    mom3 = float(sig.get("mom3", 0) or 0)
+    mom5 = float(sig.get("mom5", 0) or 0)
+    trend3 = sig.get("trend3", "NEUTRAL")
+    trend5 = sig.get("trend5", "NEUTRAL")
+    macd3 = float(sig.get("macd3", 0) or 0)
+    macd5 = float(sig.get("macd5", 0) or 0)
+    plus_di = float(sig.get("plus_di", 0) or 0)
+    minus_di = float(sig.get("minus_di", 0) or 0)
+    vwap_atr = float(sig.get("vwap_atr", 0) or 0)
+    target_atr = float(sig.get("target_atr", 0) or 0)
+
+    # Tendencia base
+    if ema == "BULL": bull += 1.0
+    elif ema == "BEAR": bear += 1.0
+
+    if trend3 == "UP": bull += 1.25
+    elif trend3 == "DOWN": bear += 1.25
+
+    if trend5 == "UP": bull += 1.0
+    elif trend5 == "DOWN": bear += 1.0
+
+    # RSI temprano
+    if rsi1 >= 52: bull += 0.8
+    elif rsi1 <= 48: bear += 0.8
+    if rsi3 >= 51: bull += 0.65
+    elif rsi3 <= 49: bear += 0.65
+    if rsi5 >= 52: bull += 0.35
+    elif rsi5 <= 48: bear += 0.35
+
+    # Momentum
+    if mom3 > 0.015: bull += 1.0
+    elif mom3 < -0.015: bear += 1.0
+    if mom5 > 0.025: bull += 0.65
+    elif mom5 < -0.025: bear += 0.65
+
+    # MACD / DMI
+    if macd3 > 0: bull += 0.8
+    elif macd3 < 0: bear += 0.8
+    if macd5 > 0: bull += 0.45
+    elif macd5 < 0: bear += 0.45
+    if plus_di > minus_di: bull += 0.65
+    elif minus_di > plus_di: bear += 0.65
+
+    # Precio frente a VWAP
+    if vwap_atr >= 0.03: bull += 0.75
+    elif vwap_atr <= -0.03: bear += 0.75
+
+    # Target: ayuda a anticipar, pero no domina al principio.
+    target_weight = 0.55
+    if seconds_left is not None and seconds_left <= 300:
+        target_weight = 0.85
+    if target_atr >= 0.12: bull += target_weight
+    elif target_atr <= -0.12: bear += target_weight
+
+    total = bull + bear
+    edge = bull - bear
+
+    if total < 2.0 or abs(edge) < 0.65:
+        return {
+            "direction": "NEUTRAL",
+            "percent": 50,
+            "bull": bull,
+            "bear": bear,
+        }
+
+    direction = "UP" if edge > 0 else "DOWN"
+    dominant = max(bull, bear)
+    share = dominant / total if total else 0.5
+
+    # 52–84%: escala propia de PRESEÑAL, no copia la probabilidad oficial.
+    percent = int(round(np.clip(50 + (share - 0.5) * 68 + min(abs(edge), 4.0) * 2.0, 52, 84)))
+
+    return {
+        "direction": direction,
+        "percent": percent,
+        "bull": bull,
+        "bear": bear,
+    }
+
+
 def entry_quality(price, seconds_left):
     if price is None:
         return "PRECIO NO DISPONIBLE", "#94a3b8"
@@ -1895,73 +1990,30 @@ def live_dashboard():
     # Etiqueta visual en español; el motor conserva internamente BULL/BEAR.
     ema_display = "ALCISTA" if sig.get("ema") == "BULL" else "BAJISTA" if sig.get("ema") == "BEAR" else sig.get("ema", "N/A")
 
-    # PRESEÑAL: cálculo INDEPENDIENTE de up_probability/down_probability.
-    # Usa las lecturas crudas del motor, pero NO copia ni modifica la probabilidad oficial.
-    pre_score = 0.0
-    pre_score += float(np.clip(sig.get("technical_score", 0.0) / 4.5, -1.0, 1.0)) * 2.0
-    pre_score += 0.80 if sig.get("ema") == "BULL" else -0.80 if sig.get("ema") == "BEAR" else 0.0
-    pre_score += 0.65 if sig.get("trend3") == "UP" else -0.65 if sig.get("trend3") == "DOWN" else 0.0
-    pre_score += 0.75 if sig.get("trend5") == "UP" else -0.75 if sig.get("trend5") == "DOWN" else 0.0
-
-    rsi_now = float(sig.get("rsi", 50) or 50)
-    if rsi_now >= 53:
-        pre_score += 0.55
-    elif rsi_now <= 47:
-        pre_score -= 0.55
-
-    mom3_now = float(sig.get("mom3", 0.0) or 0.0)
-    if mom3_now > 0.015:
-        pre_score += 0.70
-    elif mom3_now < -0.015:
-        pre_score -= 0.70
-
-    # El target ayuda a la preseñal, pero no decide por sí solo la dirección.
-    if distance is not None:
-        target_atr_now = float(sig.get("target_atr", 0.0) or 0.0)
-        pre_score += float(np.clip(target_atr_now, -1.5, 1.5)) * 0.55
-
-    # Dirección temprana y fuerza propias de la preseñal.
-    # Zona neutral pequeña para evitar inventar una tendencia cuando está realmente plano.
-    if pre_score >= 0.45:
-        pre_direction = "UP"
-    elif pre_score <= -0.45:
-        pre_direction = "DOWN"
-    else:
-        pre_direction = "NEUTRAL"
-
-    if pre_direction == "NEUTRAL":
-        pre_percent = 50
-    else:
-        # 54–96% según la fuerza de ESTA capa, no según Kalshi/probabilidad oficial.
-        pre_percent = int(round(np.clip(54 + abs(pre_score) * 8.5, 54, 96)))
-
-        # En la ventana final puede madurar hasta 100% si precio, señal oficial y
-        # tendencia temprana siguen alineados. Esto solo afecta la PRESEÑAL visual.
-        distance_aligned = (
-            distance is not None and
-            ((pre_direction == "UP" and distance > 0) or
-             (pre_direction == "DOWN" and distance < 0))
-        )
-        active_aligned = active == pre_direction
-        final_window = seconds_left is not None and 0 < seconds_left <= 180
-        enough_distance = distance is not None and abs(distance) >= 30
-        very_strong_pre = abs(pre_score) >= 4.0
-        if final_window and active_aligned and distance_aligned and enough_distance and very_strong_pre:
-            pre_percent = 100
+    # PRESEÑAL independiente: permanece visible toda la ronda y NO copia
+    # las probabilidades oficiales.
+    pre = build_presignal(sig, seconds_left)
+    pre_direction = pre["direction"]
+    pre_percent = pre["percent"]
 
     if pre_direction == "UP":
         pre_color, pre_bg, pre_glow = "#34e982", "rgba(18,91,57,.26)", "rgba(52,233,130,.20)"
         pre_note = "Presión alcista temprana detectada. Esperando evolución del mercado."
+        pre_label = "POSIBLE UP"
     elif pre_direction == "DOWN":
         pre_color, pre_bg, pre_glow = "#ff4e5f", "rgba(104,25,37,.28)", "rgba(255,78,95,.20)"
         pre_note = "Presión bajista temprana detectada. Esperando evolución del mercado."
+        pre_label = "POSIBLE DOWN"
     else:
         pre_color, pre_bg, pre_glow = "#38bdf8", "rgba(24,73,101,.24)", "rgba(56,189,248,.18)"
-        pre_note = "Todavía no hay inclinación suficiente. La preseñal sigue observando la tendencia."
+        pre_note = "Sin inclinación temprana suficiente. La preseñal sigue observando."
+        pre_label = "NEUTRAL"
+
+    pre_badge = "CONFIRMADA" if active in ("UP", "DOWN") and pre_direction == active else "NO CONFIRMADA"
 
     pre_html = f'''<section class="presignal" style="--precolor:{pre_color};--prebg:{pre_bg};--preglow:{pre_glow}">
-      <div class="prehead"><span class="pretitle">PRESEÑAL · TENDENCIA EN FORMACIÓN</span><span class="prebadge">NO CONFIRMADA</span></div>
-      <div class="premain"><span class="predirection">POSIBLE {pre_direction}</span><span class="prepercent">{pre_percent}%</span></div>
+      <div class="prehead"><span class="pretitle">PRESEÑAL · TENDENCIA EN FORMACIÓN</span><span class="prebadge">{pre_badge}</span></div>
+      <div class="premain"><span class="predirection">{pre_label}</span><span class="prepercent">{pre_percent}%</span></div>
       <div class="prebar"><b style="width:{pre_percent}%"></b></div>
       <div class="prenote">{pre_note}</div>
     </section>'''
