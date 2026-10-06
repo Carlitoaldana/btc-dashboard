@@ -1217,11 +1217,12 @@ def build_signal(df, target, seconds_left, live_price=None):
 
 
 def build_presignal(sig, seconds_left):
-    """
-    PRESEÑAL INDEPENDIENTE.
-    No usa up_probability/down_probability y no cambia candidate ni la señal oficial.
-    Lee señales tempranas que el motor ya expone: EMA, RSI, momentum, 3M/5M,
-    MACD, DI, VWAP y posición respecto al target.
+    """PRESEÑAL INDEPENDIENTE Y REACTIVA.
+
+    No cambia la señal oficial. Usa la lectura ACTUAL y, a medida que se acerca
+    el cierre, reduce el peso de señales lentas (3M/5M) y aumenta el peso de la
+    posición actual frente al target. Así puede girar UP/DOWN sin quedarse
+    pegada a una tendencia vieja.
     """
     bull = 0.0
     bear = 0.0
@@ -1241,74 +1242,77 @@ def build_presignal(sig, seconds_left):
     vwap_atr = float(sig.get("vwap_atr", 0) or 0)
     target_atr = float(sig.get("target_atr", 0) or 0)
 
-    # Tendencia base
-    if ema == "BULL": bull += 1.0
-    elif ema == "BEAR": bear += 1.0
+    secs = 900 if seconds_left is None else max(0, int(seconds_left))
+    # Los marcos lentos importan al principio; cerca del cierre mandan menos.
+    slow = 1.0 if secs > 300 else 0.70 if secs > 180 else 0.45 if secs > 90 else 0.25
 
-    if trend3 == "UP": bull += 1.25
-    elif trend3 == "DOWN": bear += 1.25
+    if ema == "BULL": bull += 0.85
+    elif ema == "BEAR": bear += 0.85
 
-    if trend5 == "UP": bull += 1.0
-    elif trend5 == "DOWN": bear += 1.0
+    if trend3 == "UP": bull += 1.10 * slow
+    elif trend3 == "DOWN": bear += 1.10 * slow
+    if trend5 == "UP": bull += 0.90 * slow
+    elif trend5 == "DOWN": bear += 0.90 * slow
 
-    # RSI temprano
-    if rsi1 >= 52: bull += 0.8
-    elif rsi1 <= 48: bear += 0.8
-    if rsi3 >= 51: bull += 0.65
-    elif rsi3 <= 49: bear += 0.65
-    if rsi5 >= 52: bull += 0.35
-    elif rsi5 <= 48: bear += 0.35
+    if rsi1 >= 52: bull += 0.90
+    elif rsi1 <= 48: bear += 0.90
+    if rsi3 >= 51: bull += 0.55 * slow
+    elif rsi3 <= 49: bear += 0.55 * slow
+    if rsi5 >= 52: bull += 0.30 * slow
+    elif rsi5 <= 48: bear += 0.30 * slow
 
-    # Momentum
-    if mom3 > 0.015: bull += 1.0
-    elif mom3 < -0.015: bear += 1.0
-    if mom5 > 0.025: bull += 0.65
-    elif mom5 < -0.025: bear += 0.65
+    if mom3 > 0.015: bull += 1.15
+    elif mom3 < -0.015: bear += 1.15
+    elif mom3 > 0: bull += 0.30
+    elif mom3 < 0: bear += 0.30
+    if mom5 > 0.025: bull += 0.55 * slow
+    elif mom5 < -0.025: bear += 0.55 * slow
 
-    # MACD / DMI
-    if macd3 > 0: bull += 0.8
-    elif macd3 < 0: bear += 0.8
-    if macd5 > 0: bull += 0.45
-    elif macd5 < 0: bear += 0.45
-    if plus_di > minus_di: bull += 0.65
-    elif minus_di > plus_di: bear += 0.65
+    if macd3 > 0: bull += 0.70 * slow
+    elif macd3 < 0: bear += 0.70 * slow
+    if macd5 > 0: bull += 0.35 * slow
+    elif macd5 < 0: bear += 0.35 * slow
+    if plus_di > minus_di: bull += 0.50 * slow
+    elif minus_di > plus_di: bear += 0.50 * slow
 
-    # Precio frente a VWAP
-    if vwap_atr >= 0.03: bull += 0.75
-    elif vwap_atr <= -0.03: bear += 0.75
+    if vwap_atr >= 0.03: bull += 0.70
+    elif vwap_atr <= -0.03: bear += 0.70
 
-    # Target: ayuda a anticipar, pero no domina al principio.
-    target_weight = 0.55
-    if seconds_left is not None and seconds_left <= 300:
-        target_weight = 0.85
-    if target_atr >= 0.12: bull += target_weight
-    elif target_atr <= -0.12: bear += target_weight
+    # El target gana importancia progresivamente. No inventa dirección:
+    # usa únicamente dónde está BTC respecto al target en este instante.
+    if secs > 300:
+        tw = 0.65
+    elif secs > 180:
+        tw = 1.40
+    elif secs > 90:
+        tw = 2.40
+    elif secs > 30:
+        tw = 3.60
+    else:
+        tw = 5.00
+
+    # Magnitud: una separación mayor en ATR da más convicción, sin bloquear
+    # cambios cuando BTC cruza el target.
+    target_strength = min(1.75, 0.55 + abs(target_atr) * 2.25)
+    if target_atr > 0:
+        bull += tw * target_strength
+    elif target_atr < 0:
+        bear += tw * target_strength
 
     total = bull + bear
     edge = bull - bear
-
-    if total < 2.0 or abs(edge) < 0.65:
-        return {
-            "direction": "NEUTRAL",
-            "percent": 50,
-            "bull": bull,
-            "bear": bear,
-        }
+    if total < 1.5 or abs(edge) < 0.35:
+        return {"direction":"NEUTRAL", "percent":50, "bull":bull, "bear":bear}
 
     direction = "UP" if edge > 0 else "DOWN"
     dominant = max(bull, bear)
     share = dominant / total if total else 0.5
 
-    # 52–84%: escala propia de PRESEÑAL, no copia la probabilidad oficial.
-    percent = int(round(np.clip(50 + (share - 0.5) * 68 + min(abs(edge), 4.0) * 2.0, 52, 84)))
+    # Porcentaje propio de la preseñal. Puede llegar a 100 solo cuando la
+    # lectura actual es realmente dominante; no copia la probabilidad oficial.
+    percent = int(round(np.clip(50 + (share - 0.5) * 92 + min(abs(edge), 6.0) * 1.8, 52, 100)))
 
-    return {
-        "direction": direction,
-        "percent": percent,
-        "bull": bull,
-        "bear": bear,
-    }
-
+    return {"direction":direction, "percent":percent, "bull":bull, "bear":bear}
 
 def entry_quality(price, seconds_left):
     if price is None:
