@@ -639,6 +639,13 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .prebar b{display:block;height:100%;background:var(--precolor);border-radius:6px;box-shadow:0 0 9px var(--preglow)}
 .prenote{font-size:6.7px;color:#91a2b5;margin-top:5px;line-height:1.25}
 
+/* ===== PANEL FINAL DE CIERRE — EXACTO A LA REFERENCIA ===== */
+.finalclose{margin-top:7px;border:1px solid var(--rr);border-radius:9px;padding:7px;background:rgba(5,15,22,.45)}
+.finalgrid{display:grid;grid-template-columns:1.65fr .85fr .85fr;gap:4px}
+.finalcard{min-height:67px;border:1px solid #29445a;border-radius:8px;background:linear-gradient(180deg,#0b1822,#08121a);padding:6px;text-align:center}
+.finalcard.motion{border-color:#25bff2}.finalcard.distance{border-color:#8c4cff}.finalcard.speed{border-color:#ff3f86}
+.finaltitle{font-size:6.5px;font-weight:950;color:#e6edf6}.motionrow{display:grid;grid-template-columns:repeat(3,1fr);margin-top:5px}.motionrow>div{border-right:1px solid #203344}.motionrow>div:last-child{border:0}.motionrow small{display:block;font-size:6px;color:#b7c6d7}.motionrow b{display:block;font-size:11px;margin-top:2px}.finalbig{font-size:14px;font-weight:1000;margin-top:8px}.finalsub{font-size:8px;font-weight:900;margin-top:2px}.finalnote{font-size:5.8px;color:#91a3b6;margin-top:4px}
+.finalanalysis{display:grid;grid-template-columns:1fr 80px;gap:5px;margin-top:4px}.analysisbox,.probbox{border:1px solid #1fae7a;border-radius:8px;background:#07151a;padding:7px}.analysisbox{display:flex;align-items:center;gap:7px}.analysisicon{font-size:23px;color:#2ee98a}.analysistext small{display:block;font-size:6.3px;color:#d4deea}.analysistext b{display:block;font-size:10px;color:var(--rr);margin-top:2px}.analysistext span{display:block;font-size:6.3px;color:#a3b2c3;margin-top:3px}.probbox{border-color:#ff3f86;text-align:center}.probbox small{display:block;font-size:6.5px;color:#e4ebf3}.probbox b{display:block;font-size:15px;color:var(--rr);margin-top:8px}
 .chartbox{margin-top:10px;background:linear-gradient(180deg,#08121d,#060c14);border:1px solid #203a51;border-radius:12px;padding:10px 8px 8px;box-shadow:inset 0 0 28px rgba(20,80,110,.08)}
 .charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
 </style>
@@ -1474,6 +1481,7 @@ def micro_reading():
     if len(tape) < 4:
         return {
             "ready": False,
+            "change_5s": 0.0,
             "change_10s": 0.0,
             "change_30s": 0.0,
             "slope": 0.0,
@@ -1491,6 +1499,7 @@ def micro_reading():
             return candidates[-1]["p"]
         return tape[0]["p"]
 
+    p5 = price_ago(5)
     p10 = price_ago(10)
     p30 = price_ago(30)
 
@@ -1509,6 +1518,7 @@ def micro_reading():
     ys = np.array([x["p"] for x in tape], dtype=float)
     slope = float(np.polyfit(xs, ys, 1)[0]) if len(xs) >= 3 and xs[-1] > 0 else 0.0
 
+    c5 = current - p5
     c10 = current - p10
     c30 = current - p30
 
@@ -1521,6 +1531,7 @@ def micro_reading():
 
     return {
         "ready": True,
+        "change_5s": c5,
         "change_10s": c10,
         "change_30s": c30,
         "slope": slope,
@@ -2037,6 +2048,46 @@ def live_dashboard():
     mom_class = "green" if sig["mom3"] > 0 else "red" if sig["mom3"] < 0 else ""
     time_pct = max(0, min(100, int((seconds_left or 0) / 900 * 100)))
 
+    # Panel de cierre de últimos segundos — solo lectura; NO cambia la señal principal.
+    c30 = float(micro.get("change_30s", 0.0) or 0.0)
+    c10 = float(micro.get("change_10s", 0.0) or 0.0)
+    c5 = float(micro.get("change_5s", 0.0) or 0.0)
+    speed10 = c10 / 10.0
+    speed_word = "SUBIENDO" if speed10 > 0.15 else "BAJANDO" if speed10 < -0.15 else "ESTABLE"
+    speed_arrow = "↑" if speed10 > 0.15 else "↓" if speed10 < -0.15 else "→"
+    speed_color = "#34e982" if speed10 > 0.15 else "#ff4e5f" if speed10 < -0.15 else "#94a3b8"
+    market_side = "UP" if (distance or 0) > 0 else "DOWN" if (distance or 0) < 0 else "NEUTRAL"
+    if active in ("UP", "DOWN"):
+        if market_side == active and ((active == "UP" and speed10 >= -0.15) or (active == "DOWN" and speed10 <= 0.15)):
+            final_status = f"AÚN FAVORABLE A {active}"
+            final_note = f"El precio se mantiene {'sobre' if active == 'UP' else 'bajo'} el target, con presión inmediata controlada."
+        elif market_side != "NEUTRAL" and market_side != active and abs(distance or 0) >= 5:
+            final_status = f"GIRO FINAL HACIA {market_side}"
+            final_note = f"BTC cruzó el target y la lectura final favorece {market_side}."
+        else:
+            final_status = "CIERRE MUY DISPUTADO"
+            final_note = "BTC está muy cerca del target; los últimos segundos pueden decidir la ronda."
+    else:
+        final_status = f"VENTAJA FINAL {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA FINAL"
+        final_note = "Lectura independiente basada en distancia y movimiento de los últimos segundos."
+    final_distance = abs(distance) if distance is not None else 0.0
+    final_dist_pct = abs(distance_pct) if distance_pct is not None else 0.0
+    final_panel = f'''<div class="finalclose">
+      <div class="finalgrid">
+        <div class="finalcard motion"><div class="finaltitle">▥ &nbsp; MOVIMIENTO ÚLTIMOS SEGUNDOS</div><div class="motionrow">
+          <div><small>30s</small><b style="color:{'#34e982' if c30>=0 else '#ff4e5f'}">{'↑' if c30>=0 else '↓'}<br>{c30:+.0f}</b></div>
+          <div><small>10s</small><b style="color:{'#34e982' if c10>=0 else '#ff4e5f'}">{'↑' if c10>=0 else '↓'}<br>{c10:+.0f}</b></div>
+          <div><small>5s</small><b style="color:{'#34e982' if c5>=0 else '#ff4e5f'}">{'↑' if c5>=0 else '↓'}<br>{c5:+.0f}</b></div>
+        </div><div class="finalnote">Cambio de precio en los últimos segundos.</div></div>
+        <div class="finalcard distance"><div class="finaltitle">▥ &nbsp; DISTANCIA AL TARGET</div><div class="finalbig" style="color:{distance_color}">${final_distance:,.0f}</div><div class="finalsub" style="color:{distance_color}">{final_dist_pct:.2f}%</div></div>
+        <div class="finalcard speed"><div class="finaltitle">VELOCIDAD</div><div class="finalbig" style="color:{speed_color}">{speed_arrow} {speed_word}</div><div class="finalsub" style="color:{speed_color}">{speed10:+.1f}/s</div><div class="finalnote">En los últimos 10 s.</div></div>
+      </div>
+      <div class="finalanalysis">
+        <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)</small><b>{final_status}</b><span>{final_note}</span></div></div>
+        <div class="probbox"><small>PROBABILIDAD</small><b>{reader['percent']}%</b></div>
+      </div>
+    </div>'''
+
     st.markdown(
         f"""
 <div class="refapp dir-{active.lower() if active in ("UP","DOWN") else "wait"}" style="--accent:{accent};--glow:{glow};--soft:{soft};">
@@ -2086,6 +2137,7 @@ def live_dashboard():
     <div class="readerhead"><span class="pulse">⌁</span><span>LECTOR DE CIERRE</span><em>ACTIVO</em></div>
     <div class="readerbody"><div><strong>{reader['headline']}</strong><small>{reader['note']}</small></div>
     <div class="rring" style="--p:{reader['percent']}"><span>{reader['percent']}%</span></div></div>
+    {final_panel}
   </section>
 
   {whale_html}
