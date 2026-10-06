@@ -1895,29 +1895,27 @@ def live_dashboard():
     # Etiqueta visual en español; el motor conserva internamente BULL/BEAR.
     ema_display = "ALCISTA" if sig.get("ema") == "BULL" else "BAJISTA" if sig.get("ema") == "BEAR" else sig.get("ema", "N/A")
 
-    # PRESEÑAL: lectura visual de la inclinación que YA calcula el cerebro.
-    # No modifica candidate, active_direction, probabilidades ni confirmación final.
-    if active not in ("UP", "DOWN"):
-        if up > down:
-            pre_direction, pre_percent = "UP", up
-            pre_color, pre_bg, pre_glow = "#34e982", "rgba(18,91,57,.26)", "rgba(52,233,130,.20)"
-            pre_note = "Presión alcista detectada. Esperando confirmación del motor."
-        elif down > up:
-            pre_direction, pre_percent = "DOWN", down
-            pre_color, pre_bg, pre_glow = "#ff4e5f", "rgba(104,25,37,.28)", "rgba(255,78,95,.20)"
-            pre_note = "Presión bajista detectada. Esperando confirmación del motor."
-        else:
-            pre_direction, pre_percent = "NEUTRAL", 50
-            pre_color, pre_bg, pre_glow = "#38bdf8", "rgba(24,73,101,.24)", "rgba(56,189,248,.18)"
-            pre_note = "Todavía no hay inclinación suficiente. Esperando al motor."
-        pre_html = f'''<section class="presignal" style="--precolor:{pre_color};--prebg:{pre_bg};--preglow:{pre_glow}">
-          <div class="prehead"><span class="pretitle">PRESEÑAL · TENDENCIA EN FORMACIÓN</span><span class="prebadge">NO CONFIRMADA</span></div>
-          <div class="premain"><span class="predirection">POSIBLE {pre_direction}</span><span class="prepercent">{pre_percent}%</span></div>
-          <div class="prebar"><b style="width:{pre_percent}%"></b></div>
-          <div class="prenote">{pre_note}</div>
-        </section>'''
+    # PRESEÑAL: permanece SIEMPRE visible durante toda la ronda.
+    # No modifica la señal oficial ni el motor v4.6.1.
+    if up > down:
+        pre_direction, pre_percent = "UP", up
+        pre_color, pre_bg, pre_glow = "#34e982", "rgba(18,91,57,.26)", "rgba(52,233,130,.20)"
+        pre_note = "Presión alcista detectada. La preseñal sigue actualizándose en vivo."
+    elif down > up:
+        pre_direction, pre_percent = "DOWN", down
+        pre_color, pre_bg, pre_glow = "#ff4e5f", "rgba(104,25,37,.28)", "rgba(255,78,95,.20)"
+        pre_note = "Presión bajista detectada. La preseñal sigue actualizándose en vivo."
     else:
-        pre_html = ""
+        pre_direction, pre_percent = "NEUTRAL", 50
+        pre_color, pre_bg, pre_glow = "#38bdf8", "rgba(24,73,101,.24)", "rgba(56,189,248,.18)"
+        pre_note = "Todavía no hay inclinación suficiente. La preseñal sigue observando la tendencia."
+
+    pre_html = f'''<section class="presignal" style="--precolor:{pre_color};--prebg:{pre_bg};--preglow:{pre_glow}">
+      <div class="prehead"><span class="pretitle">PRESEÑAL · TENDENCIA EN FORMACIÓN</span><span class="prebadge">NO CONFIRMADA</span></div>
+      <div class="premain"><span class="predirection">POSIBLE {pre_direction}</span><span class="prepercent">{pre_percent}%</span></div>
+      <div class="prebar"><b style="width:{pre_percent}%"></b></div>
+      <div class="prenote">{pre_note}</div>
+    </section>'''
 
     if active == "UP":
         hero_arrow, hero_word = "", "UP"
