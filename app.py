@@ -1895,31 +1895,60 @@ def live_dashboard():
     # Etiqueta visual en español; el motor conserva internamente BULL/BEAR.
     ema_display = "ALCISTA" if sig.get("ema") == "BULL" else "BAJISTA" if sig.get("ema") == "BEAR" else sig.get("ema", "N/A")
 
-    # PRESEÑAL: capa independiente y SIEMPRE visible.
-    # Se calcula SOLO con datos de la ronda actual: nunca hereda el porcentaje
-    # de la ronda anterior y NO modifica candidate ni el motor v4.6.1.
-    pre_base_direction = "UP" if up > down else "DOWN" if down > up else "NEUTRAL"
-    pre_base_percent = max(up, down) if pre_base_direction != "NEUTRAL" else 50
+    # PRESEÑAL: cálculo INDEPENDIENTE de up_probability/down_probability.
+    # Usa las lecturas crudas del motor, pero NO copia ni modifica la probabilidad oficial.
+    pre_score = 0.0
+    pre_score += float(np.clip(sig.get("technical_score", 0.0) / 4.5, -1.0, 1.0)) * 2.0
+    pre_score += 0.80 if sig.get("ema") == "BULL" else -0.80 if sig.get("ema") == "BEAR" else 0.0
+    pre_score += 0.65 if sig.get("trend3") == "UP" else -0.65 if sig.get("trend3") == "DOWN" else 0.0
+    pre_score += 0.75 if sig.get("trend5") == "UP" else -0.75 if sig.get("trend5") == "DOWN" else 0.0
 
-    # Maduración final de la PRESEÑAL (no de la señal oficial).
-    # Cuando la ronda está en sus últimos 3 minutos y todo sigue fuertemente
-    # alineado con la misma dirección, la fuerza visual puede llegar a 100%.
-    pre_percent = int(pre_base_percent)
-    if pre_base_direction in ("UP", "DOWN"):
+    rsi_now = float(sig.get("rsi", 50) or 50)
+    if rsi_now >= 53:
+        pre_score += 0.55
+    elif rsi_now <= 47:
+        pre_score -= 0.55
+
+    mom3_now = float(sig.get("mom3", 0.0) or 0.0)
+    if mom3_now > 0.015:
+        pre_score += 0.70
+    elif mom3_now < -0.015:
+        pre_score -= 0.70
+
+    # El target ayuda a la preseñal, pero no decide por sí solo la dirección.
+    if distance is not None:
+        target_atr_now = float(sig.get("target_atr", 0.0) or 0.0)
+        pre_score += float(np.clip(target_atr_now, -1.5, 1.5)) * 0.55
+
+    # Dirección temprana y fuerza propias de la preseñal.
+    # Zona neutral pequeña para evitar inventar una tendencia cuando está realmente plano.
+    if pre_score >= 0.45:
+        pre_direction = "UP"
+    elif pre_score <= -0.45:
+        pre_direction = "DOWN"
+    else:
+        pre_direction = "NEUTRAL"
+
+    if pre_direction == "NEUTRAL":
+        pre_percent = 50
+    else:
+        # 54–96% según la fuerza de ESTA capa, no según Kalshi/probabilidad oficial.
+        pre_percent = int(round(np.clip(54 + abs(pre_score) * 8.5, 54, 96)))
+
+        # En la ventana final puede madurar hasta 100% si precio, señal oficial y
+        # tendencia temprana siguen alineados. Esto solo afecta la PRESEÑAL visual.
         distance_aligned = (
             distance is not None and
-            ((pre_base_direction == "UP" and distance > 0) or
-             (pre_base_direction == "DOWN" and distance < 0))
+            ((pre_direction == "UP" and distance > 0) or
+             (pre_direction == "DOWN" and distance < 0))
         )
-        active_aligned = active == pre_base_direction
-        very_strong = pre_base_percent >= 90
+        active_aligned = active == pre_direction
         final_window = seconds_left is not None and 0 < seconds_left <= 180
         enough_distance = distance is not None and abs(distance) >= 30
-
-        if final_window and active_aligned and distance_aligned and very_strong and enough_distance:
+        very_strong_pre = abs(pre_score) >= 4.0
+        if final_window and active_aligned and distance_aligned and enough_distance and very_strong_pre:
             pre_percent = 100
 
-    pre_direction = pre_base_direction
     if pre_direction == "UP":
         pre_color, pre_bg, pre_glow = "#34e982", "rgba(18,91,57,.26)", "rgba(52,233,130,.20)"
         pre_note = "Presión alcista temprana detectada. Esperando evolución del mercado."
