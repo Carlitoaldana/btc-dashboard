@@ -2181,6 +2181,22 @@ def live_dashboard():
     micro = micro_reading()
     reader = closing_reader(sig, round_signal, seconds_left, micro)
 
+    # El lector calcula desde el inicio, pero su conclusión queda oculta hasta 01:30.
+    # Los datos live (30s/10s/5s, distancia y velocidad) siguen visibles todo el tiempo.
+    reader_live = reader
+    closing_window_active = seconds_left is not None and seconds_left <= 90
+    if not closing_window_active and (seconds_left is None or seconds_left > 0):
+        reader_live = dict(reader)
+        reader_live.update({
+            "percent": None,
+            "headline": "MONITOREANDO CIERRE",
+            "note": "El lector sigue calculando en segundo plano. La lectura UP/DOWN se activa al llegar a 01:30.",
+            "color": "#38bdf8",
+            "border": "rgba(56,189,248,.45)",
+            "bg": "linear-gradient(135deg,rgba(11,64,91,.30),rgba(9,23,34,.72))",
+            "direction": None,
+        })
+
     # Ballenas: capa visual independiente; NO modifica señales ni probabilidades v4.6.1.
     try:
         whale = get_coinbase_whale_flow()
@@ -2300,10 +2316,11 @@ def live_dashboard():
     abs_final_distance = abs(distance or 0)
 
     # El cuadro inferior usa EXACTAMENTE la misma lectura adaptativa y el mismo reloj.
-    final_status = reader["headline"]
-    final_note = reader["note"]
+    final_status = reader_live["headline"]
+    final_note = reader_live["note"]
     final_distance = abs(distance) if distance is not None else 0.0
     final_dist_pct = abs(distance_pct) if distance_pct is not None else 0.0
+    reader_percent_text = f"{reader_live['percent']}%" if reader_live.get("percent") is not None else "--"
     final_panel = f'''<div class="finalclose">
       <div class="finalgrid">
         <div class="finalcard motion"><div class="finaltitle">▥ &nbsp; MOVIMIENTO ÚLTIMOS SEGUNDOS</div><div class="motionrow">
@@ -2316,7 +2333,7 @@ def live_dashboard():
       </div>
       <div class="finalanalysis">
         <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)</small><b>{final_status}</b><span>{final_note}</span></div></div>
-        <div class="probbox"><small>PROBABILIDAD</small><b>{reader['percent']}%</b></div>
+        <div class="probbox"><small>PROBABILIDAD</small><b>{reader_percent_text}</b></div>
       </div>
     </div>'''
 
@@ -2365,10 +2382,10 @@ def live_dashboard():
     <div class="pleg"><span class="green">● &nbsp;UP&nbsp; {up}%</span><span class="red">● &nbsp;DOWN&nbsp; {down}%</span></div>
   </section>
 
-  <section class="reader" style="--rb:{reader['border']};--rbg:{reader['bg']};--rr:{reader['color']}">
-    <div class="readerhead"><span class="pulse">⌁</span><span>LECTOR DE CIERRE</span><em>ACTIVO</em></div>
-    <div class="readerbody"><div><strong>{reader['headline']}</strong><small>{reader['note']}</small></div>
-    <div class="rring" style="--p:{reader['percent']}"><span>{reader['percent']}%</span></div></div>
+  <section class="reader" style="--rb:{reader_live['border']};--rbg:{reader_live['bg']};--rr:{reader_live['color']}">
+    <div class="readerhead"><span class="pulse">⌁</span><span>LECTOR DE CIERRE</span><em>{'ACTIVO' if closing_window_active else 'MONITOREANDO'}</em></div>
+    <div class="readerbody"><div><strong>{reader_live['headline']}</strong><small>{reader_live['note']}</small></div>
+    <div class="rring" style="--p:{reader_live['percent'] if reader_live.get('percent') is not None else 0}"><span>{reader_percent_text}</span></div></div>
     {final_panel}
   </section>
 
