@@ -745,6 +745,101 @@ def load_round_state(ticker):
         return None
 
 
+
+# =========================================================
+# HISTORIAL Y RENDIMIENTO — CAPA INDEPENDIENTE
+# No modifica build_signal(), preseñal, lector, ballenas ni gráfico.
+# =========================================================
+
+HISTORY_DB = "btc_signal_history.db"
+
+def _history_db():
+    conn = sqlite3.connect(HISTORY_DB, timeout=5)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS round_history (
+            ticker TEXT PRIMARY KEY,
+            target REAL,
+            final_btc REAL,
+            final_outcome TEXT,
+            bot_signal TEXT,
+            result TEXT,
+            first_signal TEXT,
+            first_signal_time TEXT,
+            closed_at TEXT NOT NULL
+        )
+    """)
+    return conn
+
+def save_round_history(state):
+    """Cierra una ronda una sola vez usando el último BTC/target conocidos."""
+    if not state or not state.get("ticker"):
+        return
+    target = state.get("last_target")
+    final_btc = state.get("last_live_price")
+    if target is None or final_btc is None:
+        return
+    try:
+        target = float(target); final_btc = float(final_btc)
+    except Exception:
+        return
+
+    if final_btc > target:
+        outcome = "UP"
+    elif final_btc < target:
+        outcome = "DOWN"
+    else:
+        outcome = "EMPATE"
+
+    bot_signal = state.get("active_direction")
+    if bot_signal not in ("UP", "DOWN"):
+        result = "NO TRADE"
+        bot_signal = None
+    elif outcome == "EMPATE":
+        result = "EMPATE"
+    else:
+        result = "GANADA" if bot_signal == outcome else "PERDIDA"
+
+    fst = state.get("first_signal_time")
+    if isinstance(fst, datetime):
+        fst = fst.isoformat()
+
+    try:
+        with _history_db() as conn:
+            conn.execute(
+                """INSERT OR IGNORE INTO round_history
+                (ticker,target,final_btc,final_outcome,bot_signal,result,first_signal,first_signal_time,closed_at)
+                VALUES(?,?,?,?,?,?,?,?,?)""",
+                (state["ticker"], target, final_btc, outcome, bot_signal, result,
+                 state.get("first_direction"), fst, datetime.now(timezone.utc).isoformat())
+            )
+    except Exception:
+        pass
+
+def load_history(limit=100):
+    try:
+        with _history_db() as conn:
+            rows = conn.execute(
+                """SELECT ticker,target,final_btc,final_outcome,bot_signal,result,
+                          first_signal,first_signal_time,closed_at
+                   FROM round_history ORDER BY closed_at DESC LIMIT ?""",
+                (int(limit),)
+            ).fetchall()
+        cols = ["Ronda","Target","BTC final","Resultado real","Señal bot","Estado",
+                "1ª señal","Hora 1ª señal","Cierre"]
+        return pd.DataFrame(rows, columns=cols)
+    except Exception:
+        return pd.DataFrame()
+
+def history_stats(df):
+    if df is None or df.empty:
+        return {"total":0,"wins":0,"losses":0,"no_trade":0,"win_rate":0.0}
+    wins = int((df["Estado"] == "GANADA").sum())
+    losses = int((df["Estado"] == "PERDIDA").sum())
+    no_trade = int((df["Estado"] == "NO TRADE").sum())
+    decided = wins + losses
+    rate = (wins / decided * 100.0) if decided else 0.0
+    return {"total":len(df),"wins":wins,"losses":losses,"no_trade":no_trade,"win_rate":rate}
+
 # =========================================================
 # COINBASE — VELAS ORIGINALES DE 1 MINUTO
 # =========================================================
@@ -1339,6 +1434,9 @@ def process_round_signal(ticker, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
 
     if ticker and ticker != "--" and st.session_state.active_ticker != ticker:
+        previous_ticker = st.session_state.active_ticker
+        if previous_ticker and previous_ticker in st.session_state.rounds:
+            save_round_history(st.session_state.rounds.get(previous_ticker))
         st.session_state.active_ticker = ticker
         restored = load_round_state(ticker)
         st.session_state.rounds[ticker] = restored if restored is not None else new_round_state(ticker, seconds_left)
@@ -1360,6 +1458,12 @@ def process_round_signal(ticker, sig, market, seconds_left):
     restored_from_disk = bool(state.pop("_restored_from_disk", False))
     score = float(sig.get("final_score", 0.0))
     price = float(sig.get("price", 0.0))
+    distance_now = sig.get("distance")
+    if distance_now is not None:
+        try:
+            state["last_target"] = price - float(distance_now)
+        except Exception:
+            pass
 
     previous_live_price = state.get("last_live_price")
     state["previous_live_price"] = previous_live_price
@@ -1438,6 +1542,8 @@ def process_round_signal(ticker, sig, market, seconds_left):
 
     quality, quality_color = entry_quality(current_entry_price, seconds_left)
     save_round_state(state)
+    if seconds_left is not None and seconds_left <= 0:
+        save_round_history(state)
     return {
         "decision":decision,"signal":signal,"icon":icon,"color":color,
         "round_state":state,"reversal":reversal,"reversal_text":reversal_text,
@@ -1845,6 +1951,44 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
       <div class="chartfoot"><span class="selected">{timeframe}</span><span>VELAS REALES COINBASE</span><span>ACTUALIZACIÓN LIVE</span></div>
     </section>'''
 
+
+# =========================================================
+# NAVEGACIÓN REAL — SEÑAL / AJUSTES / HISTORIAL
+# =========================================================
+if "page_mode" not in st.session_state:
+    st.session_state.page_mode = "signal"
+
+nav_a, nav_b = st.columns([1, 1])
+with nav_a:
+    if st.button("⌂ Señal", use_container_width=True, key="real_nav_signal"):
+        st.session_state.page_mode = "signal"
+with nav_b:
+    if st.button("⚙ Ajustes / Historial", use_container_width=True, key="real_nav_settings"):
+        st.session_state.page_mode = "history"
+
+
+def render_history_page():
+    st.markdown("### ⚙ Ajustes")
+    st.caption("Historial y rendimiento · registro automático por ronda")
+    df = load_history(250)
+    stats = history_stats(df)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Rondas", stats["total"])
+    c2.metric("Ganadas", stats["wins"])
+    c3.metric("Perdidas", stats["losses"])
+    c4.metric("Acierto", f'{stats["win_rate"]:.1f}%')
+    st.caption(f'NO TRADE: {stats["no_trade"]} · El % de acierto usa solo GANADA + PERDIDA.')
+
+    st.markdown("#### Historial y Rendimiento")
+    if df.empty:
+        st.info("Todavía no hay rondas cerradas guardadas. Se registrarán automáticamente.")
+    else:
+        show = df.copy()
+        for col in ("Target", "BTC final"):
+            show[col] = show[col].map(lambda x: f"${x:,.0f}" if pd.notna(x) else "--")
+        st.dataframe(show, use_container_width=True, hide_index=True)
+
 @st.fragment(run_every="2s")
 def live_dashboard():
     btc_error = ""
@@ -2208,4 +2352,7 @@ def live_dashboard():
         st.error("Error Kalshi: " + kalshi_error)
 
 
-live_dashboard()
+if st.session_state.page_mode == "history":
+    render_history_page()
+else:
+    live_dashboard()
