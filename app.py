@@ -510,7 +510,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .refapp{font-family:Arial,sans-serif;color:#eaf2fb}
 .rhead{height:54px;position:relative;text-align:center;padding-top:7px}
 .rtitle{font-size:15px;font-weight:900}.rver{font-size:9px;color:#9badc3;margin-top:2px}
-.gear{position:absolute;right:9px;top:7px;font-size:19px;color:#a9c9ec}
+.gear{position:absolute;right:9px;top:7px;font-size:19px;color:#a9c9ec;text-decoration:none!important;cursor:pointer;z-index:50}
 .rlive{position:absolute;right:8px;bottom:1px;font-size:9px;color:#b9c9db}
 .rlive i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-right:5px;box-shadow:0 0 12px var(--accent)}
 .rhero{text-align:center;padding:4px 0 8px}
@@ -1953,21 +1953,15 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
 
 
 # =========================================================
-# NAVEGACIÓN REAL — SEÑAL / AJUSTES / HISTORIAL
+# NAVEGACIÓN REAL — EL ENGRANAJE ABRE AJUSTES
+# No muestra botones extra en la pantalla principal.
 # =========================================================
-if "page_mode" not in st.session_state:
-    st.session_state.page_mode = "signal"
-
-nav_a, nav_b = st.columns([1, 1])
-with nav_a:
-    if st.button("⌂ Señal", use_container_width=True, key="real_nav_signal"):
-        st.session_state.page_mode = "signal"
-with nav_b:
-    if st.button("⚙ Ajustes / Historial", use_container_width=True, key="real_nav_settings"):
-        st.session_state.page_mode = "history"
-
 
 def render_history_page():
+    st.markdown(
+        '<a href="?page=signal" target="_self" style="text-decoration:none;color:#b9c9db;font-size:14px;font-weight:800">← Señal</a>',
+        unsafe_allow_html=True,
+    )
     st.markdown("### ⚙ Ajustes")
     st.caption("Historial y rendimiento · registro automático por ronda")
     df = load_history(250)
@@ -2238,7 +2232,7 @@ def live_dashboard():
   <header class="rhead">
     <div class="rtitle">BTC Signal</div>
     <div class="rver">v4.6.1</div>
-    <div class="gear">⚙</div>
+    <a class="gear" href="?page=settings" target="_self" aria-label="Ajustes">⚙</a>
     <div class="rlive"><i></i>{'Mercado en vivo' if market_live else 'Conexión parcial'}</div>
   </header>
 
@@ -2352,7 +2346,8 @@ def live_dashboard():
         st.error("Error Kalshi: " + kalshi_error)
 
 
-if st.session_state.page_mode == "history":
+page = str(st.query_params.get("page", "signal"))
+if page == "settings":
     render_history_page()
 else:
     live_dashboard()
