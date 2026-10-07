@@ -1553,6 +1553,7 @@ def process_round_signal(ticker, sig, market, seconds_left):
         "entry_quality_color":quality_color,
     }
 
+
 # =========================================================
 # REGISTRADOR AUTÓNOMO 12 HORAS — SOLO HISTORIAL
 # Sigue leyendo las rondas aunque no haya una sesión de Streamlit abierta,
@@ -1562,7 +1563,6 @@ def process_round_signal(ticker, sig, market, seconds_left):
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-
 
 def _background_get_btc_data():
     response = requests.get(
@@ -1581,7 +1581,6 @@ def _background_get_btc_data():
     df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
     return df.dropna().sort_values("time").reset_index(drop=True)
 
-
 def _background_get_market():
     response = requests.get(
         "https://external-api.kalshi.com/trade-api/v2/markets",
@@ -1596,9 +1595,7 @@ def _background_get_market():
     markets.sort(key=lambda m: str(m.get("close_time") or "9999"))
     return markets[0]
 
-
 def _background_get_live_price(market):
-    # Mismo orden del dashboard: Kalshi live primero, Coinbase como respaldo.
     try:
         event_ticker = get_event_ticker_from_market(market)
         if event_ticker:
@@ -1614,7 +1611,6 @@ def _background_get_live_price(market):
                 return float(price)
     except Exception:
         pass
-
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/ticker",
         headers={"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"},
@@ -1627,7 +1623,6 @@ def _background_get_live_price(market):
         raise ValueError("Sin precio BTC live.")
     return float(price)
 
-
 def _background_update_state(state, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
     price = float(sig.get("price", 0.0))
@@ -1639,7 +1634,6 @@ def _background_update_state(state, sig, market, seconds_left):
     state["last_seconds_left"] = seconds_left
     state["previous_score"] = float(state.get("last_score", 0.0))
     state["last_score"] = float(sig.get("final_score", 0.0))
-
     candidate = sig.get("candidate")
     if candidate in ("UP", "DOWN"):
         if state.get("active_direction") != candidate:
@@ -1653,71 +1647,47 @@ def _background_update_state(state, sig, market, seconds_left):
     else:
         state["active_direction"] = None
         state["active_since"] = None
-
     save_round_state(state)
     return state
-
 
 def _background_history_loop():
     started = time.monotonic()
     active_ticker = None
     active_state = None
-
     while time.monotonic() - started < BACKGROUND_RUN_SECONDS:
         try:
             market = _background_get_market()
             if not market:
-                time.sleep(BACKGROUND_POLL_SECONDS)
-                continue
-
+                time.sleep(BACKGROUND_POLL_SECONDS); continue
             ticker = str(market.get("ticker") or "--")
             if ticker == "--":
-                time.sleep(BACKGROUND_POLL_SECONDS)
-                continue
-
-            # Cuando Kalshi cambia a la ronda siguiente, la anterior queda cerrada
-            # una sola vez con su última lectura conocida.
+                time.sleep(BACKGROUND_POLL_SECONDS); continue
             if active_ticker and ticker != active_ticker and active_state:
                 save_round_history(active_state)
                 active_state = None
-
             if ticker != active_ticker:
                 active_ticker = ticker
                 restored = load_round_state(ticker)
                 if restored:
                     restored.pop("_restored_from_disk", None)
                 active_state = restored or new_round_state(ticker, get_seconds_remaining(market))
-
             seconds_left = get_seconds_remaining(market)
             target = get_target_from_market(market)
             live_price = _background_get_live_price(market)
             btc_df = _background_get_btc_data()
             sig = build_signal(btc_df, target, seconds_left, live_price)
             active_state = _background_update_state(active_state, sig, market, seconds_left)
-
-            # Si todavía alcanzamos a ver la ronda exactamente cerrada, guárdala ya.
             if seconds_left is not None and seconds_left <= 0:
                 save_round_history(active_state)
-
         except Exception:
-            # Un fallo temporal de red no mata las 12 horas de registro.
             pass
-
         time.sleep(BACKGROUND_POLL_SECONDS)
-
-    # No inventa un cierre si las 12 horas terminan a mitad de una ronda.
-
 
 @st.cache_resource
 def start_12h_history_worker():
-    worker = threading.Thread(
-        target=_background_history_loop,
-        name="btc-history-12h",
-        daemon=True,
-    )
+    worker = threading.Thread(target=_background_history_loop, name="btc-history-12h", daemon=True)
     worker.start()
     return worker
-
 
 # =========================================================
 # LECTOR DE CIERRE PRO — MICRO LECTURA ~2 SEGUNDOS
@@ -2126,6 +2096,28 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
 # =========================================================
 
 def render_history_page():
+    # SOLO COLOR/CONTRASTE DEL HISTORIAL. No cambia datos ni lógica.
+    st.markdown(
+        """
+        <style>
+        /* Texto de las cuatro métricas: visible sobre fondo oscuro */
+        div[data-testid="stMetricLabel"] { color:#d7e2ee !important; opacity:1 !important; }
+        div[data-testid="stMetricValue"] { color:#f4f7fb !important; opacity:1 !important; }
+        /* Rondas */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(1) div[data-testid="stMetricValue"] { color:#54c6f5 !important; }
+        /* Ganadas */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(2) div[data-testid="stMetricLabel"],
+        div[data-testid="stHorizontalBlock"] > div:nth-child(2) div[data-testid="stMetricValue"] { color:#34e982 !important; }
+        /* Perdidas */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(3) div[data-testid="stMetricLabel"],
+        div[data-testid="stHorizontalBlock"] > div:nth-child(3) div[data-testid="stMetricValue"] { color:#ff4e5f !important; }
+        /* Acierto */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(4) div[data-testid="stMetricLabel"],
+        div[data-testid="stHorizontalBlock"] > div:nth-child(4) div[data-testid="stMetricValue"] { color:#f7bd4d !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     st.markdown(
         '<a href="?page=signal" target="_self" style="text-decoration:none;color:#b9c9db;font-size:14px;font-weight:800">← Señal</a>',
         unsafe_allow_html=True,
