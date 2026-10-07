@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import sqlite3
 import json
+import threading
+import time
 
 # =========================================================
 # MACALY + ALPHA BOT v4.6.1 • MOBILE PRO UI
@@ -1552,6 +1554,172 @@ def process_round_signal(ticker, sig, market, seconds_left):
     }
 
 # =========================================================
+# REGISTRADOR AUTÓNOMO 12 HORAS — SOLO HISTORIAL
+# Sigue leyendo las rondas aunque no haya una sesión de Streamlit abierta,
+# siempre que el proceso del servidor siga encendido.
+# NO modifica el motor, la preseñal, el lector, ballenas ni la interfaz.
+# =========================================================
+
+BACKGROUND_RUN_SECONDS = 12 * 60 * 60
+BACKGROUND_POLL_SECONDS = 2
+
+
+def _background_get_btc_data():
+    response = requests.get(
+        "https://api.exchange.coinbase.com/products/BTC-USD/candles",
+        params={"granularity": 60},
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, list) or len(data) < 30:
+        raise ValueError("Coinbase no devolvió suficientes datos.")
+    df = pd.DataFrame(data, columns=["time", "low", "high", "open", "close", "volume"])
+    for column in ["low", "high", "open", "close", "volume"]:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+    df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+    return df.dropna().sort_values("time").reset_index(drop=True)
+
+
+def _background_get_market():
+    response = requests.get(
+        "https://external-api.kalshi.com/trade-api/v2/markets",
+        params={"limit": 100, "status": "open", "series_ticker": "KXBTC15M"},
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    markets = response.json().get("markets", [])
+    if not markets:
+        return None
+    markets.sort(key=lambda m: str(m.get("close_time") or "9999"))
+    return markets[0]
+
+
+def _background_get_live_price(market):
+    # Mismo orden del dashboard: Kalshi live primero, Coinbase como respaldo.
+    try:
+        event_ticker = get_event_ticker_from_market(market)
+        if event_ticker:
+            response = requests.get(
+                "https://external-api.kalshi.com/trade-api/v2/live_data/events/" + str(event_ticker),
+                params={"range": "15min", "_": int(datetime.now(timezone.utc).timestamp())},
+                headers={"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"},
+                timeout=6,
+            )
+            response.raise_for_status()
+            price = extract_kalshi_btc_price(response.json())
+            if price is not None:
+                return float(price)
+    except Exception:
+        pass
+
+    response = requests.get(
+        "https://api.exchange.coinbase.com/products/BTC-USD/ticker",
+        headers={"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"},
+        params={"_": int(datetime.now(timezone.utc).timestamp())},
+        timeout=6,
+    )
+    response.raise_for_status()
+    price = response.json().get("price")
+    if price in (None, ""):
+        raise ValueError("Sin precio BTC live.")
+    return float(price)
+
+
+def _background_update_state(state, sig, market, seconds_left):
+    now = datetime.now(timezone.utc)
+    price = float(sig.get("price", 0.0))
+    target = get_target_from_market(market)
+    if target is not None:
+        state["last_target"] = float(target)
+    state["previous_live_price"] = state.get("last_live_price")
+    state["last_live_price"] = price
+    state["last_seconds_left"] = seconds_left
+    state["previous_score"] = float(state.get("last_score", 0.0))
+    state["last_score"] = float(sig.get("final_score", 0.0))
+
+    candidate = sig.get("candidate")
+    if candidate in ("UP", "DOWN"):
+        if state.get("active_direction") != candidate:
+            state["active_since"] = now
+        state["active_direction"] = candidate
+        if state.get("first_direction") is None:
+            state["first_direction"] = candidate
+            state["first_signal_time"] = now
+            state["first_signal_seconds"] = seconds_left
+            state["first_signal_price"] = get_yes_ask(market) if candidate == "UP" else get_no_ask(market)
+    else:
+        state["active_direction"] = None
+        state["active_since"] = None
+
+    save_round_state(state)
+    return state
+
+
+def _background_history_loop():
+    started = time.monotonic()
+    active_ticker = None
+    active_state = None
+
+    while time.monotonic() - started < BACKGROUND_RUN_SECONDS:
+        try:
+            market = _background_get_market()
+            if not market:
+                time.sleep(BACKGROUND_POLL_SECONDS)
+                continue
+
+            ticker = str(market.get("ticker") or "--")
+            if ticker == "--":
+                time.sleep(BACKGROUND_POLL_SECONDS)
+                continue
+
+            # Cuando Kalshi cambia a la ronda siguiente, la anterior queda cerrada
+            # una sola vez con su última lectura conocida.
+            if active_ticker and ticker != active_ticker and active_state:
+                save_round_history(active_state)
+                active_state = None
+
+            if ticker != active_ticker:
+                active_ticker = ticker
+                restored = load_round_state(ticker)
+                if restored:
+                    restored.pop("_restored_from_disk", None)
+                active_state = restored or new_round_state(ticker, get_seconds_remaining(market))
+
+            seconds_left = get_seconds_remaining(market)
+            target = get_target_from_market(market)
+            live_price = _background_get_live_price(market)
+            btc_df = _background_get_btc_data()
+            sig = build_signal(btc_df, target, seconds_left, live_price)
+            active_state = _background_update_state(active_state, sig, market, seconds_left)
+
+            # Si todavía alcanzamos a ver la ronda exactamente cerrada, guárdala ya.
+            if seconds_left is not None and seconds_left <= 0:
+                save_round_history(active_state)
+
+        except Exception:
+            # Un fallo temporal de red no mata las 12 horas de registro.
+            pass
+
+        time.sleep(BACKGROUND_POLL_SECONDS)
+
+    # No inventa un cierre si las 12 horas terminan a mitad de una ronda.
+
+
+@st.cache_resource
+def start_12h_history_worker():
+    worker = threading.Thread(
+        target=_background_history_loop,
+        name="btc-history-12h",
+        daemon=True,
+    )
+    worker.start()
+    return worker
+
+
+# =========================================================
 # LECTOR DE CIERRE PRO — MICRO LECTURA ~2 SEGUNDOS
 # Mantiene intacto el motor v4.6.1 y sus señales.
 # No inventa velas REST de 1 segundo: construye una cinta
@@ -2345,6 +2513,9 @@ def live_dashboard():
     if kalshi_error:
         st.error("Error Kalshi: " + kalshi_error)
 
+
+# Inicia una sola vez el registrador autónomo de 12 horas.
+start_12h_history_worker()
 
 page = str(st.query_params.get("page", "signal"))
 if page == "settings":
