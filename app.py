@@ -792,7 +792,9 @@ def save_round_history(state):
     else:
         outcome = "EMPATE"
 
-    bot_signal = state.get("active_direction")
+    # Para el récord manda ÚNICAMENTE la primera señal oficial de la ronda.
+    # La señal activa puede cambiar después, pero nunca reescribe la jugada registrada.
+    bot_signal = state.get("first_direction")
     if bot_signal not in ("UP", "DOWN"):
         result = "NO TRADE"
         bot_signal = None
@@ -2050,19 +2052,17 @@ def render_history_page():
     st.markdown(
         """
         <style>
-        /* Texto de las cuatro métricas: visible sobre fondo oscuro */
-        div[data-testid="stMetricLabel"] { color:#d7e2ee !important; opacity:1 !important; }
+        /* Etiquetas fuertes y blancas; los números conservan sus colores. */
+        div[data-testid="stMetricLabel"],
+        div[data-testid="stMetricLabel"] * { color:#ffffff !important; opacity:1 !important; font-weight:900 !important; }
         div[data-testid="stMetricValue"] { color:#f4f7fb !important; opacity:1 !important; }
         /* Rondas */
         div[data-testid="stHorizontalBlock"] > div:nth-child(1) div[data-testid="stMetricValue"] { color:#54c6f5 !important; }
         /* Ganadas */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(2) div[data-testid="stMetricLabel"],
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) div[data-testid="stMetricValue"] { color:#34e982 !important; }
         /* Perdidas */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(3) div[data-testid="stMetricLabel"],
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) div[data-testid="stMetricValue"] { color:#ff4e5f !important; }
         /* Acierto */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(4) div[data-testid="stMetricLabel"],
         div[data-testid="stHorizontalBlock"] > div:nth-child(4) div[data-testid="stMetricValue"] { color:#f7bd4d !important; }
         </style>
         """,
