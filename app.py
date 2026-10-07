@@ -753,7 +753,7 @@ def load_round_state(ticker):
 # No modifica build_signal(), preseñal, lector, ballenas ni gráfico.
 # =========================================================
 
-HISTORY_DB = "btc_signal_history.db"
+HISTORY_DB = "btc_signal_history_fresh.db"
 
 def _history_db():
     conn = sqlite3.connect(HISTORY_DB, timeout=5)
@@ -792,7 +792,9 @@ def save_round_history(state):
     else:
         outcome = "EMPATE"
 
-    bot_signal = state.get("active_direction")
+    # El historial se evalúa SIEMPRE contra la PRIMERA señal de la ronda.
+    # Los cambios posteriores de active_direction no reescriben el resultado histórico.
+    bot_signal = state.get("first_direction")
     if bot_signal not in ("UP", "DOWN"):
         result = "NO TRADE"
         bot_signal = None
@@ -808,9 +810,10 @@ def save_round_history(state):
     try:
         with _history_db() as conn:
             conn.execute(
-                """INSERT OR IGNORE INTO round_history
+                """INSERT INTO round_history
                 (ticker,target,final_btc,final_outcome,bot_signal,result,first_signal,first_signal_time,closed_at)
-                VALUES(?,?,?,?,?,?,?,?,?)""",
+                VALUES(?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(ticker) DO NOTHING""",
                 (state["ticker"], target, final_btc, outcome, bot_signal, result,
                  state.get("first_direction"), fst, datetime.now(timezone.utc).isoformat())
             )
@@ -820,6 +823,18 @@ def save_round_history(state):
 def load_history(limit=100):
     try:
         with _history_db() as conn:
+            # Corrige registros previos usando la 1ª señal guardada, sin tocar ninguna otra capa.
+            conn.execute(
+                """UPDATE round_history
+                   SET bot_signal = first_signal,
+                       result = CASE
+                           WHEN first_signal NOT IN ('UP','DOWN') OR first_signal IS NULL THEN 'NO TRADE'
+                           WHEN final_outcome = 'EMPATE' THEN 'EMPATE'
+                           WHEN first_signal = final_outcome THEN 'GANADA'
+                           ELSE 'PERDIDA'
+                       END
+                   WHERE first_signal IN ('UP','DOWN') OR first_signal IS NULL"""
+            )
             rows = conn.execute(
                 """SELECT ticker,target,final_btc,final_outcome,bot_signal,result,
                           first_signal,first_signal_time,closed_at
