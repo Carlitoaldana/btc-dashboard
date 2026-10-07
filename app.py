@@ -1293,45 +1293,122 @@ def build_signal(df, target, seconds_left, live_price=None):
     one=add_indicators(df); three=_resample_indicators(df,3); five=_resample_indicators(df,5)
     l1,l3,l5=one.iloc[-1],three.iloc[-1],five.iloc[-1]
     candle_price=float(l1["close"]); price=float(live_price) if live_price is not None else candle_price
+
     def direction(row):
         bull=(row["ema9"]>row["ema21"] and row["macd_hist"]>=0 and row["plus_di"]>=row["minus_di"])
         bear=(row["ema9"]<row["ema21"] and row["macd_hist"]<=0 and row["minus_di"]>=row["plus_di"])
         return "UP" if bull else "DOWN" if bear else "NEUTRAL"
-    d3,d5=direction(l3),direction(l5); aligned=d3 if d3==d5 and d3!="NEUTRAL" else "NEUTRAL"
+
+    d3,d5=direction(l3),direction(l5)
+    aligned=d3 if d3==d5 and d3!="NEUTRAL" else "NEUTRAL"
     atr=float(l1["atr"]) if pd.notna(l1["atr"]) and l1["atr"]>0 else max(price*.0005,1)
-    distance=(price-target) if target is not None else None; distance_pct=(distance/target*100) if target else None
+    distance=(price-target) if target is not None else None
+    distance_pct=(distance/target*100) if target else None
     target_atr=(distance/atr) if distance is not None else 0.0
-    vwap=float(l1["vwap"]) if pd.notna(l1["vwap"]) else price; vwap_atr=(price-vwap)/atr
-    adx5=float(l5["adx"]) if pd.notna(l5["adx"]) else 0.0; rsi1=float(l1["rsi"]); rsi3=float(l3["rsi"]); rsi5=float(l5["rsi"])
+    vwap=float(l1["vwap"]) if pd.notna(l1["vwap"]) else price
+    vwap_atr=(price-vwap)/atr
+    adx5=float(l5["adx"]) if pd.notna(l5["adx"]) else 0.0
+    rsi1=float(l1["rsi"]); rsi3=float(l3["rsi"]); rsi5=float(l5["rsi"])
     rvol=float(l1["vol_ratio"]) if pd.notna(l1["vol_ratio"]) else 1.0
-    mom3=float(l1["mom3"]) if pd.notna(l1["mom3"]) else 0.0; mom5=float(l1["mom5"]) if pd.notna(l1["mom5"]) else 0.0; mom15=float(l1["mom15"]) if pd.notna(l1["mom15"]) else 0.0
-    trend_strong=adx5>=20; near_noise=abs(vwap_atr)<0.18 and (distance is None or abs(target_atr)<0.22)
+    mom3=float(l1["mom3"]) if pd.notna(l1["mom3"]) else 0.0
+    mom5=float(l1["mom5"]) if pd.notna(l1["mom5"]) else 0.0
+    mom15=float(l1["mom15"]) if pd.notna(l1["mom15"]) else 0.0
+
+    # Cerebro único: combina estructura lenta + evidencia actual + posición frente al target.
+    # No usa esperas, conteos de lecturas ni locks externos.
+    bull=0.0; bear=0.0
+
+    # Estructura 3M/5M: importante, pero ya no puede mandar sola.
+    if d3=="UP": bull+=1.05
+    elif d3=="DOWN": bear+=1.05
+    if d5=="UP": bull+=1.25
+    elif d5=="DOWN": bear+=1.25
+    if l3["macd_hist"]>0: bull+=0.70
+    elif l3["macd_hist"]<0: bear+=0.70
+    if l5["macd_hist"]>0: bull+=0.45
+    elif l5["macd_hist"]<0: bear+=0.45
+    if l5["plus_di"]>l5["minus_di"]: bull+=0.55
+    elif l5["minus_di"]>l5["plus_di"]: bear+=0.55
+
+    # Evidencia rápida: permite reconocer un cambio antes de que 5M termine de girar.
+    if l1["ema9"]>l1["ema21"]: bull+=0.80
+    else: bear+=0.80
+    if rsi1>=53: bull+=0.90
+    elif rsi1<=47: bear+=0.90
+    if rsi3>=52: bull+=0.55
+    elif rsi3<=48: bear+=0.55
+    if mom3>0.025: bull+=1.15
+    elif mom3<-0.025: bear+=1.15
+    elif mom3>0: bull+=0.25
+    elif mom3<0: bear+=0.25
+    if mom5>0.04: bull+=0.65
+    elif mom5<-0.04: bear+=0.65
+    if vwap_atr>=0.05: bull+=0.85
+    elif vwap_atr<=-0.05: bear+=0.85
+    if rvol>=1.10:
+        if mom3>0: bull+=0.25
+        elif mom3<0: bear+=0.25
+
+    # El target importa durante TODA la ronda y aumenta progresivamente hacia el cierre.
+    secs=900 if seconds_left is None else max(0,int(seconds_left))
+    if secs>600: tw=0.55
+    elif secs>300: tw=0.85
+    elif secs>180: tw=1.20
+    elif secs>90: tw=1.70
+    else: tw=2.35
+    if distance is not None:
+        target_strength=min(1.60, 0.45+abs(target_atr)*1.65)
+        if target_atr>0: bull+=tw*target_strength
+        elif target_atr<0: bear+=tw*target_strength
+
+    edge=bull-bear
+
+    # Contradicción actual: evita casarse con una tendencia lenta que ya está siendo negada.
+    fast_bull=(mom3>0.025)+(mom5>0)+(rsi1>=52)+(vwap_atr>=0.03)+(target_atr>=0.25)
+    fast_bear=(mom3<-0.025)+(mom5<0)+(rsi1<=48)+(vwap_atr<=-0.03)+(target_atr<=-0.25)
+    slow_up=(d3=="UP")+(d5=="UP")
+    slow_down=(d3=="DOWN")+(d5=="DOWN")
+
     candidate=None; quality="SIN CONFIRMACIÓN"
-    if aligned=="UP" and (trend_strong or (rsi3>=52 and rsi5>=50)) and vwap_atr>-0.15:
+    # La decisión nace del balance actual. Si el lado lento está fuertemente contradicho,
+    # se cancela en vez de publicar una señal vieja.
+    if edge>=1.55 and not (slow_down>=1 and fast_bear>=4 and fast_bull<=1):
         candidate="UP"
-    elif aligned=="DOWN" and (trend_strong or (rsi3<=48 and rsi5<=50)) and vwap_atr<0.15:
+    elif edge<=-1.55 and not (slow_up>=1 and fast_bull>=4 and fast_bear<=1):
         candidate="DOWN"
-    # Señal temprana: no espera alineación perfecta de 3M/5M cuando 5M no se opone
-    # y el impulso de 1M/3M + VWAP/participación ya apuntan a la misma dirección.
-    elif d5 != "DOWN" and l3["macd_hist"] > 0 and rsi1 >= 53 and rsi3 >= 50 and vwap_atr >= 0.05 and (rvol >= 0.90 or mom3 > 0.025):
-        candidate="UP"
-        quality="TEMPRANA"
-    elif d5 != "UP" and l3["macd_hist"] < 0 and rsi1 <= 47 and rsi3 <= 50 and vwap_atr <= -0.05 and (rvol >= 0.90 or mom3 < -0.025):
-        candidate="DOWN"
-        quality="TEMPRANA"
-    # Near expiry, the contract target can dominate only when BTC has a meaningful ATR cushion.
-    if seconds_left is not None and seconds_left<=180 and distance is not None:
-        if target_atr>=0.35 and d5!="DOWN": candidate="UP"
-        elif target_atr<=-0.35 and d5!="UP": candidate="DOWN"
-    if near_noise and not trend_strong: candidate=None
+
+    # Protección específica contra señales lentas obsoletas: si 3M/5M apuntan a un lado
+    # pero precio/target + momentum + RSI/VWAP ya muestran oposición coherente, espera.
+    if candidate=="DOWN" and fast_bull>=4 and target_atr>0:
+        candidate=None
+    elif candidate=="UP" and fast_bear>=4 and target_atr<0:
+        candidate=None
+
+    # Cerca del cierre, una ventaja real amplia frente al target puede superar un 5M atrasado,
+    # pero solo si la evidencia rápida acompaña; no basta estar unos dólares de un lado.
+    if distance is not None and secs<=180:
+        if target_atr>=0.35 and fast_bull>=3 and fast_bear<=2:
+            candidate="UP"
+        elif target_atr<=-0.35 and fast_bear>=3 and fast_bull<=2:
+            candidate="DOWN"
+
+    # Zona realmente mezclada: no fuerza dirección.
+    near_noise=abs(vwap_atr)<0.12 and abs(target_atr)<0.18 and abs(edge)<2.0
+    if near_noise:
+        candidate=None
+
     if candidate:
-        confirmations=(d3==candidate)+(d5==candidate)+((l3["macd_hist"]>0) if candidate=="UP" else (l3["macd_hist"]<0))+((l5["plus_di"]>l5["minus_di"]) if candidate=="UP" else (l5["minus_di"]>l5["plus_di"]))
-        if quality != "TEMPRANA":
-            quality="CONFIRMADA" if confirmations>=3 else "EN FORMACIÓN"
-    # Compatibility score: descriptive evidence for existing UI/closing reader; no longer gates entries at +/-4.
-    evidence=(1 if d3=="UP" else -1 if d3=="DOWN" else 0)+(1.5 if d5=="UP" else -1.5 if d5=="DOWN" else 0)+(0.75 if l3["macd_hist"]>0 else -0.75)+(0.75 if l5["plus_di"]>l5["minus_di"] else -0.75)+float(np.clip(target_atr,-2,2))
-    up_probability=float(np.clip(50+evidence*7,5,95)); down_probability=100-up_probability
-    momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
+        dominant=bull if candidate=="UP" else bear
+        opposite=bear if candidate=="UP" else bull
+        margin=dominant-opposite
+        quality="CONFIRMADA" if margin>=2.50 else "EN FORMACIÓN"
+
+    # El score/probabilidad usa el mismo balance que decide la señal, evitando UI contradictoria.
+    evidence=float(np.clip(edge,-6,6))
+    up_probability=float(np.clip(50+evidence*6.0,5,95))
+    down_probability=100-up_probability
+    momentum="ALCISTA" if edge>0.75 else "BAJISTA" if edge<-0.75 else "NEUTRAL"
+
     return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr}
 
 
