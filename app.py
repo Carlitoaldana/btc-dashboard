@@ -2134,14 +2134,6 @@ def render_history_page():
     c4.metric("Acierto", f'{stats["win_rate"]:.1f}%')
     st.caption(f'NO TRADE: {stats["no_trade"]} · El % de acierto usa solo GANADA + PERDIDA.')
 
-    st.markdown("#### Historial y Rendimiento")
-    if df.empty:
-        st.info("Todavía no hay rondas cerradas guardadas. Se registrarán automáticamente.")
-    else:
-        show = df.copy()
-        for col in ("Target", "BTC final"):
-            show[col] = show[col].map(lambda x: f"${x:,.0f}" if pd.notna(x) else "--")
-        st.dataframe(show, use_container_width=True, hide_index=True)
 
 @st.fragment(run_every="2s")
 def live_dashboard():
