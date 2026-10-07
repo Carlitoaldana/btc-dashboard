@@ -1861,7 +1861,21 @@ def closing_reader(sig, round_signal, seconds_left, micro):
             strong_distance = False
             too_close = False
 
-        if strong_distance:
+        # En los últimos 90 s, mide lo difícil que sería CRUZAR el target antes del cierre.
+        # required_speed = dólares por segundo que BTC necesita recorrer para borrar la ventaja actual.
+        required_speed = abs_d / max(float(seconds_left), 1.0) if seconds_left <= 90 else 0.0
+        observed_speed = abs(float(micro.get("change_10s", 0.0) or 0.0)) / 10.0 if micro.get("ready") else 0.0
+        speed_ratio = required_speed / max(observed_speed, 0.35) if seconds_left <= 90 else 0.0
+
+        # Si el lado actual tiene una ventaja que exige una velocidad claramente mayor
+        # que la observada para cruzar, ese lado manda en el lector de cierre.
+        speed_dominant = seconds_left <= 90 and abs_d >= 12 and (
+            speed_ratio >= 1.60 or
+            (seconds_left <= 45 and required_speed >= 0.85) or
+            (seconds_left <= 15 and required_speed >= 1.00)
+        )
+
+        if strong_distance or speed_dominant:
             close_direction = market_side
             terminal_override = True
         elif too_close and seconds_left <= 30:
@@ -1925,15 +1939,25 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     if seconds_left is not None and seconds_left <= 180:
         confidence += 2
 
-    # Refuerzo específico de tiempo + distancia.
-    if terminal_override and distance is not None:
+    # Refuerzo de cierre: distancia + tiempo + velocidad necesaria para cruzar.
+    # Ej.: $50 de ventaja con 36 s exige ~$1.39/s. Si el tape va mucho más lento,
+    # la confianza debe reflejar esa ventaja en vez de quedarse artificialmente baja.
+    if terminal_override and distance is not None and seconds_left is not None:
         abs_d = abs(distance)
+        secs = max(float(seconds_left), 1.0)
+        required_speed = abs_d / secs
+        observed_speed = abs(float(micro.get("change_10s", 0.0) or 0.0)) / 10.0 if micro.get("ready") else 0.0
+        speed_ratio = required_speed / max(observed_speed, 0.35)
+
+        # Base progresiva: cuanto menos tiempo y más recorrido requerido, mayor ventaja.
+        closing_floor = 68.0
+        closing_floor += min(14.0, required_speed * 8.0)
+        closing_floor += min(9.0, max(0.0, speed_ratio - 1.0) * 4.0)
+        if seconds_left <= 45:
+            closing_floor += 3.0
         if seconds_left <= 15:
-            confidence = max(confidence, 90 if abs_d >= 75 else 82)
-        elif seconds_left <= 30:
-            confidence = max(confidence, 86 if abs_d >= 100 else 78)
-        elif seconds_left <= 60:
-            confidence = max(confidence, 80 if abs_d >= 120 else 74)
+            closing_floor += 4.0
+        confidence = max(confidence, min(95.0, closing_floor))
 
     confidence = int(round(np.clip(confidence, 5, 95)))
 
@@ -1951,9 +1975,11 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         )
     elif terminal_override:
         headline = f"CIERRE MUY FAVORECIDO PARA {direction}"
+        req = abs(distance) / max(float(seconds_left), 1.0)
         note = (
             f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
-            f"{'arriba' if distance > 0 else 'abajo'} del target."
+            f"{'arriba' if distance > 0 else 'abajo'} del target. "
+            f"Necesitaría recorrer ~${req:.2f}/s para cruzarlo."
         )
     elif round_signal.get("reversal"):
         headline = "SEÑAL PERDIENDO FUERZA"
