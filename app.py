@@ -1923,9 +1923,17 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     confidence = int(round(np.clip(confidence, 5, 95)))
 
     if terminal_too_close:
-        confidence = min(confidence, 58)
-        headline = "DEMASIADO CERRADO"
-        note = "Queda muy poco tiempo y BTC está demasiado cerca del target."
+        # En los últimos segundos NO lo llama simplemente "disputado":
+        # muestra qué lado del target está ganando AHORA y la distancia exacta.
+        # La confianza se mantiene moderada porque una diferencia pequeña aún puede cruzarse.
+        market_side = "UP" if distance > 0 else "DOWN"
+        confidence = int(np.clip(confidence, 52, 64))
+        headline = f"VENTAJA FINAL {market_side}"
+        note = (
+            f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
+            f"{'arriba' if distance > 0 else 'abajo'} del target. "
+            f"En este instante el cierre favorece {market_side}."
+        )
     elif terminal_override:
         headline = f"CIERRE MUY FAVORECIDO PARA {direction}"
         note = (
@@ -2347,19 +2355,34 @@ def live_dashboard():
     speed_arrow = "↑" if speed10 > 0.15 else "↓" if speed10 < -0.15 else "→"
     speed_color = "#34e982" if speed10 > 0.15 else "#ff4e5f" if speed10 < -0.15 else "#94a3b8"
     market_side = "UP" if (distance or 0) > 0 else "DOWN" if (distance or 0) < 0 else "NEUTRAL"
-    if active in ("UP", "DOWN"):
+    abs_final_distance = abs(distance or 0)
+
+    # En el tramo final, tiempo + posición REAL frente al target mandan en este cuadro.
+    # Así no muestra "CIERRE MUY DISPUTADO" solo porque la señal vieja o la velocidad
+    # contradigan el lado que realmente está ganando a segundos del cierre.
+    if seconds_left is not None and seconds_left <= 60 and market_side != "NEUTRAL":
+        if active in ("UP", "DOWN") and market_side != active:
+            final_status = f"GIRO FINAL HACIA {market_side}"
+        else:
+            final_status = f"VENTAJA FINAL {market_side}"
+        final_note = (
+            f"Quedan {seconds_left}s · BTC está ${abs_final_distance:,.0f} "
+            f"{'arriba' if distance > 0 else 'abajo'} del target · "
+            f"ahora favorece {market_side}."
+        )
+    elif active in ("UP", "DOWN"):
         if market_side == active and ((active == "UP" and speed10 >= -0.15) or (active == "DOWN" and speed10 <= 0.15)):
             final_status = f"AÚN FAVORABLE A {active}"
             final_note = f"El precio se mantiene {'sobre' if active == 'UP' else 'bajo'} el target, con presión inmediata controlada."
-        elif market_side != "NEUTRAL" and market_side != active and abs(distance or 0) >= 5:
-            final_status = f"GIRO FINAL HACIA {market_side}"
-            final_note = f"BTC cruzó el target y la lectura final favorece {market_side}."
+        elif market_side != "NEUTRAL" and market_side != active and abs_final_distance >= 5:
+            final_status = f"GIRO HACIA {market_side}"
+            final_note = f"BTC está al otro lado del target y la lectura actual favorece {market_side}."
         else:
-            final_status = "CIERRE MUY DISPUTADO"
-            final_note = "BTC está muy cerca del target; los últimos segundos pueden decidir la ronda."
+            final_status = f"AÚN FAVORABLE A {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA CLARA"
+            final_note = "La lectura sigue el lado actual del target y el movimiento reciente."
     else:
         final_status = f"VENTAJA FINAL {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA FINAL"
-        final_note = "Lectura independiente basada en distancia y movimiento de los últimos segundos."
+        final_note = "Lectura independiente basada en distancia, tiempo restante y movimiento de los últimos segundos."
     final_distance = abs(distance) if distance is not None else 0.0
     final_dist_pct = abs(distance_pct) if distance_pct is not None else 0.0
     final_panel = f'''<div class="finalclose">
