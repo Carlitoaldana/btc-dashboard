@@ -2200,66 +2200,61 @@ def render_history_page():
 # Independiente: NO modifica build_signal, preseñal, ni señales oficiales.
 # =========================================================
 
-def detect_early_reversal(ticker, active, micro, whale, price):
-    """Alerta de giro basada en pérdida de impulso y flujo agresor corroborante.
+def detect_early_reversal(ticker, micro, whale, price):
+    """Detector observacional autónomo: no consulta señal ni estado del cerebro.
 
-    Se exige un historial micro >= 20 s, varias muestras, dos evaluaciones
-    consecutivas separadas por >= 2 s, y presión contraria del tape de Coinbase.
-    Si falla el flujo o la fuente de precio, no se afirma confirmación.
+    Busca un cambio de dirección entre el movimiento previo y los últimos
+    10 segundos. El flujo Coinbase aporta contexto, no impide la lectura.
     """
     empty = {"status": "OBSERVANDO", "direction": None,
-             "detail": "Reuniendo movimiento y operaciones recientes.", "checks": 0}
-    if ticker in (None, "--") or active not in ("UP", "DOWN") or price is None:
+             "detail": "Reuniendo movimiento del precio.", "checks": 0}
+    if ticker in (None, "--") or price is None:
         return empty
     tape = st.session_state.get("micro_prices", [])
-    if len(tape) < 8 or float(tape[-1]["t"]) - float(tape[0]["t"]) < 20:
+    if len(tape) < 4 or not micro.get("ready"):
         return empty
 
-    # Exigir datos actuales; no confundir lecturas viejas con presión presente.
     now = datetime.now(timezone.utc).timestamp()
-    if now - float(tape[-1]["t"]) > 6 or not micro.get("ready"):
-        return empty
-    if not whale or float(whale.get("live_total", 0) or 0) < 20_000:
-        return {**empty, "detail": "Esperando operaciones suficientes de Coinbase."}
+    if now - float(tape[-1]["t"]) > 6:
+        return {**empty, "detail": "Esperando precio actualizado."}
 
-    opposite = "DOWN" if active == "UP" else "UP"
-    sign = -1 if opposite == "DOWN" else 1
-    c10 = sign * float(micro.get("change_10s", 0) or 0)
-    c30 = sign * float(micro.get("change_30s", 0) or 0)
-    slope = sign * float(micro.get("slope", 0) or 0)
-    ratio = (1 - float(micro.get("up_ratio", .5))) if opposite == "DOWN" else float(micro.get("up_ratio", .5))
-    buy = float(whale.get("live_buy", 0) or 0)
-    sell = float(whale.get("live_sell", 0) or 0)
+    last_t = float(tape[-1]["t"])
+    current = float(tape[-1]["p"])
+    def at_or_before(age):
+        cutoff = last_t - age
+        earlier = [x for x in tape if float(x["t"]) <= cutoff]
+        return float(earlier[-1]["p"]) if earlier else None
+
+    p10 = at_or_before(10)
+    p30 = at_or_before(30)
+    if p10 is None or p30 is None:
+        return {**empty, "detail": "Reuniendo 30 segundos de precio para comparar tendencias."}
+
+    recent = current - p10
+    previous = p10 - p30
+    direction = None
+    if previous < 0 and recent > 0:
+        direction = "UP"
+    elif previous > 0 and recent < 0:
+        direction = "DOWN"
+
+    buy = float((whale or {}).get("live_buy", 0) or 0)
+    sell = float((whale or {}).get("live_sell", 0) or 0)
     total = buy + sell
-    opposing_share = (sell if opposite == "DOWN" else buy) / total if total else 0
-    # Exigir tres señales de precio y un predominio de agresores opuestos.
-    price_checks = sum([c10 >= 7, c30 >= 15, slope >= .30, ratio >= .60])
-    flow_ok = opposing_share >= .58 and total >= 20_000
-    qualifying = price_checks >= 3 and flow_ok
-
-    key = "early_reversal_monitor"
-    state = st.session_state.get(key, {})
-    if state.get("ticker") != ticker or state.get("active") != active:
-        state = {"ticker": ticker, "active": active, "count": 0, "last": 0.0}
-    if qualifying:
-        if now - float(state.get("last", 0)) >= 2:
-            state["count"] = min(3, int(state.get("count", 0)) + 1)
-            state["last"] = now
+    flow_direction = "UP" if buy > sell else "DOWN" if sell > buy else None
+    flow_share = max(buy, sell) / total * 100 if total else 0
+    detail = f"Tramo previo {previous:+.0f} USD · últimos 10s {recent:+.0f} USD"
+    if total:
+        detail += f" · flujo Coinbase {flow_direction} {flow_share:.0f}%"
     else:
-        state["count"] = 0
-    st.session_state[key] = state
+        detail += " · flujo Coinbase no disponible"
 
-    detail = (f"Precio 10s {float(micro.get('change_10s',0)):+.0f} USD · "
-              f"30s {float(micro.get('change_30s',0)):+.0f} USD · "
-              f"presión {opposing_share*100:.0f}% hacia {opposite}")
-    if state["count"] >= 2 and qualifying:
-        return {"status": "GIRO TEMPRANO DETECTADO", "direction": opposite,
-                "detail": detail, "checks": price_checks}
-    if qualifying:
-        return {"status": "POSIBLE GIRO · VERIFICANDO", "direction": opposite,
-                "detail": detail, "checks": price_checks}
-    return {"status": "SIN GIRO CONFIRMADO", "direction": None,
-            "detail": detail, "checks": price_checks}
+    if direction:
+        return {"status": "POSIBLE REVERSIÓN", "direction": direction,
+                "detail": detail + " · cambio de dirección observado, no confirmado",
+                "checks": 1}
+    return {"status": "SIN REVERSIÓN OBSERVADA", "direction": None,
+            "detail": detail, "checks": 0}
 
 
 def render_early_reversal_panel(result):
@@ -2385,7 +2380,7 @@ def live_dashboard():
 
     # Render del panel de ballenas. Solo visual; no altera el motor v4.6.1.
     whale_html = render_whale_panel(whale, active)
-    reversal_detector = detect_early_reversal(ticker, active, micro, whale, live_btc_price)
+    reversal_detector = detect_early_reversal(ticker, micro, whale, live_btc_price)
     reversal_detector_html = render_early_reversal_panel(reversal_detector)
 
     if active == "UP":
