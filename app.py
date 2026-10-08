@@ -2194,6 +2194,86 @@ def render_history_page():
     """, unsafe_allow_html=True)
 
 
+
+# =========================================================
+# DETECTOR TEMPRANO DE REVERSIÓN (SOLO OBSERVACIÓN)
+# Independiente: NO modifica build_signal, preseñal, ni señales oficiales.
+# =========================================================
+
+def detect_early_reversal(ticker, active, micro, whale, price):
+    """Alerta de giro basada en pérdida de impulso y flujo agresor corroborante.
+
+    Se exige un historial micro >= 20 s, varias muestras, dos evaluaciones
+    consecutivas separadas por >= 2 s, y presión contraria del tape de Coinbase.
+    Si falla el flujo o la fuente de precio, no se afirma confirmación.
+    """
+    empty = {"status": "OBSERVANDO", "direction": None,
+             "detail": "Reuniendo movimiento y operaciones recientes.", "checks": 0}
+    if ticker in (None, "--") or active not in ("UP", "DOWN") or price is None:
+        return empty
+    tape = st.session_state.get("micro_prices", [])
+    if len(tape) < 8 or float(tape[-1]["t"]) - float(tape[0]["t"]) < 20:
+        return empty
+
+    # Exigir datos actuales; no confundir lecturas viejas con presión presente.
+    now = datetime.now(timezone.utc).timestamp()
+    if now - float(tape[-1]["t"]) > 6 or not micro.get("ready"):
+        return empty
+    if not whale or float(whale.get("live_total", 0) or 0) < 20_000:
+        return {**empty, "detail": "Esperando operaciones suficientes de Coinbase."}
+
+    opposite = "DOWN" if active == "UP" else "UP"
+    sign = -1 if opposite == "DOWN" else 1
+    c10 = sign * float(micro.get("change_10s", 0) or 0)
+    c30 = sign * float(micro.get("change_30s", 0) or 0)
+    slope = sign * float(micro.get("slope", 0) or 0)
+    ratio = (1 - float(micro.get("up_ratio", .5))) if opposite == "DOWN" else float(micro.get("up_ratio", .5))
+    buy = float(whale.get("live_buy", 0) or 0)
+    sell = float(whale.get("live_sell", 0) or 0)
+    total = buy + sell
+    opposing_share = (sell if opposite == "DOWN" else buy) / total if total else 0
+    # Exigir tres señales de precio y un predominio de agresores opuestos.
+    price_checks = sum([c10 >= 7, c30 >= 15, slope >= .30, ratio >= .60])
+    flow_ok = opposing_share >= .58 and total >= 20_000
+    qualifying = price_checks >= 3 and flow_ok
+
+    key = "early_reversal_monitor"
+    state = st.session_state.get(key, {})
+    if state.get("ticker") != ticker or state.get("active") != active:
+        state = {"ticker": ticker, "active": active, "count": 0, "last": 0.0}
+    if qualifying:
+        if now - float(state.get("last", 0)) >= 2:
+            state["count"] = min(3, int(state.get("count", 0)) + 1)
+            state["last"] = now
+    else:
+        state["count"] = 0
+    st.session_state[key] = state
+
+    detail = (f"Precio 10s {float(micro.get('change_10s',0)):+.0f} USD · "
+              f"30s {float(micro.get('change_30s',0)):+.0f} USD · "
+              f"presión {opposing_share*100:.0f}% hacia {opposite}")
+    if state["count"] >= 2 and qualifying:
+        return {"status": "GIRO TEMPRANO DETECTADO", "direction": opposite,
+                "detail": detail, "checks": price_checks}
+    if qualifying:
+        return {"status": "POSIBLE GIRO · VERIFICANDO", "direction": opposite,
+                "detail": detail, "checks": price_checks}
+    return {"status": "SIN GIRO CONFIRMADO", "direction": None,
+            "detail": detail, "checks": price_checks}
+
+
+def render_early_reversal_panel(result):
+    direction = result.get("direction")
+    color = "#ff5367" if direction == "DOWN" else "#34e982" if direction == "UP" else "#8fa3b8"
+    title = result.get("status", "OBSERVANDO")
+    detail = result.get("detail", "")
+    return f'''<section style="margin:7px 0;padding:10px;border:1px solid {color};border-radius:10px;background:#0b1520">
+      <div style="font-size:9px;font-weight:900;color:#dce7f3">DETECTOR DE REVERSIÓN · EXPERIMENTAL</div>
+      <div style="margin-top:6px;font-size:13px;font-weight:950;color:{color}">{title}{' → ' + direction if direction else ''}</div>
+      <div style="margin-top:5px;font-size:9px;color:#b5c4d4">{detail}</div>
+      <div style="margin-top:4px;font-size:8px;color:#8495aa">Alerta informativa, no orden de compra ni predicción garantizada. No cambia la señal oficial.</div>
+    </section>'''
+
 @st.fragment(run_every="2s")
 def live_dashboard():
     btc_error = ""
@@ -2305,6 +2385,8 @@ def live_dashboard():
 
     # Render del panel de ballenas. Solo visual; no altera el motor v4.6.1.
     whale_html = render_whale_panel(whale, active)
+    reversal_detector = detect_early_reversal(ticker, active, micro, whale, live_btc_price)
+    reversal_detector_html = render_early_reversal_panel(reversal_detector)
 
     if active == "UP":
         accent = "#34e982"
@@ -2503,6 +2585,8 @@ def live_dashboard():
     <div class="rring" style="--p:{reader['percent']}"><span>{reader['percent']}%</span></div></div>
     {final_panel}
   </section>
+
+  {reversal_detector_html}
 
   {whale_html}
 
