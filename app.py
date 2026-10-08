@@ -28,6 +28,10 @@ st.set_page_config(
 NEW_ROUND_WAIT = 8
 NEW_ENTRY_LOCK = 75
 
+# Tres lecturas coherentes, separadas por al menos 2 s (mínimo 4 s).
+SIGNAL_CONFIRM_READINGS = 3
+SIGNAL_CONFIRM_INTERVAL = 2.0
+
 UP_THRESHOLD = 4.0
 DOWN_THRESHOLD = -4.0
 
@@ -693,6 +697,10 @@ def new_round_state(ticker, seconds_left):
         "reversal_text": "",
         "fresh_samples": [],
         "candidate_history": [],
+        "pending_direction": None,
+        "pending_count": 0,
+        "pending_since": None,
+        "pending_last_at": None,
     }
 
 # =========================================================
@@ -753,7 +761,7 @@ def load_round_state(ticker):
 # No modifica build_signal(), preseñal, lector, ballenas ni gráfico.
 # =========================================================
 
-HISTORY_DB = "btc_signal_history_fresh.db"
+HISTORY_DB = "btc_signal_history.db"
 
 def _history_db():
     conn = sqlite3.connect(HISTORY_DB, timeout=5)
@@ -813,7 +821,15 @@ def save_round_history(state):
                 """INSERT INTO round_history
                 (ticker,target,final_btc,final_outcome,bot_signal,result,first_signal,first_signal_time,closed_at)
                 VALUES(?,?,?,?,?,?,?,?,?)
-                ON CONFLICT(ticker) DO NOTHING""",
+                ON CONFLICT(ticker) DO UPDATE SET
+                    target=excluded.target,
+                    final_btc=excluded.final_btc,
+                    final_outcome=excluded.final_outcome,
+                    bot_signal=excluded.bot_signal,
+                    result=excluded.result,
+                    first_signal=excluded.first_signal,
+                    first_signal_time=excluded.first_signal_time,
+                    closed_at=excluded.closed_at""",
                 (state["ticker"], target, final_btc, outcome, bot_signal, result,
                  state.get("first_direction"), fst, datetime.now(timezone.utc).isoformat())
             )
@@ -1293,122 +1309,45 @@ def build_signal(df, target, seconds_left, live_price=None):
     one=add_indicators(df); three=_resample_indicators(df,3); five=_resample_indicators(df,5)
     l1,l3,l5=one.iloc[-1],three.iloc[-1],five.iloc[-1]
     candle_price=float(l1["close"]); price=float(live_price) if live_price is not None else candle_price
-
     def direction(row):
         bull=(row["ema9"]>row["ema21"] and row["macd_hist"]>=0 and row["plus_di"]>=row["minus_di"])
         bear=(row["ema9"]<row["ema21"] and row["macd_hist"]<=0 and row["minus_di"]>=row["plus_di"])
         return "UP" if bull else "DOWN" if bear else "NEUTRAL"
-
-    d3,d5=direction(l3),direction(l5)
-    aligned=d3 if d3==d5 and d3!="NEUTRAL" else "NEUTRAL"
+    d3,d5=direction(l3),direction(l5); aligned=d3 if d3==d5 and d3!="NEUTRAL" else "NEUTRAL"
     atr=float(l1["atr"]) if pd.notna(l1["atr"]) and l1["atr"]>0 else max(price*.0005,1)
-    distance=(price-target) if target is not None else None
-    distance_pct=(distance/target*100) if target else None
+    distance=(price-target) if target is not None else None; distance_pct=(distance/target*100) if target else None
     target_atr=(distance/atr) if distance is not None else 0.0
-    vwap=float(l1["vwap"]) if pd.notna(l1["vwap"]) else price
-    vwap_atr=(price-vwap)/atr
-    adx5=float(l5["adx"]) if pd.notna(l5["adx"]) else 0.0
-    rsi1=float(l1["rsi"]); rsi3=float(l3["rsi"]); rsi5=float(l5["rsi"])
+    vwap=float(l1["vwap"]) if pd.notna(l1["vwap"]) else price; vwap_atr=(price-vwap)/atr
+    adx5=float(l5["adx"]) if pd.notna(l5["adx"]) else 0.0; rsi1=float(l1["rsi"]); rsi3=float(l3["rsi"]); rsi5=float(l5["rsi"])
     rvol=float(l1["vol_ratio"]) if pd.notna(l1["vol_ratio"]) else 1.0
-    mom3=float(l1["mom3"]) if pd.notna(l1["mom3"]) else 0.0
-    mom5=float(l1["mom5"]) if pd.notna(l1["mom5"]) else 0.0
-    mom15=float(l1["mom15"]) if pd.notna(l1["mom15"]) else 0.0
-
-    # Cerebro único: combina estructura lenta + evidencia actual + posición frente al target.
-    # No usa esperas, conteos de lecturas ni locks externos.
-    bull=0.0; bear=0.0
-
-    # Estructura 3M/5M: importante, pero ya no puede mandar sola.
-    if d3=="UP": bull+=1.05
-    elif d3=="DOWN": bear+=1.05
-    if d5=="UP": bull+=1.25
-    elif d5=="DOWN": bear+=1.25
-    if l3["macd_hist"]>0: bull+=0.70
-    elif l3["macd_hist"]<0: bear+=0.70
-    if l5["macd_hist"]>0: bull+=0.45
-    elif l5["macd_hist"]<0: bear+=0.45
-    if l5["plus_di"]>l5["minus_di"]: bull+=0.55
-    elif l5["minus_di"]>l5["plus_di"]: bear+=0.55
-
-    # Evidencia rápida: permite reconocer un cambio antes de que 5M termine de girar.
-    if l1["ema9"]>l1["ema21"]: bull+=0.80
-    else: bear+=0.80
-    if rsi1>=53: bull+=0.90
-    elif rsi1<=47: bear+=0.90
-    if rsi3>=52: bull+=0.55
-    elif rsi3<=48: bear+=0.55
-    if mom3>0.025: bull+=1.15
-    elif mom3<-0.025: bear+=1.15
-    elif mom3>0: bull+=0.25
-    elif mom3<0: bear+=0.25
-    if mom5>0.04: bull+=0.65
-    elif mom5<-0.04: bear+=0.65
-    if vwap_atr>=0.05: bull+=0.85
-    elif vwap_atr<=-0.05: bear+=0.85
-    if rvol>=1.10:
-        if mom3>0: bull+=0.25
-        elif mom3<0: bear+=0.25
-
-    # El target importa durante TODA la ronda y aumenta progresivamente hacia el cierre.
-    secs=900 if seconds_left is None else max(0,int(seconds_left))
-    if secs>600: tw=0.55
-    elif secs>300: tw=0.85
-    elif secs>180: tw=1.20
-    elif secs>90: tw=1.70
-    else: tw=2.35
-    if distance is not None:
-        target_strength=min(1.60, 0.45+abs(target_atr)*1.65)
-        if target_atr>0: bull+=tw*target_strength
-        elif target_atr<0: bear+=tw*target_strength
-
-    edge=bull-bear
-
-    # Contradicción actual: evita casarse con una tendencia lenta que ya está siendo negada.
-    fast_bull=(mom3>0.025)+(mom5>0)+(rsi1>=52)+(vwap_atr>=0.03)+(target_atr>=0.25)
-    fast_bear=(mom3<-0.025)+(mom5<0)+(rsi1<=48)+(vwap_atr<=-0.03)+(target_atr<=-0.25)
-    slow_up=(d3=="UP")+(d5=="UP")
-    slow_down=(d3=="DOWN")+(d5=="DOWN")
-
+    mom3=float(l1["mom3"]) if pd.notna(l1["mom3"]) else 0.0; mom5=float(l1["mom5"]) if pd.notna(l1["mom5"]) else 0.0; mom15=float(l1["mom15"]) if pd.notna(l1["mom15"]) else 0.0
+    trend_strong=adx5>=20; near_noise=abs(vwap_atr)<0.18 and (distance is None or abs(target_atr)<0.22)
     candidate=None; quality="SIN CONFIRMACIÓN"
-    # La decisión nace del balance actual. Si el lado lento está fuertemente contradicho,
-    # se cancela en vez de publicar una señal vieja.
-    if edge>=1.55 and not (slow_down>=1 and fast_bear>=4 and fast_bull<=1):
+    if aligned=="UP" and (trend_strong or (rsi3>=52 and rsi5>=50)) and vwap_atr>-0.15:
         candidate="UP"
-    elif edge<=-1.55 and not (slow_up>=1 and fast_bull>=4 and fast_bear<=1):
+    elif aligned=="DOWN" and (trend_strong or (rsi3<=48 and rsi5<=50)) and vwap_atr<0.15:
         candidate="DOWN"
-
-    # Protección específica contra señales lentas obsoletas: si 3M/5M apuntan a un lado
-    # pero precio/target + momentum + RSI/VWAP ya muestran oposición coherente, espera.
-    if candidate=="DOWN" and fast_bull>=4 and target_atr>0:
-        candidate=None
-    elif candidate=="UP" and fast_bear>=4 and target_atr<0:
-        candidate=None
-
-    # Cerca del cierre, una ventaja real amplia frente al target puede superar un 5M atrasado,
-    # pero solo si la evidencia rápida acompaña; no basta estar unos dólares de un lado.
-    if distance is not None and secs<=180:
-        if target_atr>=0.35 and fast_bull>=3 and fast_bear<=2:
-            candidate="UP"
-        elif target_atr<=-0.35 and fast_bear>=3 and fast_bull<=2:
-            candidate="DOWN"
-
-    # Zona realmente mezclada: no fuerza dirección.
-    near_noise=abs(vwap_atr)<0.12 and abs(target_atr)<0.18 and abs(edge)<2.0
-    if near_noise:
-        candidate=None
-
+    # Señal temprana: no espera alineación perfecta de 3M/5M cuando 5M no se opone
+    # y el impulso de 1M/3M + VWAP/participación ya apuntan a la misma dirección.
+    elif d5 != "DOWN" and l3["macd_hist"] > 0 and rsi1 >= 53 and rsi3 >= 50 and vwap_atr >= 0.05 and (rvol >= 0.90 or mom3 > 0.025):
+        candidate="UP"
+        quality="TEMPRANA"
+    elif d5 != "UP" and l3["macd_hist"] < 0 and rsi1 <= 47 and rsi3 <= 50 and vwap_atr <= -0.05 and (rvol >= 0.90 or mom3 < -0.025):
+        candidate="DOWN"
+        quality="TEMPRANA"
+    # Near expiry, the contract target can dominate only when BTC has a meaningful ATR cushion.
+    if seconds_left is not None and seconds_left<=180 and distance is not None:
+        if target_atr>=0.35 and d5!="DOWN": candidate="UP"
+        elif target_atr<=-0.35 and d5!="UP": candidate="DOWN"
+    if near_noise and not trend_strong: candidate=None
     if candidate:
-        dominant=bull if candidate=="UP" else bear
-        opposite=bear if candidate=="UP" else bull
-        margin=dominant-opposite
-        quality="CONFIRMADA" if margin>=2.50 else "EN FORMACIÓN"
-
-    # El score/probabilidad usa el mismo balance que decide la señal, evitando UI contradictoria.
-    evidence=float(np.clip(edge,-6,6))
-    up_probability=float(np.clip(50+evidence*6.0,5,95))
-    down_probability=100-up_probability
-    momentum="ALCISTA" if edge>0.75 else "BAJISTA" if edge<-0.75 else "NEUTRAL"
-
+        confirmations=(d3==candidate)+(d5==candidate)+((l3["macd_hist"]>0) if candidate=="UP" else (l3["macd_hist"]<0))+((l5["plus_di"]>l5["minus_di"]) if candidate=="UP" else (l5["minus_di"]>l5["plus_di"]))
+        if quality != "TEMPRANA":
+            quality="CONFIRMADA" if confirmations>=3 else "EN FORMACIÓN"
+    # Compatibility score: descriptive evidence for existing UI/closing reader; no longer gates entries at +/-4.
+    evidence=(1 if d3=="UP" else -1 if d3=="DOWN" else 0)+(1.5 if d5=="UP" else -1.5 if d5=="DOWN" else 0)+(0.75 if l3["macd_hist"]>0 else -0.75)+(0.75 if l5["plus_di"]>l5["minus_di"] else -0.75)+float(np.clip(target_atr,-2,2))
+    up_probability=float(np.clip(50+evidence*7,5,95)); down_probability=100-up_probability
+    momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
     return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr}
 
 
@@ -1524,6 +1463,69 @@ def entry_quality(price, seconds_left):
 # CONTROL DE RONDA — EL CEREBRO MANDA
 # =========================================================
 
+def confirm_round_candidate(state, candidate, market, seconds_left, now):
+    """Confirmación compartida por la pantalla y el registrador de fondo.
+
+    La primera señal queda inmutable. Un cambio UP/DOWN posterior también
+    necesita confirmación. Una lectura neutral cancela la candidatura pendiente.
+    """
+    if candidate not in ("UP", "DOWN"):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        state["active_direction"] = None
+        state["active_since"] = None
+        return
+
+    if candidate == state.get("active_direction"):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        return
+
+    last = state.get("pending_last_at")
+    if isinstance(last, str):
+        try:
+            last = datetime.fromisoformat(last)
+        except ValueError:
+            last = None
+    since = state.get("pending_since")
+    if isinstance(since, str):
+        try:
+            since = datetime.fromisoformat(since)
+        except ValueError:
+            since = None
+
+    if state.get("pending_direction") != candidate:
+        state["pending_direction"] = candidate
+        state["pending_count"] = 1
+        state["pending_since"] = now.isoformat()
+        state["pending_last_at"] = now.isoformat()
+        return
+
+    if last is None or (now - last).total_seconds() >= SIGNAL_CONFIRM_INTERVAL:
+        state["pending_count"] = int(state.get("pending_count", 0)) + 1
+        state["pending_last_at"] = now.isoformat()
+
+    elapsed = (now - since).total_seconds() if since else 0
+    if (state["pending_count"] >= SIGNAL_CONFIRM_READINGS
+            and elapsed >= SIGNAL_CONFIRM_INTERVAL * (SIGNAL_CONFIRM_READINGS - 1)):
+        state["active_direction"] = candidate
+        state["active_since"] = now
+        if state.get("first_direction") is None:
+            state["first_direction"] = candidate
+            state["first_signal_time"] = now
+            state["first_signal_seconds"] = seconds_left
+            state["first_signal_price"] = (get_yes_ask(market) if candidate == "UP"
+                                           else get_no_ask(market))
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+
+
 def process_round_signal(ticker, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
 
@@ -1569,30 +1571,12 @@ def process_round_signal(ticker, sig, market, seconds_left):
     state["last_score"] = score
     score_change = score - previous_score
 
-    # build_signal() es el cerebro. No hay espera fija, bloqueo final,
-    # votos externos, fresh_support ni distancia mínima externa.
+    # El cerebro propone; tres lecturas espaciadas confirman la señal.
     candidate = sig.get("candidate")
-
-    if candidate in ("UP", "DOWN"):
-        previous_active = state.get("active_direction")
-        state["active_direction"] = candidate
-
-        if previous_active != candidate:
-            state["active_since"] = now
-
-        # La primera señal se guarda SOLO como historial; no congela la señal actual.
-        if state.get("first_direction") is None:
-            direction_price = get_yes_ask(market) if candidate == "UP" else get_no_ask(market)
-            state["first_direction"] = candidate
-            state["first_signal_time"] = now
-            state["first_signal_seconds"] = seconds_left
-            state["first_signal_price"] = direction_price
-    else:
-        # Al volver a abrir la app, conserva la señal que ya tenía ESA ronda.
-        # En los siguientes ciclos el cerebro vuelve a mandar normalmente.
-        if not restored_from_disk:
-            state["active_direction"] = None
-            state["active_since"] = None
+    if restored_from_disk and candidate not in ("UP", "DOWN"):
+        # No se mantiene una señal antigua ante una lectura neutral actual.
+        pass
+    confirm_round_candidate(state, candidate, market, seconds_left, now)
 
     active = state.get("active_direction")
     reversal = False
@@ -1726,19 +1710,7 @@ def _background_update_state(state, sig, market, seconds_left):
     state["last_seconds_left"] = seconds_left
     state["previous_score"] = float(state.get("last_score", 0.0))
     state["last_score"] = float(sig.get("final_score", 0.0))
-    candidate = sig.get("candidate")
-    if candidate in ("UP", "DOWN"):
-        if state.get("active_direction") != candidate:
-            state["active_since"] = now
-        state["active_direction"] = candidate
-        if state.get("first_direction") is None:
-            state["first_direction"] = candidate
-            state["first_signal_time"] = now
-            state["first_signal_seconds"] = seconds_left
-            state["first_signal_price"] = get_yes_ask(market) if candidate == "UP" else get_no_ask(market)
-    else:
-        state["active_direction"] = None
-        state["active_since"] = None
+    confirm_round_candidate(state, sig.get("candidate"), market, seconds_left, now)
     save_round_state(state)
     return state
 
@@ -1938,21 +1910,7 @@ def closing_reader(sig, round_signal, seconds_left, micro):
             strong_distance = False
             too_close = False
 
-        # En los últimos 90 s, mide lo difícil que sería CRUZAR el target antes del cierre.
-        # required_speed = dólares por segundo que BTC necesita recorrer para borrar la ventaja actual.
-        required_speed = abs_d / max(float(seconds_left), 1.0) if seconds_left <= 90 else 0.0
-        observed_speed = abs(float(micro.get("change_10s", 0.0) or 0.0)) / 10.0 if micro.get("ready") else 0.0
-        speed_ratio = required_speed / max(observed_speed, 0.35) if seconds_left <= 90 else 0.0
-
-        # Si el lado actual tiene una ventaja que exige una velocidad claramente mayor
-        # que la observada para cruzar, ese lado manda en el lector de cierre.
-        speed_dominant = seconds_left <= 90 and abs_d >= 12 and (
-            speed_ratio >= 1.60 or
-            (seconds_left <= 45 and required_speed >= 0.85) or
-            (seconds_left <= 15 and required_speed >= 1.00)
-        )
-
-        if strong_distance or speed_dominant:
+        if strong_distance:
             close_direction = market_side
             terminal_override = True
         elif too_close and seconds_left <= 30:
@@ -2016,25 +1974,15 @@ def closing_reader(sig, round_signal, seconds_left, micro):
     if seconds_left is not None and seconds_left <= 180:
         confidence += 2
 
-    # Refuerzo de cierre: distancia + tiempo + velocidad necesaria para cruzar.
-    # Ej.: $50 de ventaja con 36 s exige ~$1.39/s. Si el tape va mucho más lento,
-    # la confianza debe reflejar esa ventaja en vez de quedarse artificialmente baja.
-    if terminal_override and distance is not None and seconds_left is not None:
+    # Refuerzo específico de tiempo + distancia.
+    if terminal_override and distance is not None:
         abs_d = abs(distance)
-        secs = max(float(seconds_left), 1.0)
-        required_speed = abs_d / secs
-        observed_speed = abs(float(micro.get("change_10s", 0.0) or 0.0)) / 10.0 if micro.get("ready") else 0.0
-        speed_ratio = required_speed / max(observed_speed, 0.35)
-
-        # Base progresiva: cuanto menos tiempo y más recorrido requerido, mayor ventaja.
-        closing_floor = 68.0
-        closing_floor += min(14.0, required_speed * 8.0)
-        closing_floor += min(9.0, max(0.0, speed_ratio - 1.0) * 4.0)
-        if seconds_left <= 45:
-            closing_floor += 3.0
         if seconds_left <= 15:
-            closing_floor += 4.0
-        confidence = max(confidence, min(95.0, closing_floor))
+            confidence = max(confidence, 90 if abs_d >= 75 else 82)
+        elif seconds_left <= 30:
+            confidence = max(confidence, 86 if abs_d >= 100 else 78)
+        elif seconds_left <= 60:
+            confidence = max(confidence, 80 if abs_d >= 120 else 74)
 
     confidence = int(round(np.clip(confidence, 5, 95)))
 
@@ -2052,11 +2000,9 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         )
     elif terminal_override:
         headline = f"CIERRE MUY FAVORECIDO PARA {direction}"
-        req = abs(distance) / max(float(seconds_left), 1.0)
         note = (
             f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
-            f"{'arriba' if distance > 0 else 'abajo'} del target. "
-            f"Necesitaría recorrer ~${req:.2f}/s para cruzarlo."
+            f"{'arriba' if distance > 0 else 'abajo'} del target."
         )
     elif round_signal.get("reversal"):
         headline = "SEÑAL PERDIENDO FUERZA"
@@ -2344,20 +2290,6 @@ def live_dashboard():
     micro = micro_reading()
     reader = closing_reader(sig, round_signal, seconds_left, micro)
 
-    # El Lector de Cierre solo muestra conclusión/probabilidad en los últimos 01:30.
-    # Antes de 01:30 sigue reuniendo la microlectura, pero visualmente permanece neutral.
-    reader_active_90s = seconds_left is not None and seconds_left <= 90
-    if not reader_active_90s:
-        reader = dict(reader)
-        reader.update({
-            "percent": None,
-            "headline": "MONITOREANDO CIERRE",
-            "note": "El lector se activa cuando falten 01:30 para el cierre.",
-            "color": "#38bdf8",
-            "border": "rgba(56,189,248,.45)",
-            "bg": "linear-gradient(135deg,rgba(11,64,91,.30),rgba(9,23,34,.72))",
-        })
-
     # Ballenas: capa visual independiente; NO modifica señales ni probabilidades v4.6.1.
     try:
         whale = get_coinbase_whale_flow()
@@ -2502,15 +2434,6 @@ def live_dashboard():
     else:
         final_status = f"VENTAJA FINAL {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA FINAL"
         final_note = "Lectura independiente basada en distancia, tiempo restante y movimiento de los últimos segundos."
-    # Antes de 01:30 el cuadro final NO muestra conclusión ni probabilidad.
-    # Los números micro (30s/10s/5s, distancia y velocidad) siguen vivos.
-    if not reader_active_90s:
-        final_status = "MONITOREANDO CIERRE"
-        final_note = "La lectura final se activa cuando falten 01:30."
-
-    reader_percent_text = f"{reader['percent']}%" if reader.get("percent") is not None else "--"
-    reader_ring_p = reader.get("percent") if reader.get("percent") is not None else 0
-
     final_distance = abs(distance) if distance is not None else 0.0
     final_dist_pct = abs(distance_pct) if distance_pct is not None else 0.0
     final_panel = f'''<div class="finalclose">
@@ -2525,7 +2448,7 @@ def live_dashboard():
       </div>
       <div class="finalanalysis">
         <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)</small><b>{final_status}</b><span>{final_note}</span></div></div>
-        <div class="probbox"><small>PROBABILIDAD</small><b>{str(reader['percent']) + '%' if reader_active_90s else '--'}</b></div>
+        <div class="probbox"><small>PROBABILIDAD</small><b>{reader['percent']}%</b></div>
       </div>
     </div>'''
 
@@ -2575,9 +2498,9 @@ def live_dashboard():
   </section>
 
   <section class="reader" style="--rb:{reader['border']};--rbg:{reader['bg']};--rr:{reader['color']}">
-    <div class="readerhead"><span class="pulse">⌁</span><span>LECTOR DE CIERRE</span><em>{'ACTIVO' if reader_active_90s else 'MONITOREANDO'}</em></div>
+    <div class="readerhead"><span class="pulse">⌁</span><span>LECTOR DE CIERRE</span><em>ACTIVO</em></div>
     <div class="readerbody"><div><strong>{reader['headline']}</strong><small>{reader['note']}</small></div>
-    <div class="rring" style="--p:{reader['percent'] if reader_active_90s else 0}"><span>{str(reader['percent']) + '%' if reader_active_90s else '--'}</span></div></div>
+    <div class="rring" style="--p:{reader['percent']}"><span>{reader['percent']}%</span></div></div>
     {final_panel}
   </section>
 
