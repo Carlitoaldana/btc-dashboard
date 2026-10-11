@@ -877,29 +877,65 @@ def history_stats(df):
 # COINBASE — VELAS ORIGINALES DE 1 MINUTO
 # =========================================================
 
+def _fetch_current_btc_candles():
+    """Solicita una ventana explícita y verifica la fecha de las velas recibidas.
+
+    Una respuesta HTTP correcta puede contener velas antiguas. No se sustituye
+    una vela antigua por un precio live para calcular los indicadores.
+    """
+    last_error = None
+    for attempt in range(2):
+        requested_at = datetime.now(timezone.utc)
+        minute_start = requested_at.replace(second=0, microsecond=0)
+        start = minute_start - pd.Timedelta(minutes=299)
+        response = requests.get(
+            "https://api.exchange.coinbase.com/products/BTC-USD/candles",
+            params={
+                "granularity": 60,
+                "start": start.isoformat(),
+                "end": requested_at.isoformat(),
+            },
+            headers={
+                "User-Agent": "MacalyAlphaBot/4.6.1",
+                "Cache-Control": "no-cache, no-store, max-age=0",
+                "Pragma": "no-cache",
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        rows = response.json()
+        if not isinstance(rows, list) or len(rows) < 30:
+            raise ValueError("Coinbase no devolvió suficientes velas.")
+        frame = pd.DataFrame(
+            rows, columns=["time", "low", "high", "open", "close", "volume"]
+        )
+        for column in ["time", "low", "high", "open", "close", "volume"]:
+            frame[column] = pd.to_numeric(frame[column], errors="coerce")
+        frame["time"] = pd.to_datetime(frame["time"], unit="s", utc=True, errors="coerce")
+        frame = frame.dropna().drop_duplicates("time").sort_values("time").reset_index(drop=True)
+        if len(frame) < 30:
+            raise ValueError("Coinbase devolvió velas inválidas o insuficientes.")
+        received_at = datetime.now(timezone.utc)
+        latest_start = frame.iloc[-1]["time"]
+        age = (received_at - latest_start.to_pydatetime()).total_seconds()
+        # Una vela de 1m puede estar abierta o ser la última cerrada. Se permite
+        # hasta un minuto adicional de publicación, sin aceptar varios minutos.
+        if -5 <= age <= 120:
+            frame.attrs["received_at"] = received_at.isoformat()
+            frame.attrs["latest_candle_at"] = latest_start.isoformat()
+            frame.attrs["candle_age_seconds"] = age
+            return frame
+        last_error = ValueError(
+            "Velas Coinbase desactualizadas: última vela "
+            f"{latest_start.strftime('%H:%M:%S UTC')} ({age:.0f} s). "
+            "El motor necesita velas actuales."
+        )
+    raise last_error
+
+
 @st.cache_data(ttl=5)
 def get_btc_data():
-    response = requests.get(
-        "https://api.exchange.coinbase.com/products/BTC-USD/candles",
-        params={"granularity": 60},
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
-        timeout=10,
-    )
-    response.raise_for_status()
-    data = response.json()
-
-    if not isinstance(data, list) or len(data) < 30:
-        raise ValueError("Coinbase no devolvió suficientes datos.")
-
-    df = pd.DataFrame(
-        data, columns=["time", "low", "high", "open", "close", "volume"]
-    )
-
-    for column in ["low", "high", "open", "close", "volume"]:
-        df[column] = pd.to_numeric(df[column], errors="coerce")
-
-    df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
-    return df.dropna().sort_values("time").reset_index(drop=True)
+    return _fetch_current_btc_candles()
 
 
 def get_coinbase_whale_flow():
@@ -1167,7 +1203,11 @@ def _indicator_frame(df):
     delta = close.diff(); gain = delta.clip(lower=0); loss = -delta.clip(upper=0)
     ag = gain.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
     al = loss.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
-    x["rsi"] = (100-(100/(1+(ag/al.replace(0,np.nan))))).fillna(50)
+    rs = ag / al.replace(0, np.nan)
+    rsi = 100 - 100 / (1 + rs)
+    rsi = rsi.mask((al == 0) & (ag > 0), 100.0)
+    rsi = rsi.mask((ag == 0) & (al > 0), 0.0)
+    x["rsi"] = rsi.fillna(50.0)
     e12=close.ewm(span=12,adjust=False).mean(); e26=close.ewm(span=26,adjust=False).mean()
     x["macd"]=e12-e26; x["macd_signal"]=x["macd"].ewm(span=9,adjust=False).mean(); x["macd_hist"]=x["macd"]-x["macd_signal"]
     prev=close.shift(1); tr=pd.concat([(high-low),(high-prev).abs(),(low-prev).abs()],axis=1).max(axis=1)
@@ -1641,21 +1681,8 @@ BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
 
 def _background_get_btc_data():
-    response = requests.get(
-        "https://api.exchange.coinbase.com/products/BTC-USD/candles",
-        params={"granularity": 60},
-        headers={"User-Agent": "MacalyAlphaBot/4.6.1"},
-        timeout=10,
-    )
-    response.raise_for_status()
-    data = response.json()
-    if not isinstance(data, list) or len(data) < 30:
-        raise ValueError("Coinbase no devolvió suficientes datos.")
-    df = pd.DataFrame(data, columns=["time", "low", "high", "open", "close", "volume"])
-    for column in ["low", "high", "open", "close", "volume"]:
-        df[column] = pd.to_numeric(df[column], errors="coerce")
-    df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
-    return df.dropna().sort_values("time").reset_index(drop=True)
+    # Misma petición y misma comprobación de fechas para pantalla y fondo.
+    return get_btc_data()
 
 def _background_get_market():
     response = requests.get(
