@@ -1345,7 +1345,7 @@ def estimated_probabilities(
 # MOTOR ORIGINAL v4.6.1
 # =========================================================
 
-def build_signal(df, target, seconds_left, live_price=None):
+def _signal_engine_without_trace(df, target, seconds_left, live_price=None):
     one=add_indicators(df); three=_resample_indicators(df,3); five=_resample_indicators(df,5)
     l1,l3,l5=one.iloc[-1],three.iloc[-1],five.iloc[-1]
     candle_price=float(l1["close"]); price=float(live_price) if live_price is not None else candle_price
@@ -1503,7 +1503,7 @@ def entry_quality(price, seconds_left):
 # CONTROL DE RONDA — EL CEREBRO MANDA
 # =========================================================
 
-def confirm_round_candidate(state, candidate, market, seconds_left, now):
+def _confirmation_without_trace(state, candidate, market, seconds_left, now):
     """Confirmación compartida por la pantalla y el registrador de fondo.
 
     La primera señal queda inmutable. Un cambio UP/DOWN posterior también
@@ -2678,11 +2678,100 @@ def live_dashboard():
         st.error("Error Kalshi: " + kalshi_error)
 
 
+import zlib
+
+SIGNAL_TRACE_DB = "btc_signal_decisions.db"
+_TRACE_CONTEXT = threading.local()
+
+
+def _trace_json(value):
+    def encode(item):
+        if isinstance(item, datetime):
+            return item.isoformat()
+        if isinstance(item, np.generic):
+            return item.item()
+        raise TypeError(type(item).__name__)
+    return json.dumps(value, default=encode, ensure_ascii=False, allow_nan=False)
+
+
+def _trace_event(kind, payload, ticker=None):
+    """Diagnóstico independiente: un fallo de escritura no altera la decisión."""
+    try:
+        observed = datetime.now(timezone.utc).isoformat()
+        thread_key = str(id(threading.current_thread()))
+        packed = zlib.compress(_trace_json(payload).encode("utf-8"))
+        with sqlite3.connect(SIGNAL_TRACE_DB, timeout=0) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS decisions (id INTEGER PRIMARY KEY, observed_at TEXT NOT NULL, thread_key TEXT NOT NULL, kind TEXT NOT NULL, ticker TEXT, build_id INTEGER, payload BLOB NOT NULL)")
+            conn.execute("CREATE INDEX IF NOT EXISTS decisions_thread_kind ON decisions(thread_key,kind,id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS decisions_time ON decisions(observed_at)")
+            conn.execute("CREATE INDEX IF NOT EXISTS decisions_ticker ON decisions(ticker,id)")
+            build_id = getattr(_TRACE_CONTEXT, "build_id", None) if kind == "confirmation" else None
+            inserted = conn.execute("INSERT INTO decisions(observed_at,thread_key,kind,ticker,build_id,payload) VALUES(?,?,?,?,?,?)", (observed, thread_key, kind, ticker, build_id, packed))
+            cutoff = datetime.fromtimestamp(datetime.now(timezone.utc).timestamp() - 12*3600, timezone.utc).isoformat()
+            conn.execute("DELETE FROM decisions WHERE observed_at < ?", (cutoff,))
+            event_id = inserted.lastrowid
+        return event_id
+    except Exception:
+        # La observación nunca cambia señales ni bloquea por errores de diagnóstico.
+        return
+
+
+def build_signal(df, target, seconds_left, live_price=None):
+    _TRACE_CONTEXT.build_id = None
+    sig = _signal_engine_without_trace(df, target, seconds_left, live_price)
+    try:
+        candles = [[row.time.isoformat(), float(row.open), float(row.high), float(row.low), float(row.close), float(row.volume)] for row in df.itertuples()]
+        _TRACE_CONTEXT.build_id = _trace_event("build", {"candles":candles, "target":target, "seconds_left":seconds_left, "live_price":live_price, "signal":sig})
+    except Exception:
+        pass
+    return sig
+
+
+def confirm_round_candidate(state, candidate, market, seconds_left, now):
+    before = dict(state)
+    result = _confirmation_without_trace(state, candidate, market, seconds_left, now)
+    try:
+        _trace_event("confirmation", {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}, state.get("ticker"))
+    except Exception:
+        pass
+    finally:
+        _TRACE_CONTEXT.build_id = None
+    return result
+
+
+def render_signal_trace_page():
+    """Página técnica separada; no cambia la pantalla de señales."""
+    st.title("Datos de decisiones")
+    ticker = str(st.query_params.get("ticker", ""))
+    entries = str(st.query_params.get("view", "")) == "entries"
+    try:
+        with sqlite3.connect(SIGNAL_TRACE_DB, timeout=1) as conn:
+            if ticker:
+                rows = conn.execute("SELECT id,observed_at,ticker,build_id,payload FROM decisions WHERE kind='confirmation' AND ticker=? ORDER BY id DESC LIMIT ?", (ticker, 2000 if entries else 10)).fetchall()
+            else:
+                rows = conn.execute("SELECT id,observed_at,ticker,build_id,payload FROM decisions WHERE kind='confirmation' ORDER BY id DESC LIMIT 10").fetchall()
+            readings = []
+            for event_id, observed, round_ticker, build_id, payload in rows:
+                confirmation = json.loads(zlib.decompress(payload))
+                if entries:
+                    before, after = confirmation["before"], confirmation["after"]
+                    changed = any(before.get(key) != after.get(key) for key in ("first_direction", "active_direction"))
+                    if not changed:
+                        continue
+                build = conn.execute("SELECT observed_at,payload FROM decisions WHERE id=? AND kind='build'", (build_id,)).fetchone() if build_id else None
+                readings.append({"id":event_id, "observed_at":observed, "ticker":round_ticker, "confirmation":confirmation, "build_observed_at":build[0] if build else None, "input":json.loads(zlib.decompress(build[1])) if build else None})
+        st.json(readings)
+    except Exception as error:
+        st.info("Datos todavía no disponibles: " + str(error))
+
+
 # Inicia una sola vez el registrador autónomo de 12 horas.
 start_12h_history_worker()
 
 page = str(st.query_params.get("page", "signal"))
-if page == "settings":
+if page == "signal_trace":
+    render_signal_trace_page()
+elif page == "settings":
     render_history_page()
 else:
     live_dashboard()
