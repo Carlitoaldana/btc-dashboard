@@ -708,63 +708,126 @@ def new_round_state(ticker, seconds_left):
 # Solo guarda el estado de la ronda; NO cambia el cerebro.
 # =========================================================
 
-ROUND_STATE_DB = "btc_signal_round_state.db"
+LEGACY_ROUND_STATE_DB = 'btc_signal_round_state.db'
+ROUND_STATE_DB = 'btc_signal_round_state_v2.db'
+_ROUND_TRANSACTION = threading.local()
+
 
 def _round_db():
     conn = sqlite3.connect(ROUND_STATE_DB, timeout=5)
-    conn.execute("CREATE TABLE IF NOT EXISTS round_state (ticker TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL)")
+    conn.execute('CREATE TABLE IF NOT EXISTS round_state (ticker TEXT PRIMARY KEY,payload TEXT NOT NULL,updated_at TEXT NOT NULL)')
     return conn
 
-def save_round_state(state):
-    """Preserva la primera señal de la ronda entre escritores independientes."""
-    if not state or not state.get("ticker"):
-        return
+
+def _decode_round_payload(payload):
+    state = json.loads(payload)
+    for key in ('detected_at','first_signal_time','active_since'):
+        value = state.get(key)
+        if isinstance(value, str) and value:
+            try:
+                state[key] = datetime.fromisoformat(value)
+            except ValueError:
+                state[key] = None
+    state['_restored_from_disk'] = True
+    return state
+
+
+def _load_state_from_connection(conn, ticker):
+    row = conn.execute('SELECT payload FROM round_state WHERE ticker=?', (ticker,)).fetchone()
+    if row:
+        return _decode_round_payload(row[0])
+    # La primera lectura conserva la ronda anterior, sin permitir que un trabajador
+    # antiguo escriba en la nueva base coordinada.
     try:
-        with _round_db() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute("SELECT payload FROM round_state WHERE ticker=?", (state["ticker"],)).fetchone()
-            saved = json.loads(row[0]) if row else {}
-            if saved.get("first_direction") in ("UP", "DOWN"):
-                for key in ("first_direction", "first_signal_time", "first_signal_seconds", "first_signal_price"):
-                    value = saved.get(key)
-                    if key == "first_signal_time" and isinstance(value, str) and value:
-                        try:
-                            value = datetime.fromisoformat(value)
-                        except ValueError:
-                            value = None
-                    state[key] = value
-            keep = dict(state)
-            for key in ("detected_at", "first_signal_time", "active_since"):
-                if isinstance(keep.get(key), datetime):
-                    keep[key] = keep[key].isoformat()
-            conn.execute(
-                "INSERT INTO round_state(ticker,payload,updated_at) VALUES(?,?,?) "
-                "ON CONFLICT(ticker) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at",
-                (state["ticker"], json.dumps(keep), datetime.now(timezone.utc).isoformat()),
-            )
+        with sqlite3.connect('file:' + LEGACY_ROUND_STATE_DB + '?mode=ro', uri=True, timeout=1) as legacy:
+            row = legacy.execute('SELECT payload FROM round_state WHERE ticker=?', (ticker,)).fetchone()
+        return _decode_round_payload(row[0]) if row else None
     except Exception:
-        pass
+        return None
+
 
 def load_round_state(ticker):
-    if not ticker or ticker == "--":
+    if not ticker or ticker == '--':
         return None
+    conn = getattr(_ROUND_TRANSACTION, 'conn', None)
+    if conn is not None:
+        return _load_state_from_connection(conn, ticker)
     try:
         with _round_db() as conn:
-            row = conn.execute("SELECT payload FROM round_state WHERE ticker=?", (ticker,)).fetchone()
-        if not row:
-            return None
-        state = json.loads(row[0])
-        for key in ("detected_at", "first_signal_time", "active_since"):
-            value = state.get(key)
-            if isinstance(value, str) and value:
-                try:
-                    state[key] = datetime.fromisoformat(value)
-                except Exception:
-                    state[key] = None
-        state["_restored_from_disk"] = True
-        return state
+            return _load_state_from_connection(conn, ticker)
     except Exception:
         return None
+
+
+def _write_state_to_connection(conn, state):
+    row = conn.execute('SELECT payload FROM round_state WHERE ticker=?', (state['ticker'],)).fetchone()
+    saved = json.loads(row[0]) if row else {}
+    if saved.get('first_direction') in ('UP','DOWN'):
+        for key in ('first_direction','first_signal_time','first_signal_seconds','first_signal_price'):
+            value = saved.get(key)
+            if key == 'first_signal_time' and isinstance(value, str) and value:
+                value = datetime.fromisoformat(value)
+            state[key] = value
+    keep = {key:value for key,value in state.items() if key != '_restored_from_disk'}
+    for key in ('detected_at','first_signal_time','active_since'):
+        if isinstance(keep.get(key), datetime):
+            keep[key] = keep[key].isoformat()
+    conn.execute('INSERT INTO round_state(ticker,payload,updated_at) VALUES(?,?,?) '
+                 'ON CONFLICT(ticker) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at',
+                 (state['ticker'],json.dumps(keep,allow_nan=False),datetime.now(timezone.utc).isoformat()))
+
+
+def save_round_state(state):
+    if not state or not state.get('ticker'):
+        return
+    conn = getattr(_ROUND_TRANSACTION,'conn',None)
+    if conn is not None:
+        _write_state_to_connection(conn,state)
+        return
+    with _round_db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        _write_state_to_connection(conn,state)
+
+
+def _run_round_transaction(action):
+    if getattr(_ROUND_TRANSACTION,'conn',None) is not None:
+        return action()
+    conn = _round_db()
+    try:
+        conn.execute('BEGIN IMMEDIATE')
+        _ROUND_TRANSACTION.conn = conn
+        try:
+            result = action()
+            conn.commit()
+            return result
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            _ROUND_TRANSACTION.conn = None
+    finally:
+        conn.close()
+
+
+def process_round_signal(ticker, sig, market, seconds_left):
+    if not ticker or ticker == '--':
+        return _process_round_signal_without_coordinator(ticker,sig,market,seconds_left)
+    def apply():
+        latest = load_round_state(ticker)
+        if latest is not None:
+            st.session_state.rounds[ticker] = latest
+        return _process_round_signal_without_coordinator(ticker,sig,market,seconds_left)
+    return _run_round_transaction(apply)
+
+
+def _background_update_state(state, sig, market, seconds_left):
+    def apply():
+        latest = load_round_state(state['ticker'])
+        current = latest if latest is not None else state
+        current.pop('_restored_from_disk',None)
+        return _background_update_state_without_coordinator(current,sig,market,seconds_left)
+    return _run_round_transaction(apply)
+
 
 
 
@@ -773,7 +836,8 @@ def load_round_state(ticker):
 # No modifica build_signal(), preseñal, lector, ballenas ni gráfico.
 # =========================================================
 
-HISTORY_DB = "btc_signal_history.db"
+LEGACY_HISTORY_DB = "btc_signal_history.db"
+HISTORY_DB = "btc_signal_history_v2.db"
 
 def _history_db():
     conn = sqlite3.connect(HISTORY_DB, timeout=5)
@@ -800,6 +864,28 @@ def _history_db():
                 observed_result=result,
                 result=CASE WHEN first_signal IN ('UP','DOWN') THEN 'PENDIENTE' ELSE 'NO TRADE' END
                 WHERE verification_status != 'official' ''')
+        conn.execute("CREATE TABLE IF NOT EXISTS history_migrations (name TEXT PRIMARY KEY)")
+        migrated_legacy = conn.execute("SELECT 1 FROM history_migrations WHERE name='legacy_import_v1'").fetchone()
+        if not migrated_legacy:
+            from pathlib import Path
+            if Path(LEGACY_HISTORY_DB).exists():
+                legacy = sqlite3.connect('file:' + LEGACY_HISTORY_DB + '?mode=ro', uri=True, timeout=1)
+                try:
+                    legacy.row_factory = sqlite3.Row
+                    source_rows = legacy.execute('SELECT * FROM round_history').fetchall()
+                    allowed = {'ticker','target','final_btc','final_outcome','bot_signal','result',
+                               'first_signal','first_signal_time','closed_at'} | set(additions)
+                    for source_row in source_rows:
+                        values = dict(source_row)
+                        values['observed_outcome'] = values.get('observed_outcome') or values.get('final_outcome')
+                        values['observed_result'] = values.get('observed_result') or values.get('result')
+                        names = sorted(allowed.intersection(values))
+                        conn.execute('INSERT OR IGNORE INTO round_history (' + ','.join(names) +
+                                     ') VALUES (' + ','.join('?' for _ in names) + ')',
+                                     tuple(values[name] for name in names))
+                finally:
+                    legacy.close()
+            conn.execute("INSERT INTO history_migrations(name) VALUES('legacy_import_v1')")
         conn.commit()
         return conn
     except Exception:
@@ -923,7 +1009,7 @@ def _history_verification_loop():
 
 @st.cache_resource
 def start_history_verifier():
-    worker = threading.Thread(target=_history_verification_loop, name='btc-history-verification', daemon=True)
+    worker = threading.Thread(target=_history_verification_loop, name='btc-history-verification-v2', daemon=True)
     worker.start()
     return worker
 
@@ -1668,7 +1754,7 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now):
         state["pending_last_at"] = None
 
 
-def process_round_signal(ticker, sig, market, seconds_left):
+def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
 
     if ticker and ticker != "--" and st.session_state.active_ticker != ticker:
@@ -1828,7 +1914,7 @@ def _background_get_live_price(market):
         raise ValueError("Sin precio BTC live.")
     return float(price)
 
-def _background_update_state(state, sig, market, seconds_left):
+def _background_update_state_without_coordinator(state, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
     price = float(sig.get("price", 0.0))
     target = get_target_from_market(market)
@@ -1878,7 +1964,7 @@ def _background_history_loop():
 
 @st.cache_resource
 def start_12h_history_worker():
-    worker = threading.Thread(target=_background_history_loop, name="btc-history-12h", daemon=True)
+    worker = threading.Thread(target=_background_history_loop, name="btc-history-canonical-v2", daemon=True)
     worker.start()
     return worker
 
@@ -2869,11 +2955,60 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now):
     return result
 
 
+def export_round_diagnostics(ticker, limit=4000):
+    """Exporta lecturas de una ronda y su verificación; no calcula señales."""
+    import gzip
+    import io
+    if (not ticker.startswith('KXBTC15M-') or len(ticker) > 128
+            or any(not (ch.isascii() and (ch.isalnum() or ch == '-')) for ch in ticker)):
+        raise ValueError('Ronda no válida.')
+    history = None
+    try:
+        with _history_db() as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute('SELECT * FROM round_history WHERE ticker=?', (ticker,)).fetchone()
+            history = dict(row) if row else None
+    except Exception:
+        pass
+    output = io.BytesIO()
+    with sqlite3.connect(SIGNAL_TRACE_DB, timeout=1) as conn:
+        total, last_id = conn.execute("SELECT COUNT(*),MAX(id) FROM decisions WHERE kind='confirmation' AND ticker=?", (ticker,)).fetchone()
+        rows = conn.execute("SELECT id,observed_at,thread_key,ticker,build_id,payload FROM decisions WHERE kind='confirmation' AND ticker=? AND id<=? ORDER BY id LIMIT ?", (ticker, last_id or 0, int(limit))).fetchall()
+        header = dict(schema_version=1,ticker=ticker,
+                      exported_at=datetime.now(timezone.utc).isoformat(),
+                      available_confirmations=total,exported_confirmations=len(rows),
+                      truncated=total > len(rows),history=history)
+        # Comprime cada fila por separado para evitar acumular todas las velas en memoria.
+        with gzip.GzipFile(fileobj=output, mode='wb') as packed:
+            packed.write((json.dumps(header, ensure_ascii=False, allow_nan=False)[:-1] + ',"entries":[').encode('utf-8'))
+            for index, (event_id, observed, thread_key, round_ticker, build_id, payload) in enumerate(rows):
+                confirmation = json.loads(zlib.decompress(payload))
+                build = conn.execute("SELECT observed_at,payload FROM decisions WHERE id=? AND kind='build'", (build_id,)).fetchone() if build_id else None
+                entry = dict(id=event_id,observed_at=observed,thread_key=thread_key,ticker=round_ticker,
+                             confirmation=confirmation,build_observed_at=build[0] if build else None,
+                             input=json.loads(zlib.decompress(build[1])) if build else None)
+                if index:
+                    packed.write(b',')
+                packed.write(json.dumps(entry, ensure_ascii=False, allow_nan=False).encode('utf-8'))
+            packed.write(b']}')
+    return output.getvalue()
+
+
 def render_signal_trace_page():
     """Página técnica separada; no cambia la pantalla de señales."""
     st.title("Datos de decisiones")
     ticker = str(st.query_params.get("ticker", ""))
     entries = str(st.query_params.get("view", "")) == "entries"
+    if ticker and st.button("Preparar exportación de esta ronda", key="prepare_trace_export"):
+        try:
+            st.session_state["prepared_trace_export"] = (ticker, export_round_diagnostics(ticker))
+        except Exception as error:
+            st.info("No se pudo preparar la exportación: " + str(error))
+    prepared = st.session_state.get("prepared_trace_export")
+    if prepared and prepared[0] == ticker:
+        st.download_button("Descargar lecturas de la ronda", prepared[1],
+                           file_name=f"diagnostico_{ticker}.json.gz", mime="application/gzip",
+                           key="download_trace_export")
     try:
         with sqlite3.connect(SIGNAL_TRACE_DB, timeout=1) as conn:
             if ticker:
