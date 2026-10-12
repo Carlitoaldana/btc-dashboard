@@ -898,6 +898,13 @@ def save_round_history(state):
     if not state or not state.get("ticker"):
         return
     try:
+        latest = load_round_state(state["ticker"])
+        canonical_first = bool(latest and latest.get("ticker") == state["ticker"]
+                               and latest.get("first_direction") in ("UP", "DOWN"))
+        if canonical_first:
+            state = dict(state)
+            for key in ("first_direction", "first_signal_time"):
+                state[key] = latest.get(key)
         target = float(state["last_target"])
         price = float(state["last_live_price"])
         if not np.isfinite(target) or not np.isfinite(price):
@@ -911,6 +918,13 @@ def save_round_history(state):
         if isinstance(fst, datetime):
             fst = fst.isoformat()
         with _history_db() as conn:
+            if canonical_first:
+                conn.execute('''UPDATE round_history SET first_signal=?,
+                    first_signal_time=COALESCE(?,first_signal_time),bot_signal=?,
+                    result=CASE WHEN verification_status='official' AND official_result IN ('yes','no')
+                        THEN CASE WHEN official_result=? THEN 'GANADA' ELSE 'PERDIDA' END
+                        ELSE result END WHERE ticker=?''',
+                    (first,fst,first,'yes' if first == 'UP' else 'no',state['ticker']))
             conn.execute('''INSERT INTO round_history
                 (ticker,target,final_btc,final_outcome,bot_signal,result,first_signal,
                  first_signal_time,closed_at,verification_status,observed_outcome,observed_result)
