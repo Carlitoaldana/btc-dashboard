@@ -2935,7 +2935,9 @@ def _trace_event(kind, payload, ticker=None):
         observed = datetime.now(timezone.utc).isoformat()
         thread_key = str(id(threading.current_thread()))
         packed = zlib.compress(_trace_json(payload).encode("utf-8"))
-        with sqlite3.connect(SIGNAL_TRACE_DB, timeout=0) as conn:
+        # Give a brief competing writer time to finish, while bounding the
+        # diagnostic delay. Long locks still fail without changing the signal.
+        with sqlite3.connect(SIGNAL_TRACE_DB, timeout=0.2) as conn:
             conn.execute("CREATE TABLE IF NOT EXISTS decisions (id INTEGER PRIMARY KEY, observed_at TEXT NOT NULL, thread_key TEXT NOT NULL, kind TEXT NOT NULL, ticker TEXT, build_id INTEGER, payload BLOB NOT NULL)")
             conn.execute("CREATE INDEX IF NOT EXISTS decisions_thread_kind ON decisions(thread_key,kind,id)")
             conn.execute("CREATE INDEX IF NOT EXISTS decisions_time ON decisions(observed_at)")
