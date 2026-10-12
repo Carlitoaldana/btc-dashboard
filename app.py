@@ -2934,10 +2934,13 @@ def _trace_event(kind, payload, ticker=None):
 
 def build_signal(df, target, seconds_left, live_price=None):
     _TRACE_CONTEXT.build_id = None
+    _TRACE_CONTEXT.build_payload = None
     sig = _signal_engine_without_trace(df, target, seconds_left, live_price)
     try:
         candles = [[row.time.isoformat(), float(row.open), float(row.high), float(row.low), float(row.close), float(row.volume)] for row in df.itertuples()]
-        _TRACE_CONTEXT.build_id = _trace_event("build", {"candles":candles, "candle_metadata":dict(df.attrs), "target":target, "seconds_left":seconds_left, "live_price":live_price, "signal":sig})
+        payload = {"candles":candles, "candle_metadata":dict(df.attrs), "target":target, "seconds_left":seconds_left, "live_price":live_price, "signal":sig}
+        _TRACE_CONTEXT.build_payload = payload
+        _TRACE_CONTEXT.build_id = _trace_event("build", payload)
     except Exception:
         pass
     return sig
@@ -2947,11 +2950,17 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now):
     before = dict(state)
     result = _confirmation_without_trace(state, candidate, market, seconds_left, now)
     try:
-        _trace_event("confirmation", {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}, state.get("ticker"))
+        payload = {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}
+        if getattr(_TRACE_CONTEXT, "build_id", None) is None:
+            fallback = getattr(_TRACE_CONTEXT, "build_payload", None)
+            if fallback is not None:
+                payload["input_fallback"] = fallback
+        _trace_event("confirmation", payload, state.get("ticker"))
     except Exception:
         pass
     finally:
         _TRACE_CONTEXT.build_id = None
+        _TRACE_CONTEXT.build_payload = None
     return result
 
 
@@ -2983,10 +2992,11 @@ def export_round_diagnostics(ticker, limit=4000):
             packed.write((json.dumps(header, ensure_ascii=False, allow_nan=False)[:-1] + ',"entries":[').encode('utf-8'))
             for index, (event_id, observed, thread_key, round_ticker, build_id, payload) in enumerate(rows):
                 confirmation = json.loads(zlib.decompress(payload))
+                fallback = confirmation.pop("input_fallback", None)
                 build = conn.execute("SELECT observed_at,payload FROM decisions WHERE id=? AND kind='build'", (build_id,)).fetchone() if build_id else None
                 entry = dict(id=event_id,observed_at=observed,thread_key=thread_key,ticker=round_ticker,
                              confirmation=confirmation,build_observed_at=build[0] if build else None,
-                             input=json.loads(zlib.decompress(build[1])) if build else None)
+                             input=json.loads(zlib.decompress(build[1])) if build else fallback)
                 if index:
                     packed.write(b',')
                 packed.write(json.dumps(entry, ensure_ascii=False, allow_nan=False).encode('utf-8'))
@@ -3018,13 +3028,14 @@ def render_signal_trace_page():
             readings = []
             for event_id, observed, round_ticker, build_id, payload in rows:
                 confirmation = json.loads(zlib.decompress(payload))
+                fallback = confirmation.pop("input_fallback", None)
                 if entries:
                     before, after = confirmation["before"], confirmation["after"]
                     changed = any(before.get(key) != after.get(key) for key in ("first_direction", "active_direction"))
                     if not changed:
                         continue
                 build = conn.execute("SELECT observed_at,payload FROM decisions WHERE id=? AND kind='build'", (build_id,)).fetchone() if build_id else None
-                readings.append({"id":event_id, "observed_at":observed, "ticker":round_ticker, "confirmation":confirmation, "build_observed_at":build[0] if build else None, "input":json.loads(zlib.decompress(build[1])) if build else None})
+                readings.append({"id":event_id, "observed_at":observed, "ticker":round_ticker, "confirmation":confirmation, "build_observed_at":build[0] if build else None, "input":json.loads(zlib.decompress(build[1])) if build else fallback})
         st.json(readings)
     except Exception as error:
         st.info("Datos todavía no disponibles: " + str(error))
