@@ -2128,10 +2128,10 @@ def closing_reader(sig, round_signal, seconds_left, micro):
 
         if seconds_left <= 15:
             strong_distance = abs_d >= 30
-            too_close = abs_d < 15
+            too_close = not strong_distance
         elif seconds_left <= 30:
             strong_distance = abs_d >= 45
-            too_close = abs_d < 20
+            too_close = not strong_distance
         elif seconds_left <= 60:
             strong_distance = abs_d >= 70
             too_close = abs_d < 25
@@ -2219,14 +2219,19 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         # En los últimos segundos NO lo llama simplemente "disputado":
         # muestra qué lado del target está ganando AHORA y la distancia exacta.
         # La confianza se mantiene moderada porque una diferencia pequeña aún puede cruzarse.
-        market_side = "UP" if distance > 0 else "DOWN"
-        confidence = int(np.clip(confidence, 52, 64))
-        headline = f"VENTAJA FINAL {market_side}"
-        note = (
-            f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
-            f"{'arriba' if distance > 0 else 'abajo'} del target. "
-            f"En este instante el cierre favorece {market_side}."
-        )
+        if distance == 0:
+            confidence = 50
+            headline = "PRECIO EN EL TARGET"
+            note = f"Quedan {seconds_left}s y el precio está en el target, sin margen a favor de una dirección."
+        else:
+            market_side = "UP" if distance > 0 else "DOWN"
+            confidence = int(np.clip(confidence, 52, 64))
+            headline = f"VENTAJA FINAL {market_side}"
+            note = (
+                f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
+                f"{'arriba' if distance > 0 else 'abajo'} del target. "
+                f"En este instante el cierre favorece {market_side}."
+            )
     elif terminal_override:
         headline = f"CIERRE MUY FAVORECIDO PARA {direction}"
         note = (
