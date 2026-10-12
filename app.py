@@ -1345,7 +1345,7 @@ def estimated_probabilities(
 # MOTOR ORIGINAL v4.6.1
 # =========================================================
 
-def _signal_engine_without_trace(df, target, seconds_left, live_price=None):
+def build_signal(df, target, seconds_left, live_price=None):
     one=add_indicators(df); three=_resample_indicators(df,3); five=_resample_indicators(df,5)
     l1,l3,l5=one.iloc[-1],three.iloc[-1],five.iloc[-1]
     candle_price=float(l1["close"]); price=float(live_price) if live_price is not None else candle_price
@@ -1503,7 +1503,7 @@ def entry_quality(price, seconds_left):
 # CONTROL DE RONDA — EL CEREBRO MANDA
 # =========================================================
 
-def _confirmation_without_trace(state, candidate, market, seconds_left, now):
+def confirm_round_candidate(state, candidate, market, seconds_left, now):
     """Confirmación compartida por la pantalla y el registrador de fondo.
 
     La primera señal queda inmutable. Un cambio UP/DOWN posterior también
@@ -1816,9 +1816,9 @@ def micro_reading():
     if len(tape) < 4:
         return {
             "ready": False,
-            "change_5s": 0.0,
-            "change_10s": 0.0,
-            "change_30s": 0.0,
+            "change_5s": None,
+            "change_10s": None,
+            "change_30s": None,
             "slope": 0.0,
             "up_ratio": 0.5,
             "pressure": "NEUTRAL",
@@ -1832,7 +1832,7 @@ def micro_reading():
         candidates = [x for x in tape if x["t"] <= target_t]
         if candidates:
             return candidates[-1]["p"]
-        return tape[0]["p"]
+        return None
 
     p5 = price_ago(5)
     p10 = price_ago(10)
@@ -1853,9 +1853,9 @@ def micro_reading():
     ys = np.array([x["p"] for x in tape], dtype=float)
     slope = float(np.polyfit(xs, ys, 1)[0]) if len(xs) >= 3 and xs[-1] > 0 else 0.0
 
-    c5 = current - p5
-    c10 = current - p10
-    c30 = current - p30
+    c5 = current - p5 if p5 is not None else None
+    c10 = current - p10 if p10 is not None else None
+    c30 = current - p30 if p30 is not None else None
 
     if slope > 0.35 and up_ratio >= 0.58:
         pressure = "ALCISTA"
@@ -1865,7 +1865,7 @@ def micro_reading():
         pressure = "NEUTRAL"
 
     return {
-        "ready": True,
+        "ready": p30 is not None,
         "change_5s": c5,
         "change_10s": c10,
         "change_30s": c30,
@@ -2095,9 +2095,9 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     else:
         d = source_df[["time", "open", "high", "low", "close", "volume"]].copy()
 
-    d = d.tail(42).reset_index(drop=True)
-    # La última vela se mantiene visualmente al precio live recibido por el dashboard.
-    if live_price is not None and len(d):
+    # Solo actualiza una vela abierta con un precio de la misma fuente.
+    bucket_start = pd.Timestamp(datetime.now(timezone.utc)).floor(f"{tf_minutes}min")
+    if live_price is not None and len(d) and pd.Timestamp(d.iloc[-1]["time"]) == bucket_start:
         i = d.index[-1]
         d.loc[i, "close"] = float(live_price)
         d.loc[i, "high"] = max(float(d.loc[i, "high"]), float(live_price))
@@ -2106,6 +2106,9 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     close = d["close"].astype(float)
     ema9 = close.ewm(span=9, adjust=False).mean()
     ema21 = close.ewm(span=21, adjust=False).mean()
+    d = d.tail(42).reset_index(drop=True)
+    ema9 = ema9.tail(len(d)).reset_index(drop=True)
+    ema21 = ema21.tail(len(d)).reset_index(drop=True)
 
     W, H = 760, 430
     left, right, top, bottom = 18, 142, 54, 82
@@ -2391,6 +2394,15 @@ def live_dashboard():
     update_micro_tape(ticker, live_btc_price)
     micro = micro_reading()
     reader = closing_reader(sig, round_signal, seconds_left, micro)
+    reader_percent_label = f"{reader['percent']}%"
+    if round_signal.get("decision") not in ("UP", "DOWN"):
+        reader_percent_label = "—"
+    if seconds_left is not None and seconds_left <= 0:
+        # El reloj y el precio instantáneo no prueban la liquidación oficial.
+        reader = {**reader, "percent": 0,
+                  "headline": "RONDA TERMINADA · RESULTADO PENDIENTE",
+                  "note": "Esperando verificación del resultado oficial de Kalshi."}
+        reader_percent_label = "—"
 
     # Ballenas: capa visual independiente; NO modifica señales ni probabilidades v4.6.1.
     try:
@@ -2505,9 +2517,17 @@ def live_dashboard():
     c30 = float(micro.get("change_30s", 0.0) or 0.0)
     c10 = float(micro.get("change_10s", 0.0) or 0.0)
     c5 = float(micro.get("change_5s", 0.0) or 0.0)
+    motion_labels = {}
+    for window in (5, 10, 30):
+        value = micro.get(f"change_{window}s")
+        motion_labels[window] = "—" if value is None else f"{'↑' if value > 0 else '↓' if value < 0 else '→'}<br>{value:+.0f}"
+    speed_ready = micro.get("change_10s") is not None
     speed10 = c10 / 10.0
     speed_word = "SUBIENDO" if speed10 > 0.15 else "BAJANDO" if speed10 < -0.15 else "ESTABLE"
     speed_arrow = "↑" if speed10 > 0.15 else "↓" if speed10 < -0.15 else "→"
+    speed_value = f"{speed10:+.1f}/s" if speed_ready else "—"
+    if not speed_ready:
+        speed_word, speed_arrow = "REUNIENDO DATOS", ""
     speed_color = "#34e982" if speed10 > 0.15 else "#ff4e5f" if speed10 < -0.15 else "#94a3b8"
     market_side = "UP" if (distance or 0) > 0 else "DOWN" if (distance or 0) < 0 else "NEUTRAL"
     abs_final_distance = abs(distance or 0)
@@ -2538,21 +2558,28 @@ def live_dashboard():
     else:
         final_status = f"VENTAJA FINAL {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA FINAL"
         final_note = "Lectura independiente basada en distancia, tiempo restante y movimiento de los últimos segundos."
+    if seconds_left is None or seconds_left > 60:
+        # Fuera del tramo final, esto describe posición, no pronostica cierre.
+        final_status = f"POSICIÓN ACTUAL {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA ACTUAL"
+        final_note = "Posición actual frente al target; todavía no es una lectura del cierre final."
+    if seconds_left is not None and seconds_left <= 0:
+        final_status = "RESULTADO OFICIAL PENDIENTE"
+        final_note = "El precio mostrado al terminar no confirma la liquidación del contrato."
     final_distance = abs(distance) if distance is not None else 0.0
     final_dist_pct = abs(distance_pct) if distance_pct is not None else 0.0
     final_panel = f'''<div class="finalclose">
       <div class="finalgrid">
         <div class="finalcard motion"><div class="finaltitle">▥ &nbsp; MOVIMIENTO ÚLTIMOS SEGUNDOS</div><div class="motionrow">
-          <div><small>30s</small><b style="color:{'#34e982' if c30>=0 else '#ff4e5f'}">{'↑' if c30>=0 else '↓'}<br>{c30:+.0f}</b></div>
-          <div><small>10s</small><b style="color:{'#34e982' if c10>=0 else '#ff4e5f'}">{'↑' if c10>=0 else '↓'}<br>{c10:+.0f}</b></div>
-          <div><small>5s</small><b style="color:{'#34e982' if c5>=0 else '#ff4e5f'}">{'↑' if c5>=0 else '↓'}<br>{c5:+.0f}</b></div>
+          <div><small>30s</small><b style="color:{'#34e982' if c30>=0 else '#ff4e5f'}">{motion_labels[30]}</b></div>
+          <div><small>10s</small><b style="color:{'#34e982' if c10>=0 else '#ff4e5f'}">{motion_labels[10]}</b></div>
+          <div><small>5s</small><b style="color:{'#34e982' if c5>=0 else '#ff4e5f'}">{motion_labels[5]}</b></div>
         </div><div class="finalnote">Cambio de precio en los últimos segundos.</div></div>
         <div class="finalcard distance"><div class="finaltitle">▥ &nbsp; DISTANCIA AL TARGET</div><div class="finalbig" style="color:{distance_color}">${final_distance:,.0f}</div><div class="finalsub" style="color:{distance_color}">{final_dist_pct:.2f}%</div></div>
-        <div class="finalcard speed"><div class="finaltitle">VELOCIDAD</div><div class="finalbig" style="color:{speed_color}">{speed_arrow} {speed_word}</div><div class="finalsub" style="color:{speed_color}">{speed10:+.1f}/s</div><div class="finalnote">En los últimos 10 s.</div></div>
+        <div class="finalcard speed"><div class="finaltitle">VELOCIDAD</div><div class="finalbig" style="color:{speed_color}">{speed_arrow} {speed_word}</div><div class="finalsub" style="color:{speed_color}">{speed_value}</div><div class="finalnote">En los últimos 10 s.</div></div>
       </div>
       <div class="finalanalysis">
-        <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)</small><b>{final_status}</b><span>{final_note}</span></div></div>
-        <div class="probbox"><small>PROBABILIDAD</small><b>{reader['percent']}%</b></div>
+        <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>{'ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)' if seconds_left is not None and 0 < seconds_left <= 60 else 'POSICIÓN ACTUAL FRENTE AL TARGET'}</small><b>{final_status}</b><span>{final_note}</span></div></div>
+        <div class="probbox"><small>LECTURA DE CIERRE</small><b>{reader_percent_label}</b></div>
       </div>
     </div>'''
 
@@ -2568,7 +2595,7 @@ def live_dashboard():
 
   <section class="rhero {'waiting' if active not in ('UP','DOWN') else ''}">
     <div class="rsignal"><span class="cssarrow"></span><span>{hero_word}</span></div>
-    <div class="rconf">{'CONFIANZA ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
+    <div class="rconf">{'APOYO DEL MOTOR ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
   </section>
 
   {pre_html}
@@ -2596,7 +2623,7 @@ def live_dashboard():
   </div>
 
   <section class="rcard probs">
-    <div class="rlabel">PROBABILIDADES</div>
+    <div class="rlabel">APOYO CALCULADO · UP / DOWN</div>
     <div class="pbar"><div class="pup" style="width:{up}%">{up}%</div><div class="pdown" style="width:{down}%">{down}%</div></div>
     <div class="pleg"><span class="green">● &nbsp;UP&nbsp; {up}%</span><span class="red">● &nbsp;DOWN&nbsp; {down}%</span></div>
   </section>
@@ -2604,7 +2631,7 @@ def live_dashboard():
   <section class="reader" style="--rb:{reader['border']};--rbg:{reader['bg']};--rr:{reader['color']}">
     <div class="readerhead"><span class="pulse">⌁</span><span>LECTOR DE CIERRE</span><em>ACTIVO</em></div>
     <div class="readerbody"><div><strong>{reader['headline']}</strong><small>{reader['note']}</small></div>
-    <div class="rring" style="--p:{reader['percent']}"><span>{reader['percent']}%</span></div></div>
+    <div class="rring" style="--p:{reader['percent']}"><span>{reader_percent_label}</span></div></div>
     {final_panel}
   </section>
 
@@ -2616,7 +2643,7 @@ def live_dashboard():
     <div class="techhead"><span>DETALLES TÉCNICOS</span><span>⌃</span></div>
     <div class="techrow">
       <div><small>1ª SEÑAL</small><b style="color:var(--accent)">{first_signal}</b><i>{first_time}</i></div>
-      <div><small>KALSHI</small><b>{confidence}%</b><i>{round_signal["entry_quality"]}</i></div>
+      <div><small>KALSHI · PRECIO</small><b>{f"{round_signal['entry_price'] * 100:.0f}¢" if round_signal['entry_price'] is not None else "—"}</b><i>{round_signal["entry_quality"]}</i></div>
       <div><small>EMA</small><b class="{ema_class}">{ema_display}</b><i>9 / 21</i></div>
       <div><small>RSI</small><b class="{rsi_class}">{sig["rsi"]:.0f}</b><i>14</i></div>
       <div><small>MOMENTUM</small><b class="{mom_class}">{sig["mom3"]:+.2f}</b><i>3 MIN</i></div>
@@ -2651,7 +2678,7 @@ def live_dashboard():
         )
         st.markdown(
             render_live_candles(
-                btc_df, live_btc_price, target, active, chart_timeframe
+                btc_df, coinbase_live_price if coinbase_live_ok else None, target, active, chart_timeframe
             ),
             unsafe_allow_html=True,
         )
@@ -2678,100 +2705,11 @@ def live_dashboard():
         st.error("Error Kalshi: " + kalshi_error)
 
 
-import zlib
-
-SIGNAL_TRACE_DB = "btc_signal_decisions.db"
-_TRACE_CONTEXT = threading.local()
-
-
-def _trace_json(value):
-    def encode(item):
-        if isinstance(item, datetime):
-            return item.isoformat()
-        if isinstance(item, np.generic):
-            return item.item()
-        raise TypeError(type(item).__name__)
-    return json.dumps(value, default=encode, ensure_ascii=False, allow_nan=False)
-
-
-def _trace_event(kind, payload, ticker=None):
-    """Diagnóstico independiente: un fallo de escritura no altera la decisión."""
-    try:
-        observed = datetime.now(timezone.utc).isoformat()
-        thread_key = str(id(threading.current_thread()))
-        packed = zlib.compress(_trace_json(payload).encode("utf-8"))
-        with sqlite3.connect(SIGNAL_TRACE_DB, timeout=0) as conn:
-            conn.execute("CREATE TABLE IF NOT EXISTS decisions (id INTEGER PRIMARY KEY, observed_at TEXT NOT NULL, thread_key TEXT NOT NULL, kind TEXT NOT NULL, ticker TEXT, build_id INTEGER, payload BLOB NOT NULL)")
-            conn.execute("CREATE INDEX IF NOT EXISTS decisions_thread_kind ON decisions(thread_key,kind,id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS decisions_time ON decisions(observed_at)")
-            conn.execute("CREATE INDEX IF NOT EXISTS decisions_ticker ON decisions(ticker,id)")
-            build_id = getattr(_TRACE_CONTEXT, "build_id", None) if kind == "confirmation" else None
-            inserted = conn.execute("INSERT INTO decisions(observed_at,thread_key,kind,ticker,build_id,payload) VALUES(?,?,?,?,?,?)", (observed, thread_key, kind, ticker, build_id, packed))
-            cutoff = datetime.fromtimestamp(datetime.now(timezone.utc).timestamp() - 12*3600, timezone.utc).isoformat()
-            conn.execute("DELETE FROM decisions WHERE observed_at < ?", (cutoff,))
-            event_id = inserted.lastrowid
-        return event_id
-    except Exception:
-        # La observación nunca cambia señales ni bloquea por errores de diagnóstico.
-        return
-
-
-def build_signal(df, target, seconds_left, live_price=None):
-    _TRACE_CONTEXT.build_id = None
-    sig = _signal_engine_without_trace(df, target, seconds_left, live_price)
-    try:
-        candles = [[row.time.isoformat(), float(row.open), float(row.high), float(row.low), float(row.close), float(row.volume)] for row in df.itertuples()]
-        _TRACE_CONTEXT.build_id = _trace_event("build", {"candles":candles, "target":target, "seconds_left":seconds_left, "live_price":live_price, "signal":sig})
-    except Exception:
-        pass
-    return sig
-
-
-def confirm_round_candidate(state, candidate, market, seconds_left, now):
-    before = dict(state)
-    result = _confirmation_without_trace(state, candidate, market, seconds_left, now)
-    try:
-        _trace_event("confirmation", {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}, state.get("ticker"))
-    except Exception:
-        pass
-    finally:
-        _TRACE_CONTEXT.build_id = None
-    return result
-
-
-def render_signal_trace_page():
-    """Página técnica separada; no cambia la pantalla de señales."""
-    st.title("Datos de decisiones")
-    ticker = str(st.query_params.get("ticker", ""))
-    entries = str(st.query_params.get("view", "")) == "entries"
-    try:
-        with sqlite3.connect(SIGNAL_TRACE_DB, timeout=1) as conn:
-            if ticker:
-                rows = conn.execute("SELECT id,observed_at,ticker,build_id,payload FROM decisions WHERE kind='confirmation' AND ticker=? ORDER BY id DESC LIMIT ?", (ticker, 2000 if entries else 10)).fetchall()
-            else:
-                rows = conn.execute("SELECT id,observed_at,ticker,build_id,payload FROM decisions WHERE kind='confirmation' ORDER BY id DESC LIMIT 10").fetchall()
-            readings = []
-            for event_id, observed, round_ticker, build_id, payload in rows:
-                confirmation = json.loads(zlib.decompress(payload))
-                if entries:
-                    before, after = confirmation["before"], confirmation["after"]
-                    changed = any(before.get(key) != after.get(key) for key in ("first_direction", "active_direction"))
-                    if not changed:
-                        continue
-                build = conn.execute("SELECT observed_at,payload FROM decisions WHERE id=? AND kind='build'", (build_id,)).fetchone() if build_id else None
-                readings.append({"id":event_id, "observed_at":observed, "ticker":round_ticker, "confirmation":confirmation, "build_observed_at":build[0] if build else None, "input":json.loads(zlib.decompress(build[1])) if build else None})
-        st.json(readings)
-    except Exception as error:
-        st.info("Datos todavía no disponibles: " + str(error))
-
-
 # Inicia una sola vez el registrador autónomo de 12 horas.
 start_12h_history_worker()
 
 page = str(st.query_params.get("page", "signal"))
-if page == "signal_trace":
-    render_signal_trace_page()
-elif page == "settings":
+if page == "settings":
     render_history_page()
 else:
     live_dashboard()
