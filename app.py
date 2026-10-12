@@ -1021,7 +1021,7 @@ def _history_verification_loop():
         time.sleep(30)
 
 
-@st.cache_resource
+@st.cache_resource(validate=lambda worker: worker.is_alive())
 def start_history_verifier():
     worker = threading.Thread(target=_history_verification_loop, name='btc-history-verification-v2', daemon=True)
     worker.start()
@@ -1976,7 +1976,7 @@ def _background_history_loop():
             pass
         time.sleep(BACKGROUND_POLL_SECONDS)
 
-@st.cache_resource
+@st.cache_resource(validate=lambda worker: worker.is_alive())
 def start_12h_history_worker():
     worker = threading.Thread(target=_background_history_loop, name="btc-history-canonical-v2", daemon=True)
     worker.start()
