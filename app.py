@@ -777,113 +777,189 @@ HISTORY_DB = "btc_signal_history.db"
 
 def _history_db():
     conn = sqlite3.connect(HISTORY_DB, timeout=5)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS round_history (
-            ticker TEXT PRIMARY KEY,
-            target REAL,
-            final_btc REAL,
-            final_outcome TEXT,
-            bot_signal TEXT,
-            result TEXT,
-            first_signal TEXT,
-            first_signal_time TEXT,
-            closed_at TEXT NOT NULL
-        )
-    """)
-    return conn
+    conn.execute('''CREATE TABLE IF NOT EXISTS round_history (
+        ticker TEXT PRIMARY KEY, target REAL, final_btc REAL, final_outcome TEXT,
+        bot_signal TEXT, result TEXT, first_signal TEXT, first_signal_time TEXT,
+        closed_at TEXT NOT NULL)''')
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(round_history)")}
+        additions = {
+            "verification_status": "TEXT NOT NULL DEFAULT 'pending'",
+            "observed_outcome": "TEXT", "observed_result": "TEXT",
+            "official_result": "TEXT", "settlement_at": "TEXT", "verified_at": "TEXT",
+            "last_verification_attempt": "TEXT", "verified_expiration_value": "REAL",
+        }
+        migrated = False
+        for name, spec in additions.items():
+            if name not in columns:
+                conn.execute(f"ALTER TABLE round_history ADD COLUMN {name} {spec}")
+                migrated = True
+        if migrated:
+            conn.execute('''UPDATE round_history SET observed_outcome=final_outcome,
+                observed_result=result,
+                result=CASE WHEN first_signal IN ('UP','DOWN') THEN 'PENDIENTE' ELSE 'NO TRADE' END
+                WHERE verification_status != 'official' ''')
+        conn.commit()
+        return conn
+    except Exception:
+        conn.close()
+        raise
+
 
 def save_round_history(state):
-    """Cierra una ronda una sola vez usando el último BTC/target conocidos."""
+    """Guarda la observación; solamente Kalshi determina la evaluación final."""
     if not state or not state.get("ticker"):
         return
-    target = state.get("last_target")
-    final_btc = state.get("last_live_price")
-    if target is None or final_btc is None:
-        return
     try:
-        target = float(target); final_btc = float(final_btc)
-    except Exception:
-        return
-
-    if final_btc > target:
-        outcome = "UP"
-    elif final_btc < target:
-        outcome = "DOWN"
-    else:
-        outcome = "EMPATE"
-
-    # El historial se evalúa SIEMPRE contra la PRIMERA señal de la ronda.
-    # Los cambios posteriores de active_direction no reescriben el resultado histórico.
-    bot_signal = state.get("first_direction")
-    if bot_signal not in ("UP", "DOWN"):
-        result = "NO TRADE"
-        bot_signal = None
-    elif outcome == "EMPATE":
-        result = "EMPATE"
-    else:
-        result = "GANADA" if bot_signal == outcome else "PERDIDA"
-
-    fst = state.get("first_signal_time")
-    if isinstance(fst, datetime):
-        fst = fst.isoformat()
-
-    try:
+        target = float(state["last_target"])
+        price = float(state["last_live_price"])
+        if not np.isfinite(target) or not np.isfinite(price):
+            return
+        observed = "UP" if price > target else "DOWN" if price < target else "EMPATE"
+        first = state.get("first_direction")
+        first = first if first in ("UP", "DOWN") else None
+        pending = "PENDIENTE" if first else "NO TRADE"
+        observed_result = ("EMPATE" if observed == "EMPATE" else "GANADA" if first == observed else "PERDIDA") if first else "NO TRADE"
+        fst = state.get("first_signal_time")
+        if isinstance(fst, datetime):
+            fst = fst.isoformat()
         with _history_db() as conn:
-            conn.execute(
-                """INSERT INTO round_history
-                (ticker,target,final_btc,final_outcome,bot_signal,result,first_signal,first_signal_time,closed_at)
-                VALUES(?,?,?,?,?,?,?,?,?)
+            conn.execute('''INSERT INTO round_history
+                (ticker,target,final_btc,final_outcome,bot_signal,result,first_signal,
+                 first_signal_time,closed_at,verification_status,observed_outcome,observed_result)
+                VALUES(?,?,?,?,?,?,?,?,?,'pending',?,?)
                 ON CONFLICT(ticker) DO UPDATE SET
                     target=excluded.target,
-                    final_btc=excluded.final_btc,
-                    final_outcome=excluded.final_outcome,
-                    bot_signal=excluded.bot_signal,
-                    result=excluded.result,
-                    first_signal=excluded.first_signal,
-                    first_signal_time=excluded.first_signal_time,
-                    closed_at=excluded.closed_at""",
-                (state["ticker"], target, final_btc, outcome, bot_signal, result,
-                 state.get("first_direction"), fst, datetime.now(timezone.utc).isoformat())
-            )
+                    final_btc=CASE WHEN round_history.verification_status='official' THEN round_history.final_btc ELSE excluded.final_btc END,
+                    final_outcome=CASE WHEN round_history.verification_status='official' THEN round_history.final_outcome ELSE excluded.final_outcome END,
+                    bot_signal=COALESCE(round_history.first_signal,excluded.first_signal),
+                    result=CASE WHEN round_history.verification_status='official' THEN round_history.result ELSE excluded.result END,
+                    first_signal=COALESCE(round_history.first_signal,excluded.first_signal),
+                    first_signal_time=COALESCE(round_history.first_signal_time,excluded.first_signal_time),
+                    observed_outcome=excluded.observed_outcome,
+                    observed_result=excluded.observed_result''',
+                (state['ticker'], target, price, observed, first, pending, first, fst,
+                 datetime.now(timezone.utc).isoformat(), observed, observed_result))
     except Exception:
         pass
+
+
+def verified_binary_outcome(market, ticker, now=None):
+    """Acepta solamente una liquidación binaria fechada y no provisional."""
+    now = now or datetime.now(timezone.utc)
+    if not isinstance(market, dict) or market.get('ticker') != ticker:
+        return None
+    if not ticker.startswith('KXBTC15M-') or market.get('market_type') != 'binary':
+        return None
+    if market.get('is_provisional') not in (None, False):
+        return None
+    result = str(market.get('result') or '').lower()
+    if result not in ('yes', 'no'):
+        return None
+    try:
+        settled = datetime.fromisoformat(str(market['settlement_ts']).replace('Z', '+00:00'))
+        if settled.tzinfo is None or settled > now:
+            return None
+    except (KeyError, TypeError, ValueError):
+        return None
+    return 'UP' if result == 'yes' else 'DOWN'
+
+
+def reconcile_history_once(limit=4, fetch_market=None):
+    """Consulta resultados públicos fuera del motor de señales."""
+    with _history_db() as conn:
+        tickers = [row[0] for row in conn.execute('''SELECT ticker FROM round_history
+            WHERE verification_status != 'official' AND ticker LIKE 'KXBTC15M-%'
+            ORDER BY COALESCE(last_verification_attempt,''),closed_at DESC LIMIT ?''', (int(limit),))]
+    verified = 0
+    for ticker in tickers:
+        try:
+            with _history_db() as conn:
+                conn.execute('UPDATE round_history SET last_verification_attempt=? WHERE ticker=?',
+                             (datetime.now(timezone.utc).isoformat(), ticker))
+            if fetch_market is None:
+                response = requests.get(
+                    'https://external-api.kalshi.com/trade-api/v2/markets/' + ticker,
+                    headers={'User-Agent': 'MacalyAlphaBot/4.6.1'}, timeout=5)
+                response.raise_for_status()
+                market = response.json().get('market')
+            else:
+                market = fetch_market(ticker)
+            outcome = verified_binary_outcome(market, ticker)
+            if outcome is None:
+                continue
+            expiration = market.get('expiration_value')
+            try:
+                expiration = float(expiration)
+                if not np.isfinite(expiration) or not 10000 < expiration < 1000000:
+                    expiration = None
+            except (ValueError, TypeError):
+                expiration = None
+            with _history_db() as conn:
+                conn.execute('''UPDATE round_history SET final_outcome=?,
+                    final_btc=COALESCE(?,final_btc),
+                    result=CASE WHEN first_signal NOT IN ('UP','DOWN') OR first_signal IS NULL THEN 'NO TRADE'
+                                WHEN first_signal=? THEN 'GANADA' ELSE 'PERDIDA' END,
+                    verification_status='official',official_result=?,settlement_at=?,verified_at=?,verified_expiration_value=?
+                    WHERE ticker=?''',
+                    (outcome, expiration, outcome, market['result'], market['settlement_ts'],
+                     datetime.now(timezone.utc).isoformat(), expiration, ticker))
+            verified += 1
+        except Exception:
+            continue
+    return verified
+
+
+def _history_verification_loop():
+    started = time.monotonic()
+    while time.monotonic() - started < BACKGROUND_RUN_SECONDS:
+        try:
+            reconcile_history_once()
+        except Exception:
+            pass
+        time.sleep(30)
+
+
+@st.cache_resource
+def start_history_verifier():
+    worker = threading.Thread(target=_history_verification_loop, name='btc-history-verification', daemon=True)
+    worker.start()
+    return worker
+
 
 def load_history(limit=100):
     try:
         with _history_db() as conn:
-            # Corrige registros previos usando la 1ª señal guardada, sin tocar ninguna otra capa.
-            conn.execute(
-                """UPDATE round_history
-                   SET bot_signal = first_signal,
-                       result = CASE
-                           WHEN first_signal NOT IN ('UP','DOWN') OR first_signal IS NULL THEN 'NO TRADE'
-                           WHEN final_outcome = 'EMPATE' THEN 'EMPATE'
-                           WHEN first_signal = final_outcome THEN 'GANADA'
-                           ELSE 'PERDIDA'
-                       END
-                   WHERE first_signal IN ('UP','DOWN') OR first_signal IS NULL"""
-            )
-            rows = conn.execute(
-                """SELECT ticker,target,final_btc,final_outcome,bot_signal,result,
-                          first_signal,first_signal_time,closed_at
-                   FROM round_history ORDER BY closed_at DESC LIMIT ?""",
-                (int(limit),)
-            ).fetchall()
-        cols = ["Ronda","Target","BTC final","Resultado real","Señal bot","Estado",
-                "1ª señal","Hora 1ª señal","Cierre"]
-        return pd.DataFrame(rows, columns=cols)
+            # Un registrador antiguo aún activo no puede convertir una observación en resultado oficial.
+            conn.execute('''UPDATE round_history SET
+                final_outcome=CASE official_result WHEN 'yes' THEN 'UP' WHEN 'no' THEN 'DOWN' ELSE final_outcome END,
+                final_btc=COALESCE(verified_expiration_value,final_btc)
+                WHERE verification_status='official' ''')
+            conn.execute('''UPDATE round_history SET bot_signal=first_signal,
+                result=CASE WHEN first_signal NOT IN ('UP','DOWN') OR first_signal IS NULL THEN 'NO TRADE'
+                            WHEN verification_status != 'official' THEN 'PENDIENTE'
+                            WHEN first_signal=final_outcome THEN 'GANADA' ELSE 'PERDIDA' END''')
+            rows = conn.execute('''SELECT ticker,target,final_btc,
+                CASE WHEN verification_status='official' THEN final_outcome ELSE 'PENDIENTE' END,
+                bot_signal,result,first_signal,first_signal_time,closed_at
+                FROM round_history ORDER BY closed_at DESC LIMIT ?''', (int(limit),)).fetchall()
+        return pd.DataFrame(rows, columns=['Ronda','Target','BTC final','Resultado oficial','Señal bot','Estado','1ª señal','Hora 1ª señal','Cierre'])
     except Exception:
         return pd.DataFrame()
 
+
 def history_stats(df):
     if df is None or df.empty:
-        return {"total":0,"wins":0,"losses":0,"no_trade":0,"win_rate":0.0}
-    wins = int((df["Estado"] == "GANADA").sum())
-    losses = int((df["Estado"] == "PERDIDA").sum())
-    no_trade = int((df["Estado"] == "NO TRADE").sum())
+        return dict(total=0,wins=0,losses=0,no_trade=0,pending=0,decided=0,win_rate=0.0)
+    wins = int((df['Estado']=='GANADA').sum())
+    losses = int((df['Estado']=='PERDIDA').sum())
     decided = wins + losses
-    rate = (wins / decided * 100.0) if decided else 0.0
-    return {"total":len(df),"wins":wins,"losses":losses,"no_trade":no_trade,"win_rate":rate}
+    return dict(total=len(df),wins=wins,losses=losses,
+                no_trade=int((df['Estado']=='NO TRADE').sum()),
+                pending=int((df['Estado']=='PENDIENTE').sum()),decided=decided,
+                win_rate=wins/decided*100 if decided else 0.0)
+
 
 # =========================================================
 # COINBASE — VELAS ORIGINALES DE 1 MINUTO
@@ -2244,9 +2320,9 @@ def render_history_page():
       <div class="history-stat"><div class="history-label">Rondas</div><div class="history-value" style="color:#54c6f5">{stats["total"]}</div></div>
       <div class="history-stat"><div class="history-label">Ganadas</div><div class="history-value" style="color:#34e982">{stats["wins"]}</div></div>
       <div class="history-stat"><div class="history-label">Perdidas</div><div class="history-value" style="color:#ff4e5f">{stats["losses"]}</div></div>
-      <div class="history-stat"><div class="history-label">Acierto</div><div class="history-value" style="color:#f7bd4d">{stats["win_rate"]:.1f}%</div></div>
+      <div class="history-stat"><div class="history-label">Acierto</div><div class="history-value" style="color:#f7bd4d">{f"{stats['win_rate']:.1f}%" if stats['decided'] else "—"}</div></div>
     </div>
-    <div class="history-note">NO TRADE: {stats["no_trade"]} · El % de acierto usa solo GANADA + PERDIDA.</div>
+    <div class="history-note">Pendientes: {stats["pending"]} · NO TRADE: {stats["no_trade"]} · Acierto basado solo en resultados oficiales verificados.</div>
     """, unsafe_allow_html=True)
 
 
@@ -2821,6 +2897,7 @@ def render_signal_trace_page():
 
 # Inicia una sola vez el registrador autónomo de 12 horas.
 start_12h_history_worker()
+start_history_verifier()
 
 page = str(st.query_params.get("page", "signal"))
 if page == "signal_trace":
