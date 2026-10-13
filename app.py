@@ -2818,7 +2818,7 @@ def live_dashboard():
 <div class="refapp dir-{active.lower() if active in ("UP","DOWN") else "wait"}" style="--accent:{accent};--glow:{glow};--soft:{soft};">
   <header class="rhead">
     <div class="rtitle">BTC Signal</div>
-    <div class="rver">v4.6.1 · RETENCIÓN LIMITADA · PRUEBA</div>
+    <div class="rver">v4.6.1</div>
     <a class="gear" href="?page=settings" target="_self" aria-label="Ajustes">⚙</a>
     <div class="rlive"><i></i>{'Mercado en vivo' if market_live else 'Conexión parcial'}</div>
   </header>
