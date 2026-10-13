@@ -1728,6 +1728,16 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
     necesita confirmación. Una lectura neutral cancela la candidatura pendiente;
     la activa se conserva solo si mantiene EMA, mom5 y distancia favorables.
     """
+    if signal is not None and signal.get("data_valid") is False:
+        # Una interrupción no demuestra neutralidad ni permite confirmar.
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        if seconds_left is not None and seconds_left <= 0:
+            state["active_direction"] = None
+            state["active_since"] = None
+        return
     if candidate not in ("UP", "DOWN"):
         state["pending_direction"] = None
         state["pending_count"] = 0
@@ -1812,6 +1822,15 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
     state = st.session_state.rounds[ticker]
     restored_from_disk = bool(state.pop("_restored_from_disk", False))
+    if sig.get("data_valid") is False:
+        confirm_round_candidate(state, None, market, seconds_left, now, sig)
+        save_round_state(state)
+        return {
+            "decision":"ESPERANDO", "signal":"SIN DATOS ACTUALES",
+            "icon":"•", "color":"#38bdf8", "round_state":state,
+            "reversal":False, "reversal_text":"", "entry_price":None,
+            "entry_quality":"SIN DATOS", "entry_quality_color":"#94a3b8",
+        }
     score = float(sig.get("final_score", 0.0))
     price = float(sig.get("price", 0.0))
     distance_now = sig.get("distance")
@@ -2596,7 +2615,11 @@ def live_dashboard():
             btc_df, target, seconds_left, live_btc_price
         )
     else:
+        _TRACE_CONTEXT.build_id = None
+        _TRACE_CONTEXT.build_payload = None
         sig = {
+            "data_valid": False,
+            "data_error": btc_error,
             "price": live_btc_price if live_btc_price is not None else 0,
             "candle_price": 0,
             "rsi": 50,
@@ -2623,6 +2646,9 @@ def live_dashboard():
     update_micro_tape(ticker, live_btc_price)
     micro = micro_reading()
     reader = closing_reader(sig, round_signal, seconds_left, micro)
+    if not btc_ok:
+        reader = {**reader, "percent":0, "headline":"SIN DATOS ACTUALES",
+                  "note":"No se puede validar la señal hasta recuperar las velas."}
     reader_percent_label = f"{reader['percent']}%"
     if round_signal.get("decision") not in ("UP", "DOWN"):
         reader_percent_label = "—"
@@ -2642,7 +2668,7 @@ def live_dashboard():
     state = round_signal.get("round_state")
     active = (
         state.get("active_direction")
-        if state
+        if state and btc_ok
         else None
     )
 
@@ -2994,6 +3020,9 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=
     result = _confirmation_without_trace(state, candidate, market, seconds_left, now, signal)
     try:
         payload = {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "engine_variant":"limited_retention_v1", "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}
+        if signal is not None and signal.get("data_valid") is False:
+            payload["data_valid"] = False
+            payload["data_error"] = signal.get("data_error", "")
         if getattr(_TRACE_CONTEXT, "build_id", None) is None:
             fallback = getattr(_TRACE_CONTEXT, "build_payload", None)
             if fallback is not None:
