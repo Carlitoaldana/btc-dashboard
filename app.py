@@ -1256,7 +1256,9 @@ def get_btc_live_price():
         timeout=6,
     )
     response.raise_for_status()
-    price = response.json().get("price")
+    data = response.json()
+    _record_price_observation("COINBASE", data.get("time"))
+    price = data.get("price")
     if price in [None, ""]:
         raise ValueError("Coinbase ticker no devolvió precio.")
     return float(price)
@@ -1387,7 +1389,9 @@ def get_kalshi_live_btc(market):
         timeout=6,
     )
     response.raise_for_status()
-    price = extract_kalshi_btc_price(response.json())
+    data = response.json()
+    _record_price_observation("KALSHI LIVE", _kalshi_observation_time(data))
+    price = extract_kalshi_btc_price(data)
     if price is None:
         raise ValueError("Kalshi live respondió sin precio BTC válido.")
     return float(price)
@@ -2508,6 +2512,7 @@ def render_early_reversal_panel(result):
 
 @st.fragment(run_every="2s")
 def live_dashboard():
+    _PRICE_CONTEXT.observations = {}
     btc_error = ""
     live_price_error = ""
     kalshi_error = ""
@@ -2903,6 +2908,7 @@ def live_dashboard():
         )
     if btc_error:
         st.error("Error Coinbase velas: " + btc_error)
+    _render_data_health(source, coinbase_live_ok, btc_df)
     if live_price_error and live_btc_price is None:
         st.warning("Coinbase live: " + live_price_error)
     if kalshi_live_error and coinbase_live_price is not None:
@@ -2917,6 +2923,149 @@ import zlib
 
 SIGNAL_TRACE_DB = "btc_signal_decisions.db"
 _TRACE_CONTEXT = threading.local()
+
+
+# Salud de datos y recuperación del registro; no modifica el motor.
+_PRICE_CONTEXT = threading.local()
+TRACE_RETRY_DIRECTORY = "btc_signal_pending"
+
+
+@st.cache_resource
+def _trace_health():
+    return {"lock": threading.Lock(), "error": "", "worker": None}
+
+
+def _set_trace_error(message):
+    health = _trace_health()
+    with health["lock"]:
+        health["error"] = message
+
+
+def _queue_trace_retry(observed, thread_key, kind, ticker, build_id, packed):
+    import os
+    import uuid
+    from pathlib import Path
+    directory = Path(TRACE_RETRY_DIRECTORY)
+    directory.mkdir(parents=True, exist_ok=True)
+    key = uuid.uuid4().hex
+    item = {"key": key, "observed": observed, "thread": thread_key,
+            "kind": kind, "ticker": ticker, "build_id": build_id,
+            "payload": packed.hex()}
+    temporary = directory / (key + ".tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(item, stream, ensure_ascii=False)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(directory / (key + ".json"))
+
+
+def _retry_trace_once():
+    from pathlib import Path
+    directory = Path(TRACE_RETRY_DIRECTORY)
+    files = sorted(directory.glob("*.json"))
+    for path in files[:100]:
+        try:
+            item = json.loads(path.read_text(encoding="utf-8"))
+            with sqlite3.connect(SIGNAL_TRACE_DB, timeout=0.05) as conn:
+                conn.execute("CREATE TABLE IF NOT EXISTS decisions (id INTEGER PRIMARY KEY, observed_at TEXT NOT NULL, thread_key TEXT NOT NULL, kind TEXT NOT NULL, ticker TEXT, build_id INTEGER, payload BLOB NOT NULL)")
+                conn.execute("CREATE TABLE IF NOT EXISTS trace_retry_keys (retry_key TEXT PRIMARY KEY, observed_at TEXT NOT NULL)")
+                inserted = conn.execute("INSERT OR IGNORE INTO trace_retry_keys VALUES (?,?)", (item["key"], item["observed"]))
+                if inserted.rowcount:
+                    conn.execute("INSERT INTO decisions(observed_at,thread_key,kind,ticker,build_id,payload) VALUES(?,?,?,?,?,?)", (item["observed"], item["thread"], item["kind"], item["ticker"], item["build_id"], bytes.fromhex(item["payload"])))
+                cutoff = datetime.fromtimestamp(datetime.now(timezone.utc).timestamp() - 12*3600, timezone.utc).isoformat()
+                conn.execute("DELETE FROM trace_retry_keys WHERE observed_at < ?", (cutoff,))
+            path.unlink(missing_ok=True)
+        except Exception as error:
+            _set_trace_error("Registro pendiente de reintento: " + str(error))
+            return
+    if not list(directory.glob("*.json")):
+        # Los errores de escritura del archivo requieren atención aunque no haya cola.
+        health = _trace_health()
+        with health["lock"]:
+            if health["error"].startswith("Registro pendiente"):
+                health["error"] = ""
+
+
+def _trace_retry_loop():
+    while True:
+        try:
+            _retry_trace_once()
+        except Exception as error:
+            _set_trace_error("Fallo de recuperación de registros: " + str(error))
+        time.sleep(0.5)
+
+
+def start_trace_retry_worker():
+    health = _trace_health()
+    with health["lock"]:
+        worker = health["worker"]
+        if worker is None or not worker.is_alive():
+            worker = threading.Thread(target=_trace_retry_loop, daemon=True, name="trace-recovery")
+            health["worker"] = worker
+            worker.start()
+
+
+def _kalshi_observation_time(data):
+    """Fecha de la misma observación que selecciona el extractor original."""
+    live = data.get("live_data", data) if isinstance(data, dict) else {}
+    details = live.get("details", {}) if isinstance(live, dict) else {}
+    points = details.get("timeseries", []) if isinstance(details, dict) else []
+    valid = []
+    for index, point in enumerate(points if isinstance(points, list) else []):
+        try:
+            stamp, value = float(point["t"]), float(point["v"])
+            if np.isfinite(stamp) and stamp > 0 and np.isfinite(value) and 10000 < value < 1000000:
+                valid.append((stamp, index, value))
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not valid:
+        return None
+    stamp = max(valid)[0]
+    try:
+        return datetime.fromtimestamp(stamp / 1000 if stamp > 1e12 else stamp, timezone.utc).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def _record_price_observation(source, source_time):
+    observations = getattr(_PRICE_CONTEXT, "observations", {})
+    observations[source] = {"received_at": datetime.now(timezone.utc).isoformat(), "source_time": source_time}
+    _PRICE_CONTEXT.observations = observations
+
+
+def _price_health_message(source, coinbase_live_ok, candle_frame, now=None):
+    now = now or datetime.now(timezone.utc)
+    if source == "COINBASE" and not coinbase_live_ok:
+        return "Precio de respaldo tomado de una vela; el precio en vivo no está disponible."
+    observation = getattr(_PRICE_CONTEXT, "observations", {}).get(source, {})
+    timestamp = observation.get("source_time")
+    if timestamp:
+        try:
+            stamp = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+            age = (now - stamp).total_seconds()
+            if age > 15:
+                return f"Precio desactualizado: la última operación informada tiene {age:.0f} segundos."
+            if age < -5:
+                return "La hora del precio recibido no es válida; antigüedad no verificable."
+            return ""
+        except (TypeError, ValueError):
+            pass
+    if source != "SIN DATOS":
+        return "Respuesta recibida, pero la fuente no permite verificar la antigüedad del precio."
+    return "Precio en vivo no disponible."
+
+
+def _render_data_health(source, coinbase_live_ok, candle_frame):
+    from pathlib import Path
+    message = _price_health_message(source, coinbase_live_ok, candle_frame)
+    if message:
+        st.warning(message)
+    pending = len(list(Path(TRACE_RETRY_DIRECTORY).glob("*.json")))
+    health = _trace_health()
+    with health["lock"]:
+        error = health["error"]
+    if pending or error:
+        st.warning(f"Registro: {pending} eventos pendientes de guardar. " + error)
 
 
 def _trace_json(value):
@@ -2935,6 +3084,7 @@ def _trace_event(kind, payload, ticker=None):
         observed = datetime.now(timezone.utc).isoformat()
         thread_key = str(id(threading.current_thread()))
         packed = zlib.compress(_trace_json(payload).encode("utf-8"))
+        build_id = getattr(_TRACE_CONTEXT, "build_id", None) if kind == "confirmation" else None
         # Give a brief competing writer time to finish, while bounding the
         # diagnostic delay. Long locks still fail without changing the signal.
         with sqlite3.connect(SIGNAL_TRACE_DB, timeout=0.2) as conn:
@@ -2948,8 +3098,14 @@ def _trace_event(kind, payload, ticker=None):
             conn.execute("DELETE FROM decisions WHERE observed_at < ?", (cutoff,))
             event_id = inserted.lastrowid
         return event_id
-    except Exception:
-        # La observación nunca cambia señales ni bloquea por errores de diagnóstico.
+    except Exception as error:
+        # Conserva el evento exacto para reintentar sin recalcular la señal.
+        try:
+            _queue_trace_retry(observed, thread_key, kind, ticker, build_id, packed)
+        except Exception as queue_error:
+            _set_trace_error("No se pudo conservar un registro pendiente: " + str(queue_error))
+        else:
+            _set_trace_error("Registro pendiente de reintento: " + str(error))
         return
 
 
@@ -2962,8 +3118,8 @@ def build_signal(df, target, seconds_left, live_price=None):
         payload = {"candles":candles, "candle_metadata":dict(df.attrs), "target":target, "seconds_left":seconds_left, "live_price":live_price, "signal":sig}
         _TRACE_CONTEXT.build_payload = payload
         _TRACE_CONTEXT.build_id = _trace_event("build", payload)
-    except Exception:
-        pass
+    except Exception as error:
+        _set_trace_error("No se pudo preparar un registro: " + str(error))
     return sig
 
 
@@ -2977,8 +3133,8 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now):
             if fallback is not None:
                 payload["input_fallback"] = fallback
         _trace_event("confirmation", payload, state.get("ticker"))
-    except Exception:
-        pass
+    except Exception as error:
+        _set_trace_error("No se pudo preparar un registro: " + str(error))
     finally:
         _TRACE_CONTEXT.build_id = None
         _TRACE_CONTEXT.build_payload = None
@@ -3003,7 +3159,7 @@ def export_round_diagnostics(ticker, limit=4000):
     output = io.BytesIO()
     with sqlite3.connect(SIGNAL_TRACE_DB, timeout=1) as conn:
         total, last_id = conn.execute("SELECT COUNT(*),MAX(id) FROM decisions WHERE kind='confirmation' AND ticker=?", (ticker,)).fetchone()
-        rows = conn.execute("SELECT id,observed_at,thread_key,ticker,build_id,payload FROM decisions WHERE kind='confirmation' AND ticker=? AND id<=? ORDER BY id LIMIT ?", (ticker, last_id or 0, int(limit))).fetchall()
+        rows = conn.execute("SELECT id,observed_at,thread_key,ticker,build_id,payload FROM decisions WHERE kind='confirmation' AND ticker=? AND id<=? ORDER BY observed_at,id LIMIT ?", (ticker, last_id or 0, int(limit))).fetchall()
         header = dict(schema_version=1,ticker=ticker,
                       exported_at=datetime.now(timezone.utc).isoformat(),
                       available_confirmations=total,exported_confirmations=len(rows),
@@ -3063,6 +3219,7 @@ def render_signal_trace_page():
 
 
 # Inicia una sola vez el registrador autónomo de 12 horas.
+start_trace_retry_worker()
 start_12h_history_worker()
 start_history_verifier()
 
