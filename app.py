@@ -701,6 +701,7 @@ def new_round_state(ticker, seconds_left):
         "pending_count": 0,
         "pending_since": None,
         "pending_last_at": None,
+        "pending_price_source": None,
     }
 
 # =========================================================
@@ -1738,6 +1739,15 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
             state["active_direction"] = None
             state["active_since"] = None
         return
+    source = signal.get("price_source") if signal else None
+    if source in ("KALSHI LIVE", "COINBASE", "COINBASE CANDLE"):
+        if state.get("pending_count", 0) and state.get("pending_price_source") != source:
+            # Tres lecturas deben pertenecer a una misma referencia de precio.
+            state["pending_direction"] = None
+            state["pending_count"] = 0
+            state["pending_since"] = None
+            state["pending_last_at"] = None
+        state["pending_price_source"] = source
     if candidate not in ("UP", "DOWN"):
         state["pending_direction"] = None
         state["pending_count"] = 0
@@ -1918,6 +1928,8 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
+BACKGROUND_DATA_REVISION = "source_consistency_v1"
+_BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
     # Misma petición y misma comprobación de fechas para pantalla y fondo.
@@ -1938,6 +1950,7 @@ def _background_get_market():
     return markets[0]
 
 def _background_get_live_price(market):
+    _BACKGROUND_PRICE_SOURCE.value = None
     try:
         event_ticker = get_event_ticker_from_market(market)
         if event_ticker:
@@ -1950,6 +1963,7 @@ def _background_get_live_price(market):
             response.raise_for_status()
             price = extract_kalshi_btc_price(response.json())
             if price is not None:
+                _BACKGROUND_PRICE_SOURCE.value = "KALSHI LIVE"
                 return float(price)
     except Exception:
         pass
@@ -1963,6 +1977,7 @@ def _background_get_live_price(market):
     price = response.json().get("price")
     if price in (None, ""):
         raise ValueError("Sin precio BTC live.")
+    _BACKGROUND_PRICE_SOURCE.value = "COINBASE"
     return float(price)
 
 def _background_update_state_without_coordinator(state, sig, market, seconds_left):
@@ -1980,11 +1995,12 @@ def _background_update_state_without_coordinator(state, sig, market, seconds_lef
     save_round_state(state)
     return state
 
-def _background_history_loop():
+def _background_history_loop(stop_event=None):
     started = time.monotonic()
     active_ticker = None
     active_state = None
-    while time.monotonic() - started < BACKGROUND_RUN_SECONDS:
+    while (time.monotonic() - started < BACKGROUND_RUN_SECONDS
+           and not (stop_event and stop_event.is_set())):
         try:
             market = _background_get_market()
             if not market:
@@ -2005,17 +2021,63 @@ def _background_history_loop():
             target = get_target_from_market(market)
             live_price = _background_get_live_price(market)
             btc_df = _background_get_btc_data()
-            sig = build_signal(btc_df, target, seconds_left, live_price)
+            sig = build_signal(btc_df, target, seconds_left, live_price,
+                               getattr(_BACKGROUND_PRICE_SOURCE, "value", None))
+            if stop_event and stop_event.is_set():
+                break
             active_state = _background_update_state(active_state, sig, market, seconds_left)
             if seconds_left is not None and seconds_left <= 0:
                 save_round_history(active_state)
         except Exception:
             pass
-        time.sleep(BACKGROUND_POLL_SECONDS)
+        if stop_event:
+            stop_event.wait(BACKGROUND_POLL_SECONDS)
+        else:
+            time.sleep(BACKGROUND_POLL_SECONDS)
 
-@st.cache_resource(validate=lambda worker: worker.is_alive())
+def _retire_history_workers():
+    """Retira solo registradores propios; las versiones antiguas no tenían Event."""
+    current = None
+    retiring = []
+    restore = []
+    for worker in threading.enumerate():
+        if worker.name not in ("btc-history-canonical-v2", "btc-history-source-v1"):
+            continue
+        if worker is threading.current_thread() or not worker.is_alive():
+            continue
+        if getattr(worker, "_btc_data_revision", None) == BACKGROUND_DATA_REVISION and current is None:
+            current = worker
+            continue
+        stop = getattr(worker, "_btc_stop_event", None)
+        if stop is not None:
+            stop.set()
+        else:
+            target = getattr(worker, "_target", None)
+            context = getattr(target, "__globals__", None)
+            if getattr(target, "__name__", None) != "_background_history_loop" or not isinstance(context, dict) or "BACKGROUND_RUN_SECONDS" not in context:
+                raise RuntimeError("No se puede retirar el registrador anterior con seguridad. Reinicia la app en Streamlit.")
+            if context is globals():
+                restore.append((context, context["BACKGROUND_RUN_SECONDS"]))
+            context["BACKGROUND_RUN_SECONDS"] = 0
+        retiring.append(worker)
+    deadline = time.monotonic() + 45
+    for worker in retiring:
+        worker.join(max(0, deadline - time.monotonic()))
+    if any(worker.is_alive() for worker in retiring):
+        raise RuntimeError("El registrador anterior sigue ocupado. Reinicia la app en Streamlit antes de continuar.")
+    for context, value in restore:
+        context["BACKGROUND_RUN_SECONDS"] = value
+    return current
+
+@st.cache_resource(validate=lambda worker: worker.is_alive() and getattr(worker, "_btc_data_revision", None) == BACKGROUND_DATA_REVISION)
 def start_12h_history_worker():
-    worker = threading.Thread(target=_background_history_loop, name="btc-history-canonical-v2", daemon=True)
+    current = _retire_history_workers()
+    if current is not None:
+        return current
+    stop_event = threading.Event()
+    worker = threading.Thread(target=_background_history_loop, args=(stop_event,), name="btc-history-source-v1", daemon=True)
+    worker._btc_stop_event = stop_event
+    worker._btc_data_revision = BACKGROUND_DATA_REVISION
     worker.start()
     return worker
 
@@ -2026,13 +2088,15 @@ def start_12h_history_worker():
 # de muestras del BTC live que ya recibe el dashboard.
 # =========================================================
 
-def update_micro_tape(ticker, live_price):
+def update_micro_tape(ticker, live_price, price_source=None):
     if not ticker or ticker == "--" or live_price is None:
         return
 
     # Cada ronda empieza con su propia cinta.
-    if st.session_state.micro_ticker != ticker:
+    if (st.session_state.micro_ticker != ticker
+            or st.session_state.get("micro_price_source") != price_source):
         st.session_state.micro_ticker = ticker
+        st.session_state.micro_price_source = price_source
         st.session_state.micro_prices = []
 
     now_ts = datetime.now(timezone.utc).timestamp()
@@ -2597,8 +2661,8 @@ def live_dashboard():
         live_btc_price = coinbase_live_price
         source = (
             "COINBASE"
-            if coinbase_live_ok or live_btc_price is not None
-            else "SIN DATOS"
+            if coinbase_live_ok else
+            "COINBASE CANDLE" if live_btc_price is not None else "SIN DATOS"
         )
 
     if market:
@@ -2612,7 +2676,7 @@ def live_dashboard():
 
     if btc_ok:
         sig = build_signal(
-            btc_df, target, seconds_left, live_btc_price
+            btc_df, target, seconds_left, live_btc_price, source
         )
     else:
         _TRACE_CONTEXT.build_id = None
@@ -2643,7 +2707,7 @@ def live_dashboard():
     )
 
     # Cinta live de segundos para el Lector de Cierre.
-    update_micro_tape(ticker, live_btc_price)
+    update_micro_tape(ticker, live_btc_price, source)
     micro = micro_reading()
     reader = closing_reader(sig, round_signal, seconds_left, micro)
     if not btc_ok:
@@ -3001,10 +3065,11 @@ def _trace_event(kind, payload, ticker=None):
         return
 
 
-def build_signal(df, target, seconds_left, live_price=None):
+def build_signal(df, target, seconds_left, live_price=None, price_source=None):
     _TRACE_CONTEXT.build_id = None
     _TRACE_CONTEXT.build_payload = None
     sig = _signal_engine_without_trace(df, target, seconds_left, live_price)
+    sig["price_source"] = price_source
     try:
         candles = [[row.time.isoformat(), float(row.open), float(row.high), float(row.low), float(row.close), float(row.volume)] for row in df.itertuples()]
         payload = {"candles":candles, "candle_metadata":dict(df.attrs), "target":target, "seconds_left":seconds_left, "live_price":live_price, "signal":sig}
@@ -3020,6 +3085,8 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=
     result = _confirmation_without_trace(state, candidate, market, seconds_left, now, signal)
     try:
         payload = {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "engine_variant":"limited_retention_v1", "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}
+        payload["data_revision"] = BACKGROUND_DATA_REVISION
+        payload["price_source"] = signal.get("price_source") if signal else None
         if signal is not None and signal.get("data_valid") is False:
             payload["data_valid"] = False
             payload["data_error"] = signal.get("data_error", "")
