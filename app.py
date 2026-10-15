@@ -65,6 +65,15 @@ FLIP_CONFIRMATIONS = 2
 st.markdown(
     """
 <style>
+
+/* Solo las superficies live mantienen su brillo durante el cálculo.
+   La hora de actualización y los errores siguen visibles; no se ocultan fallos. */
+[data-stale="true"]:has(.refapp),
+[data-stale="true"]:has(iframe[title*="btc_neon_live"]) {
+    opacity:1 !important;
+    transition:none !important;
+}
+
 #MainMenu, footer, header {visibility:hidden;}
 [data-testid="stToolbar"] {display:none;}
 [data-testid="stDecoration"] {display:none;}
@@ -3047,6 +3056,41 @@ draw();
 </script></html>'''
 
 
+
+def _neon_stable_frontend():
+    """Documento fijo: recibe datos sin sustituir el srcdoc de la gráfica."""
+    html = _NEON_HTML.replace("const D=__PAYLOAD__, $=", "let D=null;\nconst $=", 1)
+    start = html.index("$('subtitle').textContent=")
+    end = html.index("const colors=", start)
+    metrics = html[start:end]
+    metrics = metrics.replace("for(const key of ['mom3'", "$('momrows').replaceChildren();\nfor(const key of ['mom3'", 1)
+    html = html[:start] + "function updateMetrics(){\n" + metrics + "}\n" + html[end:]
+    html = html.replace("function draw(){", "function draw(){\nif(!D)return;", 1)
+    tail = """window.addEventListener('message',event=>{
+  if(event.source!==window.parent || !event.data || event.data.type!=='streamlit:render')return;
+  const next=event.data.args && event.data.args.payload;
+  if(!next || !Array.isArray(next.rows) || !next.flow || typeof next.timeframe!=='string')return;
+  if(D && D.timeframe!==next.timeframe){offset=0;visible=48;}
+  D=next;updateMetrics();draw();
+  window.parent.postMessage({isStreamlitMessage:true,type:'streamlit:setFrameHeight',height:1830},'*');
+});
+window.parent.postMessage({isStreamlitMessage:true,type:'streamlit:componentReady',apiVersion:1},'*');
+window.parent.postMessage({isStreamlitMessage:true,type:'streamlit:setFrameHeight',height:1830},'*');
+"""
+    assert html.count("draw();\n</script>") == 1
+    return html.replace("draw();\n</script>", tail + "</script>", 1)
+
+
+@st.cache_resource(show_spinner=False)
+def _neon_live_component():
+    import tempfile
+    from pathlib import Path
+    import streamlit.components.v1 as components
+    folder = Path(tempfile.mkdtemp(prefix="btc_neon_display_"))
+    (folder / "index.html").write_text(_neon_stable_frontend(), encoding="utf-8")
+    return components.declare_component("btc_neon_live", path=str(folder))
+
+
 @st.fragment(run_every="2s")
 def live_dashboard():
     btc_error = ""
@@ -3338,12 +3382,12 @@ def live_dashboard():
       </div>
     </div>'''
 
-    st.markdown(
+    _LIVE_PANEL.markdown(
         f"""
 <div class="refapp dir-{active.lower() if active in ("UP","DOWN") else "wait"}" style="--accent:{accent};--glow:{glow};--soft:{soft};">
   <header class="rhead">
     <div class="rtitle">BTC Signal</div>
-    <div class="rver">v4.6.1</div>
+    <div class="rver">v4.6.1 · Panel actualizado {datetime.now(ZoneInfo("America/New_York")).strftime("%H:%M:%S")}</div>
     <a class="gear" href="?page=settings" target="_self" aria-label="Ajustes">⚙</a>
     <div class="rlive"><i></i>{'Mercado en vivo' if market_live else 'Conexión parcial'}</div>
   </header>
@@ -3430,12 +3474,13 @@ def live_dashboard():
         )
         try:
             chart_df = btc_df if chart_timeframe in ("1m", "3m", "5m") else _neon_chart_history(chart_timeframe)
-            chart_html = render_neon_chart(
+            chart_payload = _neon_payload(
                 chart_df, coinbase_live_price if coinbase_live_ok else None,
                 target, active, chart_timeframe, sig, whale, market, btc_df,
             )
-            import streamlit.components.v1 as _neon_components
-            _neon_components.html(chart_html, height=1830, scrolling=True)
+            # Clave fija: el iframe conserva documento, scroll y controles.
+            chart_payload = json.loads(json.dumps(chart_payload, allow_nan=False))
+            _neon_live_component()(payload=chart_payload, key="btc_neon_live_chart", default=None)
         except Exception:
             st.warning("No se pudo cargar esta temporalidad. Prueba 1m o vuelve a seleccionarla.")
 
@@ -3631,4 +3676,6 @@ if page == "signal_trace":
 elif page == "settings":
     render_history_page()
 else:
+    # Un único destino persistente, fuera del fragmento: reemplazo en sitio.
+    _LIVE_PANEL = st.empty()
     live_dashboard()
