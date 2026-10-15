@@ -453,7 +453,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     width:20px;height:20px;border-radius:50%;
     display:grid;place-items:center;
     border:1px solid #28dd79;
-    color:#00ff88;
+    color:#39ff14;
     font-size:10px;font-weight:1000;
 }
 .ref-feature strong{
@@ -529,17 +529,17 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .keycard{height:68px;padding:8px 9px;display:flex;align-items:center;gap:8px}
 .bigicon{font-size:31px;font-weight:900;line-height:1}.btcicon{color:#ff9d00}.targeticon{color:#a9cff5}
 .rlabel{font-size:8px;color:#b9c9dc;letter-spacing:.4px}.rvalue{font-size:19px;font-weight:900;line-height:1.05;margin-top:2px}.rdelta{font-size:9px;font-weight:900;margin-top:2px}
-.green{color:#00ff88!important}.red{color:#ff1744!important}
+.green{color:#39ff14!important}.red{color:#ff2020!important}
 .bars{display:flex;align-items:flex-end;gap:3px;width:31px;height:30px}.bars b{width:7px;background:var(--accent);border-radius:2px}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
 .clock{font-size:30px;color:#b9d8f7}.timecontent{flex:1}.timebar{height:6px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}.timebar b{display:block;height:100%;background:var(--accent);border-radius:5px}
 .probs{margin-top:6px;padding:8px}.pbar{display:flex;gap:4px;margin-top:5px}.pup,.pdown{height:21px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;border-radius:4px}.pup{background:linear-gradient(90deg,#10d76d,#54ed91);color:#06331d}.pdown{background:linear-gradient(90deg,#ff3548,#ff6472);color:#3d0710}.pleg{display:flex;justify-content:space-between;font-size:10px;font-weight:900;margin-top:6px}
 .reader{margin-top:6px;border:1.5px solid var(--rb);background:var(--rbg);border-radius:9px;padding:9px 10px}
-.readerhead{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--rr)}.readerhead .pulse{font-size:18px}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#00ff88}
+.readerhead{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--rr)}.readerhead .pulse{font-size:18px}.readerhead em{margin-left:auto;border:1px solid #24d873;border-radius:12px;padding:3px 8px;font-style:normal;font-size:8px;color:#39ff14}
 .readerbody{display:grid;grid-template-columns:1fr 65px;align-items:center;margin-top:7px}.readerbody strong{display:block;font-size:15px;line-height:1.12}.readerbody small{display:block;color:#aab8c9;font-size:7px;margin-top:5px}
 .rring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rr) calc(var(--p)*1%),#263342 0);position:relative}.rring:after{content:"";position:absolute;width:48px;height:48px;background:#08121b;border-radius:50%}.rring span{z-index:1;font-size:15px;font-weight:900}
 .tech{margin-top:6px;padding:7px 8px}.techhead{display:flex;justify-content:space-between;font-size:9px;color:#c2d0df;padding-bottom:6px}.techrow{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #172737}.techrow>div{text-align:center;padding:7px 2px 2px;border-right:1px solid #172737}.techrow>div:last-child{border:0}.techrow small,.techrow i{display:block;font-size:6px;color:#8d9db0;font-style:normal}.techrow b{display:block;font-size:10px;margin:4px 0}
 .rnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #203448;border-bottom:1px solid #203448;margin-top:7px;padding:7px 0}.rnav div{text-align:center;color:#9db0c5;font-size:8px}.rnav b{display:block;font-size:17px;margin-bottom:2px}.rnav .active{color:var(--accent)}
-.features{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 1px}.features>div{display:flex;gap:5px;align-items:center}.features>div>b{width:25px;height:25px;border:1px solid #00ff88;border-radius:50%;display:grid;place-items:center;color:#00ff88;font-size:13px}.features p{margin:0}.features strong{display:block;font-size:5.7px;color:#e1e8f0}.features span{display:block;font-size:5.4px;color:#8c9db0;margin-top:2px}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 1px}.features>div{display:flex;gap:5px;align-items:center}.features>div>b{width:25px;height:25px;border:1px solid #39ff14;border-radius:50%;display:grid;place-items:center;color:#39ff14;font-size:13px}.features p{margin:0}.features strong{display:block;font-size:5.7px;color:#e1e8f0}.features span{display:block;font-size:5.4px;color:#8c9db0;margin-top:2px}
 .refapp footer{border-top:1px solid #182a3a;padding:5px 1px;display:flex;justify-content:space-between;color:#708197;font-size:5.2px}
 .ticker{text-align:center;color:#53667d;font-size:6px;margin-top:5px}
 
@@ -657,7 +657,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .charttop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#eef6ff}.charttop b{font-size:13px}.chartlive{font-size:7px;color:#28e69a;margin-left:8px}.charttf{border:1px solid #26384b;border-radius:7px;padding:5px 8px;color:#dce8f5;font-size:9px}.ohlc{font-size:7px;color:#8ea0b5;margin-top:5px;white-space:nowrap}.indicators{font-size:7px;color:#aab8ca;margin:7px 0 1px;white-space:nowrap}.ema9dot{color:#df42e7}.ema21dot{color:#32d7ef}.targetdot{color:#23e7c1}.candlesvg{display:block;width:100%;height:265px}.chartfoot{display:flex;align-items:center;gap:10px;border-top:1px solid #18283a;padding:7px 2px 1px;color:#71839a;font-size:6px}.chartfoot .selected{border:1px solid #2a7189;border-radius:7px;padding:4px 8px;color:#e7f5ff;background:#0d2632}.chartempty{height:160px;display:grid;place-items:center;color:#708197;font-size:10px}
 
 /* UNIFIED NEON THEME — visual layer only */
-:root{--neon-up:#00ff88;--neon-down:#ff1744;--neon-purple:#bf40ff;--neon-cyan:#00eaff}
+:root{--neon-up:#39ff14;--neon-down:#ff2020;--neon-purple:#bf40ff;--neon-cyan:#00eaff}
 .stApp,[data-testid="stAppViewContainer"]{background:radial-gradient(ellipse at 50% 0,rgba(92,40,160,.12),transparent 42%),#060a13!important}
 .block-container{max-width:720px!important;padding:8px 12px 26px!important}
 .refapp{color:#e9eafa;font-family:Inter,Arial,sans-serif}
@@ -665,19 +665,19 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .refapp>section[style]{border-color:#594080!important;border-radius:15px!important;box-shadow:0 0 13px #9859f210}
 .rtitle{color:#ecedff;text-shadow:0 0 18px #b774ff55}
 .gear{color:#b97cff!important;text-shadow:0 0 12px #bf40ff66}
-.rlive{color:#00ff88!important}.rlive i{background:#00ff88!important;box-shadow:0 0 11px #00ff8899!important}
-.green{color:#00ff88!important;text-shadow:0 0 7px #00ff88aa,0 0 18px #00ff8855}
-.red{color:#ff1744!important;text-shadow:0 0 7px #ff1744aa,0 0 18px #ff174455}
+.rlive{color:#39ff14!important}.rlive i{background:#39ff14!important;box-shadow:0 0 11px #39ff1499!important}
+.green{color:#39ff14!important;text-shadow:0 0 7px #39ff14aa,0 0 18px #39ff1455}
+.red{color:#ff2020!important;text-shadow:0 0 7px #ff2020aa,0 0 18px #ff202055}
 .rconf{box-shadow:0 0 14px var(--soft),inset 0 0 12px var(--soft)!important}
-.pup,.prob-up{background:linear-gradient(90deg,#00ff66,#00ff88)!important;color:#03281f!important;box-shadow:0 0 18px #00ff8880}
-.pdown,.prob-down{background:linear-gradient(90deg,#ff003c,#ff1744)!important;color:#320515!important;box-shadow:0 0 18px #ff174480}
+.pup,.prob-up{background:linear-gradient(90deg,#39ff14,#39ff14)!important;color:#03281f!important;box-shadow:0 0 18px #39ff1480}
+.pdown,.prob-down{background:linear-gradient(90deg,#ff2020,#ff2020)!important;color:#320515!important;box-shadow:0 0 18px #ff202080}
 .timebar b,.ref-timebar b{box-shadow:0 0 11px var(--accent)}
 .reader{box-shadow:0 0 14px var(--soft),inset 0 0 20px #9c63ed07!important;border-radius:15px!important}
-.readerhead em{border-color:#00ff88!important;color:#00ff88!important;box-shadow:0 0 9px #00ff881a}
+.readerhead em{border-color:#39ff14!important;color:#39ff14!important;box-shadow:0 0 9px #39ff141a}
 .rring{filter:drop-shadow(0 0 6px var(--soft))}.rring:after{background:#080d17!important}
 .techrow{border-color:#3d2c59!important}.techrow>div{border-color:#302443!important}
 .rnav{border-color:#493267!important}.rnav .active{color:var(--accent);text-shadow:0 0 12px var(--glow)}
-.features>div>b{border-color:#00ff88!important;color:#00ff88!important;box-shadow:0 0 9px #00ff8821}
+.features>div>b{border-color:#39ff14!important;color:#39ff14!important;box-shadow:0 0 9px #39ff1421}
 .targeticon,.clock{color:#a7c7ff!important}.btcicon{filter:drop-shadow(0 0 7px #ff9d0044)}
 .stRadio [role="radiogroup"]{gap:8px!important;flex-wrap:wrap;padding:8px 0}
 .stRadio label{border:1px solid #69429a;border-radius:18px;padding:6px 10px!important;background:#110e20;color:#ded9f4!important}
@@ -685,6 +685,32 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 [data-testid="stButton"] button:hover{border-color:#bf40ff;box-shadow:0 0 13px #bf40ff33}
 [data-testid="stMetricValue"]{color:#00eaff;text-shadow:0 0 10px #00eaff28}
 @media(max-width:460px){.block-container{max-width:100%!important;padding:5px 8px 20px!important}}
+
+
+/* Strong neon and readable labels across both visual surfaces. */
+.green{color:#39ff14!important;text-shadow:0 0 5px #39ff14,0 0 14px #39ff1499!important}
+.red{color:#ff2020!important;text-shadow:0 0 5px #ff2020,0 0 14px #ff202099!important}
+.pup,.prob-up{background:#39ff14!important;box-shadow:0 0 8px #39ff14,0 0 22px #39ff1477!important}
+.pdown,.prob-down{background:#ff2020!important;box-shadow:0 0 8px #ff2020,0 0 22px #ff202077!important}
+.prenote,.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
+.pretitle,.prebadge,.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
+.rhero{filter:drop-shadow(0 0 9px var(--accent))}
+.note,.footer,.sub,.card small,.metric small,.tooltip,.chartnav span,summary small{color:#cbd5e1!important;font-size:11px!important}
+.floatcounts div{border-color:#39ff14;box-shadow:0 0 9px #39ff1444}.floatcounts div:last-child{border-color:#ff2020;box-shadow:0 0 9px #ff202044}
+.canvas svg rect,.canvas svg line{shape-rendering:geometricPrecision}
+@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.prehead{flex-wrap:wrap;gap:6px}.prebadge{max-width:100%}.finalanalysis{grid-template-columns:1fr 90px}}
+
+
+/* Purple neon outlines, consistent across dashboard and chart cards. */
+.rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
+.finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
+.panel,.card,.metric,details,.floatcounts div{
+ border-color:#b026ff!important;
+ box-shadow:0 0 3px #b026ff,0 0 10px #b026ff88,0 0 20px #b026ff33,inset 0 0 8px #b026ff22!important;
+}
+.panel{border:1.5px solid #b026ff!important;margin:8px 6px!important}
+.rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
+.techrow,.rnav,.chartnav{border-color:#b026ff!important}
 
 </style>
 """,
@@ -725,11 +751,12 @@ def make_exit_plan(state, signal, seconds_left, now):
     side=state.get('first_direction');price=_plan_number(signal.get('price'));atr=_plan_number(signal.get('atr'));secs=_plan_number(seconds_left)
     if side not in ('UP','DOWN') or price is None or atr is None or secs is None or min(price,atr,secs)<=0 or atr>=price:return None
     first=state.get('first_signal_time')
-    if not isinstance(first,datetime) or first.tzinfo is None or now.tzinfo is None or first!=now:return None
+    if not isinstance(first,datetime) or first.tzinfo is None or now.tzinfo is None or first>now:return None
     source=signal.get('price_source')
     if source not in ('KALSHI LIVE','COINBASE','COINBASE CANDLE'):return None
     sign=1 if side=='UP' else -1
     return {'rule':'fixed_1atr_reference_v1','direction':side,'reference_btc':price,
+        'reference_kind':'confirmation' if first==now else 'resumed',
         'atr_at_confirmation':atr,'target_btc':price+sign*atr,'invalidation_btc':price-sign*atr,
         'source':source,'first_time':first.isoformat(),'created_at':now.isoformat(),
         'terminal_status':None,'terminal_at':None,'terminal_price':None,'last_at':now.isoformat()}
@@ -767,8 +794,8 @@ def preserve_exit_plan(state, saved):
     if not isinstance(current,dict) or current.get('first_time')!=old['first_time'] or old.get('terminal_status'):
         state['exit_plan']=old
         return
-    fixed=('rule','direction','reference_btc','atr_at_confirmation','target_btc','invalidation_btc','source','first_time','created_at')
-    state['exit_plan']={**current,**{k:old[k] for k in fixed}}
+    fixed=('reference_kind','rule','direction','reference_btc','atr_at_confirmation','target_btc','invalidation_btc','source','first_time','created_at')
+    state['exit_plan']={**current,**{k:old[k] for k in fixed if k in old}}
 
 def plan_bid(market, side):
     market=market or {};prefix='yes' if side=='UP' else 'no'
@@ -784,21 +811,32 @@ def render_exit_plan(state, signal, market, seconds_left, now):
         'NO_CURRENT_DATA':'ESPERANDO UN PRECIO ACTUAL','REFERENCE_CHANGED':'NO PUEDO COMPARAR EL PRECIO AHORA',
         'IN_RANGE':'SIGUIENDO LA SEÑAL','TARGET_REACHED':'LLEGÓ AL OBJETIVO · REVISA SALIR',
         'INVALIDATED':'VA EN CONTRA · REVISA SALIR'}
-    title=titles[status];color='#ff1744' if status=='INVALIDATED' else '#00ff88' if status=='TARGET_REACHED' else '#38bdf8'
+    title=titles[status]
+    if status=='NO_PLAN' and (state or {}).get('first_direction') in ('UP','DOWN'):
+        title='SEÑAL ACTIVA · ESPERANDO DATOS PARA LA REFERENCIA'
+    color='#ff2020' if status=='INVALIDATED' else '#39ff14' if status=='TARGET_REACHED' else '#38bdf8'
     if not plan:
-        details='Los precios aparecerán cuando el bot confirme una nueva señal.'
+        details=('La señal ya está activa. Falta un precio y ATR válidos para iniciar el seguimiento.' if (state or {}).get('first_direction') in ('UP','DOWN') else 'Los precios aparecerán cuando el bot confirme una nueva señal.')
         rows=''
     else:
         if status=='IN_RANGE':title+=' '+plan['direction']
+        active_side=(state or {}).get('active_direction')
+        if active_side in ('UP','DOWN') and active_side!=plan['direction']:
+            title='LA SEÑAL ACTIVA CAMBIÓ A '+active_side+' · REVISA LA REFERENCIA INICIAL'
         bid=plan_bid(market,plan['direction']);bid_text=f'{bid*100:.1f}¢ por contrato' if bid is not None else 'No disponible'
         goal_verb='sube' if plan['direction']=='UP' else 'baja'
         against_verb='baja' if plan['direction']=='UP' else 'sube'
-        fields=[('Señal inicial',plan['direction']),('Precio al dar la señal',f"${plan['reference_btc']:,.2f}"),
+        fields=[('Señal inicial',plan['direction']),('Referencia BTC al reanudar' if plan.get('reference_kind')=='resumed' else 'Precio al dar la señal',f"${plan['reference_btc']:,.2f}"),
             ('Si '+goal_verb+' a esto, revisa salir',f"${plan['target_btc']:,.2f}"),
             ('Si '+against_verb+' a esto, revisa salir',f"${plan['invalidation_btc']:,.2f}"),
             ('Precio orientativo para vender',bid_text)]
         rows=''.join('<div style="display:flex;justify-content:space-between;gap:12px;margin-top:8px"><span>'+html.escape(k)+'</span><strong>'+html.escape(v)+'</strong></div>' for k,v in fields)
         details='Estos precios son una guía; el mercado puede seguir moviéndose.'
+        if plan.get('reference_kind')=='resumed':details+=' Referencia fijada al reanudar el seguimiento; no es el precio de la señal original.'
+        current_price=_plan_number((signal or {}).get('price'))
+        if status=='IN_RANGE' and current_price is not None and (1 if plan['direction']=='UP' else -1)*(current_price-plan['reference_btc'])<0:
+            title='RETROCESO CONTRA '+plan['direction']+' · REVISA LA SALIDA'
+            details+=' BTC está en contra de la referencia inicial, sin alcanzar aún el límite marcado.'
         if plan.get('terminal_at'):details+=' El aviso ya se activó y seguirá visible aunque el precio regrese.'
     return '<section style="border:1px solid '+color+';border-radius:18px;padding:18px;margin:12px 0;background:#0b1720;color:#cbd5e1"><div style="font-size:13px;color:'+color+'">CUÁNDO REVISAR LA SALIDA</div><h3 style="color:'+color+';margin:10px 0">'+title+'</h3>'+rows+'<p style="font-size:12px;color:#94a3b8;margin:12px 0 0">'+details+' No vende automáticamente. El precio de venta puede cambiar y no asegura ganancias.</p></section>'
 
@@ -1350,7 +1388,7 @@ def render_whale_panel(whale, active):
         buy = compact_usd((whale or {}).get("live_buy", 0))
         sell = compact_usd((whale or {}).get("live_sell", 0))
         return f'''<section style="{base}">
-          <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#00ff88">● COINBASE</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:10px;color:#e4edf7">🐋 FLUJO BALLENA · EN VIVO</b><span style="font-size:8px;color:#39ff14">● COINBASE</span></div>
           <div style="margin-top:8px;font-size:13px;font-weight:900;color:#91a2b5">SIN FLUJO EXTREMO AHORA</div>
           <div style="margin-top:6px;font-size:9px;color:#8da0b4">Últimos 10 s · COMPRAS {buy} · VENTAS {sell}</div>
           <div style="margin-top:4px;font-size:8px;color:#6f8195">Confirma presión con ventanas de 10 s y 30 s; no alerta por una operación aislada.</div>
@@ -1358,7 +1396,7 @@ def render_whale_panel(whale, active):
 
     a = whale["alert"]
     up = a["direction"] == "UP"
-    color = "#00ff88" if up else "#ff1744"
+    color = "#39ff14" if up else "#ff2020"
     arrow = "↑" if up else "↓"
     label = "COMPRADOR · POSIBLE IMPULSO UP" if up else "VENDEDOR · POSIBLE IMPULSO DOWN"
     dominant = a["buy"] if up else a["sell"]
@@ -2026,10 +2064,10 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
     state["reversal_text"] = reversal_text
 
     if active == "UP":
-        decision, signal, icon, color = "UP","SEÑAL UP","⬆","#00ff88"
+        decision, signal, icon, color = "UP","SEÑAL UP","⬆","#39ff14"
         current_entry_price = get_yes_ask(market)
     elif active == "DOWN":
-        decision, signal, icon, color = "DOWN","SEÑAL DOWN","⬇","#ff1744"
+        decision, signal, icon, color = "DOWN","SEÑAL DOWN","⬇","#ff2020"
         current_entry_price = get_no_ask(market)
     else:
         decision, signal, icon, color = "ESPERANDO","SIN CONFIRMACIÓN","•","#38bdf8"
@@ -2322,9 +2360,9 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         if distance is None or abs(distance) < 1:
             headline, color = "RONDA FINALIZADA", "#94a3b8"
         elif distance > 0:
-            headline, color = "RONDA FINALIZADA • UP", "#00ff88"
+            headline, color = "RONDA FINALIZADA • UP", "#39ff14"
         else:
-            headline, color = "RONDA FINALIZADA • DOWN", "#ff1744"
+            headline, color = "RONDA FINALIZADA • DOWN", "#ff2020"
         return {
             "percent":100, "headline":headline,
             "note":"La ronda terminó. Ya no se muestra una predicción de cierre.",
@@ -2478,9 +2516,9 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         headline = f"{direction} PERDIENDO FUERZA"
         note = "La presión live de 10s y 30s va contra la señal activa."
     elif confidence >= 75:
-        headline = ("ALTA PROBABILIDAD DE CIERRE EN VERDE" if direction == "UP"
-                    else "ALTA PROBABILIDAD DE CIERRE EN ROJO")
-        note = "Basado en momentum, volatilidad, presión de precio y distancia al target."
+        headline = ("APOYO FUERTE AL CIERRE UP" if direction == "UP"
+                    else "APOYO FUERTE AL CIERRE DOWN")
+        note = "Índice de apoyo basado en momentum, volatilidad, presión y distancia. No es una probabilidad de acierto."
     elif confidence >= 60:
         headline = f"VENTAJA MODERADA PARA {direction}"
         note = "La dirección sigue activa, pero la presión inmediata aún puede cambiar."
@@ -2489,12 +2527,12 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         note = "La microlectura no confirma con fuerza la dirección."
 
     if direction == "UP":
-        color = "#00ff88"
-        border = "rgba(0,229,176,.48)"
+        color = "#39ff14"
+        border = "rgba(57,255,20,.48)"
         bg = "linear-gradient(135deg,rgba(4,86,43,.46),rgba(7,36,25,.78))"
     else:
-        color = "#ff1744"
-        border = "rgba(255,64,117,.48)"
+        color = "#ff2020"
+        border = "rgba(255,32,32,.48)"
         bg = "linear-gradient(135deg,rgba(102,20,31,.48),rgba(43,10,17,.80))"
 
     return {
@@ -2585,7 +2623,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     for i,row in d.iterrows():
         x=left+(i+.5)*step
         o,c,h,l=map(float,[row['open'],row['close'],row['high'],row['low']])
-        col='#00ff88' if c>=o else '#ff1744'
+        col='#39ff14' if c>=o else '#ff2020'
         svg.append(f'<line x1="{x:.1f}" y1="{y(h):.1f}" x2="{x:.1f}" y2="{y(l):.1f}" stroke="{col}" stroke-width="1.4"/>')
         yy=min(y(o),y(c)); hh=max(2.0,abs(y(o)-y(c)))
         svg.append(f'<rect x="{x-body/2:.1f}" y="{yy:.1f}" width="{body:.1f}" height="{hh:.1f}" rx=".7" fill="{col}"/>')
@@ -2606,7 +2644,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
         svg.append(f'<text x="{W-right+25}" y="{ty+4:.1f}" fill="#061510" font-size="10" font-weight="800">TARGET</text>')
     # live price line + label
     if live_price is not None and lo <= float(live_price) <= hi:
-        ly=y(live_price); lc='#00ff88' if active=='UP' else '#ff1744' if active=='DOWN' else '#38bdf8'
+        ly=y(live_price); lc='#39ff14' if active=='UP' else '#ff2020' if active=='DOWN' else '#38bdf8'
         svg.append(f'<line x1="{left}" y1="{ly:.1f}" x2="{W-right}" y2="{ly:.1f}" stroke="{lc}" stroke-width="1.3" stroke-dasharray="3 4"/>')
         svg.append(f'<rect x="{W-right+18}" y="{ly-12:.1f}" width="96" height="23" rx="3" fill="{lc}"/>')
         svg.append(f'<text x="{W-right+25}" y="{ly+4:.1f}" fill="#061510" font-size="11" font-weight="900">{float(live_price):,.0f}</text>')
@@ -2621,7 +2659,7 @@ def render_live_candles(df, live_price, target, active, timeframe="1m"):
     last=d.iloc[-1]
     change=float(last['close'])-float(last['open'])
     pct=(change/float(last['open'])*100) if float(last['open']) else 0
-    direction_color='#00ff88' if change>=0 else '#ff1744'
+    direction_color='#39ff14' if change>=0 else '#ff2020'
     target_label=f'${float(target):,.0f}' if target is not None else '--'
     return f'''<section class="chartbox">
       <div class="charttop"><div><b>BTC/USD · {timeframe}</b><span class="chartlive">● LIVE</span></div><div class="charttf">{timeframe}</div></div>
@@ -2648,7 +2686,33 @@ def render_history_page():
     .history-label{font-size:9px;font-weight:1000;color:#fff!important;opacity:1!important;margin-bottom:7px}
     .history-value{font-size:22px;font-weight:1000;line-height:1}
     .history-note{margin-top:14px;color:#fff!important;opacity:1!important;font-size:10px;font-weight:900}
-    </style>""", unsafe_allow_html=True)
+    
+/* Strong neon and readable labels across both visual surfaces. */
+.green{color:#39ff14!important;text-shadow:0 0 5px #39ff14,0 0 14px #39ff1499!important}
+.red{color:#ff2020!important;text-shadow:0 0 5px #ff2020,0 0 14px #ff202099!important}
+.pup,.prob-up{background:#39ff14!important;box-shadow:0 0 8px #39ff14,0 0 22px #39ff1477!important}
+.pdown,.prob-down{background:#ff2020!important;box-shadow:0 0 8px #ff2020,0 0 22px #ff202077!important}
+.prenote,.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
+.pretitle,.prebadge,.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
+.rhero{filter:drop-shadow(0 0 9px var(--accent))}
+.note,.footer,.sub,.card small,.metric small,.tooltip,.chartnav span,summary small{color:#cbd5e1!important;font-size:11px!important}
+.floatcounts div{border-color:#39ff14;box-shadow:0 0 9px #39ff1444}.floatcounts div:last-child{border-color:#ff2020;box-shadow:0 0 9px #ff202044}
+.canvas svg rect,.canvas svg line{shape-rendering:geometricPrecision}
+@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.prehead{flex-wrap:wrap;gap:6px}.prebadge{max-width:100%}.finalanalysis{grid-template-columns:1fr 90px}}
+
+
+/* Purple neon outlines, consistent across dashboard and chart cards. */
+.rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
+.finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
+.panel,.card,.metric,details,.floatcounts div{
+ border-color:#b026ff!important;
+ box-shadow:0 0 3px #b026ff,0 0 10px #b026ff88,0 0 20px #b026ff33,inset 0 0 8px #b026ff22!important;
+}
+.panel{border:1.5px solid #b026ff!important;margin:8px 6px!important}
+.rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
+.techrow,.rnav,.chartnav{border-color:#b026ff!important}
+
+</style>""", unsafe_allow_html=True)
     df=load_history(250); stats=history_stats(df)
     st.markdown(f"""
     <a class="settings-back" href="?page=signal" target="_self">← Señal</a>
@@ -2656,8 +2720,8 @@ def render_history_page():
     <div class="settings-sub">Historial y rendimiento · registro automático por ronda</div>
     <div class="history-stats">
       <div class="history-stat"><div class="history-label">Rondas</div><div class="history-value" style="color:#54c6f5">{stats["total"]}</div></div>
-      <div class="history-stat"><div class="history-label">Ganadas</div><div class="history-value" style="color:#00ff88">{stats["wins"]}</div></div>
-      <div class="history-stat"><div class="history-label">Perdidas</div><div class="history-value" style="color:#ff1744">{stats["losses"]}</div></div>
+      <div class="history-stat"><div class="history-label">Ganadas</div><div class="history-value" style="color:#39ff14">{stats["wins"]}</div></div>
+      <div class="history-stat"><div class="history-label">Perdidas</div><div class="history-value" style="color:#ff2020">{stats["losses"]}</div></div>
       <div class="history-stat"><div class="history-label">Acierto</div><div class="history-value" style="color:#f7bd4d">{f"{stats['win_rate']:.1f}%" if stats['decided'] else "—"}</div></div>
     </div>
     <div class="history-note">Pendientes: {stats["pending"]} · NO TRADE: {stats["no_trade"]} · Acierto basado solo en resultados oficiales verificados.</div>
@@ -2729,14 +2793,14 @@ def detect_early_reversal(ticker, micro, whale, price):
 
 def render_early_reversal_panel(result):
     direction = result.get("direction")
-    color = "#ff1744" if direction == "DOWN" else "#00ff88" if direction == "UP" else "#8fa3b8"
+    color = "#ff2020" if direction == "DOWN" else "#39ff14" if direction == "UP" else "#8fa3b8"
     title = result.get("status", "OBSERVANDO")
     detail = result.get("detail", "")
-    return f'''<section style="margin:7px 0;padding:10px;border:1px solid {color};border-radius:10px;background:#0b1520">
-      <div style="font-size:9px;font-weight:900;color:#dce7f3">DETECTOR DE REVERSIÓN · EXPERIMENTAL</div>
-      <div style="margin-top:6px;font-size:13px;font-weight:950;color:{color}">{title}{' → ' + direction if direction else ''}</div>
-      <div style="margin-top:5px;font-size:9px;color:#b5c4d4">{detail}</div>
-      <div style="margin-top:4px;font-size:8px;color:#8495aa">Alerta informativa, no orden de compra ni predicción garantizada. No cambia la señal oficial.</div>
+    return f'''<section style="margin:12px 0;padding:18px;min-height:300px;display:flex;flex-direction:column;justify-content:center;border:1px solid {color};border-radius:18px;background:#0b1520">
+      <div style="font-size:13px;font-weight:900;color:#dce7f3">DETECTOR DE REVERSIÓN · EXPERIMENTAL</div>
+      <div style="margin-top:14px;font-size:24px;line-height:1.3;font-weight:950;color:{color}">{title}{' → ' + direction if direction else ''}</div>
+      <div style="margin-top:14px;font-size:14px;line-height:1.5;color:#cbd5e1">{detail}</div>
+      <div style="margin-top:18px;font-size:12px;line-height:1.5;color:#94a3b8">Alerta informativa, no orden de compra ni predicción garantizada. No cambia la señal oficial.</div>
     </section>'''
 
 # Panel visual independiente del motor. Sin envío de órdenes.
@@ -2845,12 +2909,38 @@ def render_neon_chart(df, live_price, target, active, timeframe, sig, whale):
 
 _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-*{box-sizing:border-box}body{margin:0;background:#060a13;color:#e8edf6;font-family:Inter,system-ui,sans-serif}button,summary{-webkit-tap-highlight-color:transparent}button{font:inherit;cursor:pointer}.panel{box-shadow:0 0 18px #bf40ff55,inset 0 0 16px #bf40ff18;border:1px solid #bf40ff;border-radius:27px;overflow:hidden;background:radial-gradient(ellipse at 95% 0,rgba(95,40,180,.12),transparent 40%),#060a13;box-shadow:inset 0 0 18px #7b3de31c,0 0 12px #9b54ff20;margin:4px 3px}.header{padding:24px 21px 17px;display:flex;align-items:start;justify-content:space-between;gap:8px}.header h2{margin:0;font-size:25px;letter-spacing:-.8px}.sub{color:#949bb6;font-size:11px;font-weight:700;letter-spacing:1px;margin-top:8px}.price{font-size:25px;letter-spacing:-1px;font-weight:900;color:#00ff88;text-shadow:0 0 19px #00e4ba40}.live{font-size:10px;color:#00ff88;text-align:right;margin-top:7px}.cards{padding:0 20px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{min-height:104px;padding:17px;border:1px solid #35324d;border-radius:19px;background:linear-gradient(130deg,#0c1421,#080a14)}.card .label{font-size:10px;letter-spacing:1.8px;font-weight:800;color:#7c879d}.card strong{font-size:24px;display:block;margin-top:10px;line-height:1.2}.card small{color:#7e8b9f;font-size:10px;display:block;margin-top:8px}.purple{color:#c080ff}.cyan{color:#54d5f7}.green{color:#00ff88}.red{color:#ff1744}.status{font-size:17px!important}.signal{border-color:#9e355b;background:linear-gradient(120deg,#21101e55,#0b0a15)}details{border-top:1px solid #26303c;border-bottom:1px solid #26303c;border-radius:20px;margin:0 0 12px;background:#070c14}summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 20px;font-size:14px;font-weight:850;letter-spacing:.5px}summary::-webkit-details-marker{display:none}summary small{font-size:9px;color:#758894;margin-left:auto;max-width:170px;letter-spacing:1px}summary:after{content:'+';color:#00d8b2;font-size:24px}details[open]>summary:after{content:'−'}.detail{padding:18px 20px 20px;border-top:1px solid #19232e}.detail h3{font-size:13px;margin:0 0 5px}.note{font-size:10px;color:#7e8b9f;line-height:1.7}.watch{font-size:14px;font-weight:800;color:#ffd057;padding:15px 0}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px}.metric{border:1px solid #1c2733;background:#080d17;padding:15px;border-radius:13px}.metric small{display:block;color:#8692a9;font-size:10px;font-weight:750;letter-spacing:.4px}.metric b{display:block;font-size:20px;margin-top:9px}.bars{margin:20px 0}.bar{display:flex;gap:12px;align-items:center;font-size:10px;color:#8b96ac;margin:12px 0}.track{height:7px;background:#19202c;border-radius:8px;flex:1}.track i{height:100%;display:block;border-radius:8px}.bar b{width:65px;text-align:right}.count{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.count .metric{display:flex;align-items:center;justify-content:space-between;gap:6px}.count b{font-size:29px}.difference{margin-top:10px;display:flex;justify-content:space-between;align-items:center}.difference b{font-size:24px}.tools{padding:0 20px}.tools h3{font-size:12px;color:#7f8ca6;letter-spacing:2px;margin:15px 0 12px}.toggles{display:flex;flex-wrap:wrap;gap:9px}.toggle{padding:11px 13px;border:1px solid #604099;border-radius:30px;background:#130f24;color:#e3e3f5;font-size:11px;font-weight:750}.toggle:before{content:'●';color:var(--c);margin-right:8px;text-shadow:0 0 11px var(--c)}.toggle span{font-size:9px;color:#9390a7;margin-left:6px}.toggle.off{opacity:.4}.legend{font-size:10px;color:#99a4bd;margin:16px 0 10px;display:flex;gap:10px;flex-wrap:wrap;font-weight:700}.canvas{position:relative;width:100%;touch-action:pan-y}.canvas svg{display:block;width:100%;height:auto;user-select:none}.floatcounts{display:flex;gap:10px;padding:0 20px;margin-top:4px}.floatcounts div{flex:1;border:1px solid #00a88a;border-radius:14px;padding:10px;color:#00ff88;font-size:11px;font-weight:800}.floatcounts div:last-child{border-color:#9a3155;color:#ff1744}.floatcounts b{font-size:22px;margin-left:8px}.chartnav{display:flex;align-items:center;gap:8px;padding:10px 20px;border-top:1px solid #202738;flex-wrap:wrap}.chartnav button{border:1px solid #393254;border-radius:8px;color:#bec2d6;background:#0e1421;padding:6px 11px;font-size:11px}.chartnav span{font-size:10px;color:#7b879d;margin-left:auto}.tooltip{min-height:33px;padding:6px 20px;color:#aab6cc;font-size:10px;line-height:1.6}.footer{font-size:9px;line-height:1.6;color:#7c889e;padding:10px 20px 18px}.empty{padding:80px 20px;text-align:center;color:#95a0b6}@media(max-width:460px){.header{padding:20px 16px 16px}.header h2,.price{font-size:22px}.cards{grid-template-columns:1fr;padding:0 16px 18px}.card{min-height:106px}.card strong{font-size:25px}.tools,.detail{padding-left:16px;padding-right:16px}summary{padding:20px 16px;font-size:13px}summary small{max-width:135px;font-size:8px}.toggle{padding:10px 12px}.count .metric{padding:10px}.count small{font-size:8px}.count b{font-size:25px}.metric b{font-size:20px}}
+*{box-sizing:border-box}body{margin:0;background:#060a13;color:#e8edf6;font-family:Inter,system-ui,sans-serif}button,summary{-webkit-tap-highlight-color:transparent}button{font:inherit;cursor:pointer}.panel{box-shadow:0 0 18px #bf40ff55,inset 0 0 16px #bf40ff18;border:1px solid #bf40ff;border-radius:27px;overflow:hidden;background:radial-gradient(ellipse at 95% 0,rgba(95,40,180,.12),transparent 40%),#060a13;box-shadow:inset 0 0 18px #7b3de31c,0 0 12px #9b54ff20;margin:4px 3px}.header{padding:24px 21px 17px;display:flex;align-items:start;justify-content:space-between;gap:8px}.header h2{margin:0;font-size:25px;letter-spacing:-.8px}.sub{color:#949bb6;font-size:11px;font-weight:700;letter-spacing:1px;margin-top:8px}.price{font-size:25px;letter-spacing:-1px;font-weight:900;color:#39ff14;text-shadow:0 0 19px #00e4ba40}.live{font-size:10px;color:#39ff14;text-align:right;margin-top:7px}.cards{padding:0 20px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{min-height:104px;padding:17px;border:1px solid #35324d;border-radius:19px;background:linear-gradient(130deg,#0c1421,#080a14)}.card .label{font-size:10px;letter-spacing:1.8px;font-weight:800;color:#7c879d}.card strong{font-size:24px;display:block;margin-top:10px;line-height:1.2}.card small{color:#7e8b9f;font-size:10px;display:block;margin-top:8px}.purple{color:#c080ff}.cyan{color:#54d5f7}.green{color:#39ff14}.red{color:#ff2020}.status{font-size:17px!important}.signal{border-color:#9e355b;background:linear-gradient(120deg,#21101e55,#0b0a15)}details{border-top:1px solid #26303c;border-bottom:1px solid #26303c;border-radius:20px;margin:0 0 12px;background:#070c14}summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 20px;font-size:14px;font-weight:850;letter-spacing:.5px}summary::-webkit-details-marker{display:none}summary small{font-size:9px;color:#758894;margin-left:auto;max-width:170px;letter-spacing:1px}summary:after{content:'+';color:#39ff14;font-size:24px}details[open]>summary:after{content:'−'}.detail{padding:18px 20px 20px;border-top:1px solid #19232e}.detail h3{font-size:13px;margin:0 0 5px}.note{font-size:10px;color:#7e8b9f;line-height:1.7}.watch{font-size:14px;font-weight:800;color:#ffd057;padding:15px 0}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px}.metric{border:1px solid #1c2733;background:#080d17;padding:15px;border-radius:13px}.metric small{display:block;color:#8692a9;font-size:10px;font-weight:750;letter-spacing:.4px}.metric b{display:block;font-size:20px;margin-top:9px}.bars{margin:20px 0}.bar{display:flex;gap:12px;align-items:center;font-size:10px;color:#8b96ac;margin:12px 0}.track{height:7px;background:#19202c;border-radius:8px;flex:1}.track i{height:100%;display:block;border-radius:8px}.bar b{width:65px;text-align:right}.count{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.count .metric{display:flex;align-items:center;justify-content:space-between;gap:6px}.count b{font-size:29px}.difference{margin-top:10px;display:flex;justify-content:space-between;align-items:center}.difference b{font-size:24px}.tools{padding:0 20px}.tools h3{font-size:12px;color:#7f8ca6;letter-spacing:2px;margin:15px 0 12px}.toggles{display:flex;flex-wrap:wrap;gap:9px}.toggle{padding:11px 13px;border:1px solid #604099;border-radius:30px;background:#130f24;color:#e3e3f5;font-size:11px;font-weight:750}.toggle:before{content:'●';color:var(--c);margin-right:8px;text-shadow:0 0 11px var(--c)}.toggle span{font-size:9px;color:#9390a7;margin-left:6px}.toggle.off{opacity:.4}.legend{font-size:10px;color:#99a4bd;margin:16px 0 10px;display:flex;gap:10px;flex-wrap:wrap;font-weight:700}.canvas{position:relative;width:100%;touch-action:pan-y}.canvas svg{display:block;width:100%;height:auto;user-select:none}.floatcounts{display:flex;gap:10px;padding:0 20px;margin-top:4px}.floatcounts div{flex:1;border:1px solid #39ff14;border-radius:14px;padding:10px;color:#39ff14;font-size:11px;font-weight:800}.floatcounts div:last-child{border-color:#ff2020;color:#ff2020}.floatcounts b{font-size:22px;margin-left:8px}.chartnav{display:flex;align-items:center;gap:8px;padding:10px 20px;border-top:1px solid #202738;flex-wrap:wrap}.chartnav button{border:1px solid #393254;border-radius:8px;color:#bec2d6;background:#0e1421;padding:6px 11px;font-size:11px}.chartnav span{font-size:10px;color:#7b879d;margin-left:auto}.tooltip{min-height:33px;padding:6px 20px;color:#aab6cc;font-size:10px;line-height:1.6}.footer{font-size:9px;line-height:1.6;color:#7c889e;padding:10px 20px 18px}.empty{padding:80px 20px;text-align:center;color:#95a0b6}@media(max-width:460px){.header{padding:20px 16px 16px}.header h2,.price{font-size:22px}.cards{grid-template-columns:1fr;padding:0 16px 18px}.card{min-height:106px}.card strong{font-size:25px}.tools,.detail{padding-left:16px;padding-right:16px}summary{padding:20px 16px;font-size:13px}summary small{max-width:135px;font-size:8px}.toggle{padding:10px 12px}.count .metric{padding:10px}.count small{font-size:8px}.count b{font-size:25px}.metric b{font-size:20px}}
+
+/* Strong neon and readable labels across both visual surfaces. */
+.green{color:#39ff14!important;text-shadow:0 0 5px #39ff14,0 0 14px #39ff1499!important}
+.red{color:#ff2020!important;text-shadow:0 0 5px #ff2020,0 0 14px #ff202099!important}
+.pup,.prob-up{background:#39ff14!important;box-shadow:0 0 8px #39ff14,0 0 22px #39ff1477!important}
+.pdown,.prob-down{background:#ff2020!important;box-shadow:0 0 8px #ff2020,0 0 22px #ff202077!important}
+.prenote,.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
+.pretitle,.prebadge,.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
+.rhero{filter:drop-shadow(0 0 9px var(--accent))}
+.note,.footer,.sub,.card small,.metric small,.tooltip,.chartnav span,summary small{color:#cbd5e1!important;font-size:11px!important}
+.floatcounts div{border-color:#39ff14;box-shadow:0 0 9px #39ff1444}.floatcounts div:last-child{border-color:#ff2020;box-shadow:0 0 9px #ff202044}
+.canvas svg rect,.canvas svg line{shape-rendering:geometricPrecision}
+@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.prehead{flex-wrap:wrap;gap:6px}.prebadge{max-width:100%}.finalanalysis{grid-template-columns:1fr 90px}}
+
+
+/* Purple neon outlines, consistent across dashboard and chart cards. */
+.rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
+.finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
+.panel,.card,.metric,details,.floatcounts div{
+ border-color:#b026ff!important;
+ box-shadow:0 0 3px #b026ff,0 0 10px #b026ff88,0 0 20px #b026ff33,inset 0 0 8px #b026ff22!important;
+}
+.panel{border:1.5px solid #b026ff!important;margin:8px 6px!important}
+.rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
+.techrow,.rnav,.chartnav{border-color:#b026ff!important}
+
 </style>
 <section class="panel">
 <header class="header"><div><h2>BTC / USD</h2><div class="sub" id="subtitle"></div></div><div><div class="price" id="price"></div><div class="live" id="live"></div></div></header>
 <div class="cards"><div class="card signal"><div class="label">SEÑAL OFICIAL DEL BOT</div><strong id="signal"></strong><small>Motor BTC Signal v4.6.1</small></div><div class="card"><div class="label">APOYO DEL MODELO</div><strong class="cyan" id="model"></strong><small>Apoyo calculado · no probabilidad de acierto</small></div><div class="card"><div class="label">PATTERN VIEW</div><strong class="purple" id="pattern"></strong><small>Giros observados · no predice el siguiente</small></div><div class="card"><div class="label">ESTADO DE LA GRÁFICA</div><strong class="status" id="status"></strong><small id="updated"></small></div></div>
-<details id="whale"><summary>🐋 WHALE FLOW <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>🐋 WHALE FLOW — LIVE</h3><div class="note">Operaciones observadas de Coinbase · últimos 30 s</div><div class="watch" id="watch"></div><div class="metrics"><div class="metric"><small>BUY FLOW</small><b class="green" id="buy"></b></div><div class="metric"><small>SELL FLOW</small><b class="red" id="sell"></b></div><div class="metric"><small>DIFERENCIA</small><b id="diff"></b></div><div class="metric"><small>ACTIVIDAD</small><b id="activity"></b></div><div class="metric"><small>FUERZA DEL DESEQUILIBRIO</small><b id="strength"></b></div></div><div class="bars"><div class="bar">BUY<div class="track"><i id="buybar" style="background:#00ff88"></i></div><b id="buytotal"></b></div><div class="bar">SELL<div class="track"><i id="sellbar" style="background:#ff1744"></i></div><b id="selltotal"></b></div></div><div class="count"><div class="metric"><small>🐋 BUY WHALES</small><b class="green" id="buys"></b></div><div class="metric"><small>🐋 SELL WHALES</small><b class="red" id="sells"></b></div></div><div class="metric difference"><small>DIFERENCIA DE OPERACIONES</small><b id="countdiff"></b></div><p class="note">«Whales»: operaciones individuales de al menos $10,000, no personas identificadas. Muestra recibida por la API; puede omitir operaciones entre consultas. Actividad: ritmo de los últimos 10 s frente a los 20 s anteriores. Es información de flujo, independiente de la señal oficial.</p></div></details>
+<details id="whale"><summary>🐋 WHALE FLOW <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>🐋 WHALE FLOW — LIVE</h3><div class="note">Operaciones observadas de Coinbase · últimos 30 s</div><div class="watch" id="watch"></div><div class="metrics"><div class="metric"><small>BUY FLOW</small><b class="green" id="buy"></b></div><div class="metric"><small>SELL FLOW</small><b class="red" id="sell"></b></div><div class="metric"><small>DIFERENCIA</small><b id="diff"></b></div><div class="metric"><small>ACTIVIDAD</small><b id="activity"></b></div><div class="metric"><small>FUERZA DEL DESEQUILIBRIO</small><b id="strength"></b></div></div><div class="bars"><div class="bar">BUY<div class="track"><i id="buybar" style="background:#39ff14"></i></div><b id="buytotal"></b></div><div class="bar">SELL<div class="track"><i id="sellbar" style="background:#ff2020"></i></div><b id="selltotal"></b></div></div><div class="count"><div class="metric"><small>🐋 BUY WHALES</small><b class="green" id="buys"></b></div><div class="metric"><small>🐋 SELL WHALES</small><b class="red" id="sells"></b></div></div><div class="metric difference"><small>DIFERENCIA DE OPERACIONES</small><b id="countdiff"></b></div><p class="note">«Whales»: operaciones individuales de al menos $10,000, no personas identificadas. Muestra recibida por la API; puede omitir operaciones entre consultas. Actividad: ritmo de los últimos 10 s frente a los 20 s anteriores. Es información de flujo, independiente de la señal oficial.</p></div></details>
 <details id="momentum"><summary>⚡ SHORT-TERM MOMENTUM <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>MOVIMIENTO RECIENTE DE BTC</h3><div class="metrics" id="momrows"></div><p class="note">Cambio porcentual calculado por el motor en 3, 5 y 15 minutos. La temporalidad de la gráfica no cambia estos valores.</p></div></details>
 <div class="tools"><h3>INDICADORES</h3><div class="toggles" id="toggles"></div><div class="legend" id="legend"></div></div>
 <div class="floatcounts"><div>🐋 BUY WHALES <b id="floatbuy"></b></div><div>🐋 SELL WHALES <b id="floatsell"></b></div></div>
@@ -2884,11 +2974,11 @@ let vals=rows.flatMap(r=>[r.low,r.high]);for(const k of ['ema9','ema21','vwap'])
 let s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Gráfica BTC con velas, indicadores y RSI"><defs><clipPath id="plot"><rect x="0" y="0" width="'+(W-R)+'" height="'+B+'"/></clipPath></defs>';
 for(let k=0;k<7;k++){const yy=T+(B-T)*k/6;s+='<line x1="0" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#202039"/><text x="'+(W-R+10)+'" y="'+(yy+5)+'" fill="#9ca6c2" font-size="14">'+fmt(hi-(hi-lo)*k/6)+'</text>'}
 for(let k=0;k<=4;k++){const xx=L+plot*k/4;s+='<line x1="'+xx+'" y1="'+T+'" x2="'+xx+'" y2="'+(toggles.rsi?H-30:B)+'" stroke="#191c34"/>'}
-s+='<g clip-path="url(#plot)">';if(toggles.volume){const max=Math.max(...rows.map(r=>r.volume),1);rows.forEach((r,i)=>{let h=r.volume/max*105;s+='<rect x="'+(x(i)-body/2)+'" y="'+(B-h)+'" width="'+body+'" height="'+h+'" fill="'+(r.close>=r.open?'#00ff88':'#ff1744')+'" opacity=".9"/>'})}
-rows.forEach((r,i)=>{const c=r.close>=r.open?'#00ff88':'#ff1744';s+='<line x1="'+x(i)+'" x2="'+x(i)+'" y1="'+y(r.high)+'" y2="'+y(r.low)+'" stroke="'+c+'" stroke-width="1.7"/><rect x="'+(x(i)-body/2)+'" y="'+Math.min(y(r.open),y(r.close))+'" width="'+body+'" height="'+Math.max(1.8,Math.abs(y(r.open)-y(r.close)))+'" fill="'+c+'"/>'});
+s+='<g clip-path="url(#plot)">';if(toggles.volume){const max=Math.max(...rows.map(r=>r.volume),1);rows.forEach((r,i)=>{let h=r.volume/max*105;s+='<rect x="'+(x(i)-body/2)+'" y="'+(B-h)+'" width="'+body+'" height="'+h+'" fill="'+(r.close>=r.open?'#39ff14':'#ff2020')+'" opacity=".9"/>'})}
+rows.forEach((r,i)=>{const c=r.close>=r.open?'#39ff14':'#ff2020';s+='<line x1="'+x(i)+'" x2="'+x(i)+'" y1="'+y(r.high)+'" y2="'+y(r.low)+'" stroke="'+c+'" stroke-width="1.7"/><rect x="'+(x(i)-body/2)+'" y="'+Math.min(y(r.open),y(r.close))+'" width="'+body+'" height="'+Math.max(1.8,Math.abs(y(r.open)-y(r.close)))+'" fill="'+c+'"/>'});
 for(const k of ['ema9','ema21','vwap'])if(toggles[k]){let points=rows.map((r,i)=>r[k]==null?'':x(i)+','+y(r[k])).filter(Boolean).join(' ');s+='<polyline points="'+points+'" fill="none" stroke="'+colors[k]+'" stroke-width="3" '+(k==='vwap'?'stroke-dasharray="8 6"':'')+'/>'}
 if(toggles.patterns){const piv=D.pivots.filter(p=>p.i>=start&&p.i<end);s+='<polyline points="'+piv.map(p=>x(p.i-start)+','+y(p.v)).join(' ')+'" fill="none" stroke="#bc75ff" stroke-width="3"/>';piv.forEach(p=>{const letter='ABCD'[D.pivots.indexOf(p)];s+='<circle cx="'+x(p.i-start)+'" cy="'+y(p.v)+'" r="5" fill="#bb76ff"/><text x="'+x(p.i-start)+'" y="'+(y(p.v)+(p.kind==='H'?-14:24))+'" fill="#c487ff" font-size="18" text-anchor="middle">'+letter+'</text>'})}
-s+='</g>';let levels=[[D.resistance,'RESISTANCE','#ff4a80'],[D.target,'TARGET','#00e5c0'],[D.price,'BTC','#00d9b6'],[D.support,'SUPPORT','#00cda7']].filter(r=>r[0]!=null).map(r=>({v:r[0],label:r[1],c:r[2],yy:y(r[0]),labelY:y(r[0])})).sort((a,b)=>a.yy-b.yy);
+s+='</g>';let levels=[[D.resistance,'RESISTANCE','#ff2020'],[D.target,'TARGET','#39ff14'],[D.price,'BTC','#39ff14'],[D.support,'SUPPORT','#39ff14']].filter(r=>r[0]!=null).map(r=>({v:r[0],label:r[1],c:r[2],yy:y(r[0]),labelY:y(r[0])})).sort((a,b)=>a.yy-b.yy);
 let previous=-100;for(const l of levels){l.labelY=Math.max(T+12,previous+42,l.yy);previous=l.labelY}let excess=previous-(B-10);if(excess>0)for(const l of levels)l.labelY-=excess;
 for(const l of levels){s+='<line x1="0" y1="'+l.yy+'" x2="'+(W-R)+'" y2="'+l.yy+'" stroke="'+l.c+'" stroke-dasharray="4 5" opacity=".8"/><path d="M '+(W-R-6)+' '+l.yy+' L '+(W-R+5)+' '+l.labelY+'" stroke="'+l.c+'" fill="none"/><rect x="'+(W-R+4)+'" y="'+(l.labelY-17)+'" width="118" height="36" rx="4" fill="'+l.c+'"/><text x="'+(W-R+11)+'" y="'+(l.labelY-3)+'" fill="#06101b" font-size="10" font-weight="850">'+l.label+'</text><text x="'+(W-R+11)+'" y="'+(l.labelY+12)+'" fill="#06101b" font-size="14" font-weight="750">'+fmt(l.v)+'</text>'}
 if(toggles.rsi){const rt=620,rh=120,ry=v=>rt+(100-v)/100*rh;s+='<text x="14" y="610" fill="#aa8dc5" font-size="12">RSI 14</text>';for(const v of [30,70])s+='<line x1="0" y1="'+ry(v)+'" x2="'+(W-R)+'" y2="'+ry(v)+'" stroke="#3c284c" stroke-dasharray="5 5"/>';s+='<polyline points="'+rows.map((r,i)=>r.rsi==null?'':x(i)+','+ry(r.rsi)).filter(Boolean).join(' ')+'" fill="none" stroke="#f000ff" stroke-width="3"/>';if(last.rsi!=null)s+='<rect x="'+(W-R+4)+'" y="'+(ry(last.rsi)-12)+'" width="65" height="25" rx="3" fill="#f000ff"/><text x="'+(W-R+11)+'" y="'+(ry(last.rsi)+6)+'" fill="white" font-size="15">'+fmt(last.rsi)+'</text>'}
@@ -3027,20 +3117,19 @@ def live_dashboard():
     )
 
     # Render del panel de ballenas. Solo visual; no altera el motor v4.6.1.
-    exit_plan_html = render_exit_plan(state, sig if btc_ok else None, market if kalshi_ok else None, seconds_left, datetime.now(timezone.utc))
     reversal_detector = detect_early_reversal(ticker, micro, whale, live_btc_price)
     reversal_detector_html = render_early_reversal_panel(reversal_detector)
 
     if active == "UP":
-        accent = "#00ff88"
-        glow = "rgba(0,229,176,.46)"
-        soft = "rgba(0,229,176,.10)"
+        accent = "#39ff14"
+        glow = "rgba(57,255,20,.46)"
+        soft = "rgba(57,255,20,.10)"
         hero = "↑ UP"
         confidence = sig["up_probability"]
     elif active == "DOWN":
-        accent = "#ff1744"
-        glow = "rgba(255,64,117,.45)"
-        soft = "rgba(255,64,117,.10)"
+        accent = "#ff2020"
+        glow = "rgba(255,32,32,.45)"
+        soft = "rgba(255,32,32,.10)"
         hero = "↓ DOWN"
         confidence = sig["down_probability"]
     else:
@@ -3067,7 +3156,7 @@ def live_dashboard():
     else:
         distance_text = f"${abs(distance):,.0f}"
         distance_sub = f"{abs(distance_pct):.2f}%"
-        distance_color = "#00ff88" if distance > 0 else "#ff1744" if distance < 0 else "#94a3b8"
+        distance_color = "#39ff14" if distance > 0 else "#ff2020" if distance < 0 else "#94a3b8"
     first_signal = (state.get("first_direction") if state else None) or "--"
     first_time = "--"
     if state and state.get("first_signal_time"):
@@ -3086,11 +3175,11 @@ def live_dashboard():
     pre_percent = pre["percent"]
 
     if pre_direction == "UP":
-        pre_color, pre_bg, pre_glow = "#00ff88", "rgba(18,91,57,.26)", "rgba(0,229,176,.20)"
+        pre_color, pre_bg, pre_glow = "#39ff14", "rgba(18,91,57,.26)", "rgba(57,255,20,.20)"
         pre_note = "Presión alcista temprana detectada. Esperando evolución del mercado."
         pre_label = "POSIBLE UP"
     elif pre_direction == "DOWN":
-        pre_color, pre_bg, pre_glow = "#ff1744", "rgba(104,25,37,.28)", "rgba(255,64,117,.20)"
+        pre_color, pre_bg, pre_glow = "#ff2020", "rgba(104,25,37,.28)", "rgba(255,32,32,.20)"
         pre_note = "Presión bajista temprana detectada. Esperando evolución del mercado."
         pre_label = "POSIBLE DOWN"
     else:
@@ -3099,10 +3188,10 @@ def live_dashboard():
         pre_label = "NEUTRAL"
 
     pre_note += " Porcentaje de apoyo, no probabilidad de acierto."
-    pre_badge = "CONFIRMADA" if active in ("UP", "DOWN") and pre_direction == active else "NO CONFIRMADA"
+    pre_badge = "COINCIDE CON LA SEÑAL" if active in ("UP", "DOWN") and pre_direction == active else "DIFIERE DE LA SEÑAL" if active in ("UP", "DOWN") and pre_direction in ("UP", "DOWN") else "OBSERVANDO"
 
     pre_html = f'''<section class="presignal" style="--precolor:{pre_color};--prebg:{pre_bg};--preglow:{pre_glow}">
-      <div class="prehead"><span class="pretitle">PRESEÑAL · TENDENCIA EN FORMACIÓN</span><span class="prebadge">{pre_badge}</span></div>
+      <div class="prehead"><span class="pretitle">PRESEÑAL · PRESIÓN ACTUAL</span><span class="prebadge">{pre_badge}</span></div>
       <div class="premain"><span class="predirection">{pre_label}</span><span class="prepercent">{pre_percent}%</span></div>
       <div class="prebar"><b style="width:{pre_percent}%"></b></div>
       <div class="prenote">{pre_note}</div>
@@ -3138,7 +3227,7 @@ def live_dashboard():
     speed_value = f"{speed10:+.1f}/s" if speed_ready else "—"
     if not speed_ready:
         speed_word, speed_arrow = "REUNIENDO DATOS", ""
-    speed_color = "#00ff88" if speed10 > 0.15 else "#ff1744" if speed10 < -0.15 else "#94a3b8"
+    speed_color = "#39ff14" if speed10 > 0.15 else "#ff2020" if speed10 < -0.15 else "#94a3b8"
     market_side = "UP" if (distance or 0) > 0 else "DOWN" if (distance or 0) < 0 else "NEUTRAL"
     abs_final_distance = abs(distance or 0)
 
@@ -3180,16 +3269,16 @@ def live_dashboard():
     final_panel = f'''<div class="finalclose">
       <div class="finalgrid">
         <div class="finalcard motion"><div class="finaltitle">▥ &nbsp; MOVIMIENTO ÚLTIMOS SEGUNDOS</div><div class="motionrow">
-          <div><small>30s</small><b style="color:{'#00ff88' if c30>=0 else '#ff1744'}">{motion_labels[30]}</b></div>
-          <div><small>10s</small><b style="color:{'#00ff88' if c10>=0 else '#ff1744'}">{motion_labels[10]}</b></div>
-          <div><small>5s</small><b style="color:{'#00ff88' if c5>=0 else '#ff1744'}">{motion_labels[5]}</b></div>
+          <div><small>30s</small><b style="color:{'#39ff14' if c30>=0 else '#ff2020'}">{motion_labels[30]}</b></div>
+          <div><small>10s</small><b style="color:{'#39ff14' if c10>=0 else '#ff2020'}">{motion_labels[10]}</b></div>
+          <div><small>5s</small><b style="color:{'#39ff14' if c5>=0 else '#ff2020'}">{motion_labels[5]}</b></div>
         </div><div class="finalnote">Cambio de precio en los últimos segundos.</div></div>
         <div class="finalcard distance"><div class="finaltitle">▥ &nbsp; DISTANCIA AL TARGET</div><div class="finalbig" style="color:{distance_color}">${final_distance:,.0f}</div><div class="finalsub" style="color:{distance_color}">{final_dist_pct:.2f}%</div></div>
         <div class="finalcard speed"><div class="finaltitle">VELOCIDAD</div><div class="finalbig" style="color:{speed_color}">{speed_arrow} {speed_word}</div><div class="finalsub" style="color:{speed_color}">{speed_value}</div><div class="finalnote">En los últimos 10 s.</div></div>
       </div>
       <div class="finalanalysis">
         <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>{'ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)' if seconds_left is not None and 0 < seconds_left <= 60 else 'POSICIÓN ACTUAL FRENTE AL TARGET'}</small><b>{final_status}</b><span>{final_note}</span></div></div>
-        <div class="probbox"><small>LECTURA DE CIERRE</small><b>{reader_percent_label}</b></div>
+        <div class="probbox"><small>APOYO AL CIERRE</small><b>{reader_percent_label}</b></div>
       </div>
     </div>'''
 
@@ -3247,7 +3336,6 @@ def live_dashboard():
 
   {reversal_detector_html}
 
-  {exit_plan_html}
 
   <section class="rcard tech">
     <div class="techhead"><span>DETALLES TÉCNICOS</span><span>⌃</span></div>
@@ -3270,7 +3358,7 @@ def live_dashboard():
   <section class="features">
     <div><b>ϟ</b><p><strong>SEÑAL EN TIEMPO REAL</strong><span>UP o DOWN, sin duda</span></p></div>
     <div><b>◎</b><p><strong>DATOS CLAVE</strong><span>BTC, target, distancia y countdown</span></p></div>
-    <div><b>▥</b><p><strong>PROBABILIDADES VISUALES</strong><span>Con barra y porcentaje</span></p></div>
+    <div><b>▥</b><p><strong>APOYO VISUAL</strong><span>Con barra y porcentaje</span></p></div>
   </section>
   <footer><span>BTC SIGNAL v4.6.1 &nbsp; | &nbsp; DISEÑADO PARA TRADERS REALES</span><span>MENOS RUIDO. MÁS RESULTADOS.</span></footer>
 </div>
@@ -3376,7 +3464,7 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=
     before = dict(state)
     result = _confirmation_without_trace(state, candidate, market, seconds_left, now, signal)
     # Solo seguimiento: el resultado de confirmación y su primera señal no cambian.
-    if before.get("first_direction") is None and state.get("first_direction") in ("UP", "DOWN"):
+    if not isinstance(state.get("exit_plan"), dict) and state.get("first_direction") in ("UP", "DOWN"):
         state["exit_plan"] = make_exit_plan(state, signal, seconds_left, now)
     update_exit_plan(state, signal, seconds_left, now)
 
