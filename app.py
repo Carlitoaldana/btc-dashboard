@@ -705,12 +705,12 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
 .finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
 .panel,.card,.metric,details,.floatcounts div{
- border-color:#b026ff!important;
- box-shadow:0 0 3px #b026ff,0 0 10px #b026ff88,0 0 20px #b026ff33,inset 0 0 8px #b026ff22!important;
+ border-color:#69438c!important;
+ box-shadow:0 0 4px #9859f21a,inset 0 0 4px #9859f208!important;
 }
-.panel{border:1.5px solid #b026ff!important;margin:8px 6px!important}
+.panel{border:1.5px solid #69438c!important;margin:8px 6px!important}
 .rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
-.techrow,.rnav,.chartnav{border-color:#b026ff!important}
+.techrow,.rnav,.chartnav{border-color:#69438c!important}
 
 </style>
 """,
@@ -2705,12 +2705,12 @@ def render_history_page():
 .rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
 .finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
 .panel,.card,.metric,details,.floatcounts div{
- border-color:#b026ff!important;
- box-shadow:0 0 3px #b026ff,0 0 10px #b026ff88,0 0 20px #b026ff33,inset 0 0 8px #b026ff22!important;
+ border-color:#69438c!important;
+ box-shadow:0 0 4px #9859f21a,inset 0 0 4px #9859f208!important;
 }
-.panel{border:1.5px solid #b026ff!important;margin:8px 6px!important}
+.panel{border:1.5px solid #69438c!important;margin:8px 6px!important}
 .rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
-.techrow,.rnav,.chartnav{border-color:#b026ff!important}
+.techrow,.rnav,.chartnav{border-color:#69438c!important}
 
 </style>""", unsafe_allow_html=True)
     df=load_history(250); stats=history_stats(df)
@@ -2929,12 +2929,12 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 .rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
 .finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
 .panel,.card,.metric,details,.floatcounts div{
- border-color:#b026ff!important;
- box-shadow:0 0 3px #b026ff,0 0 10px #b026ff88,0 0 20px #b026ff33,inset 0 0 8px #b026ff22!important;
+ border-color:#69438c!important;
+ box-shadow:0 0 4px #9859f21a,inset 0 0 4px #9859f208!important;
 }
-.panel{border:1.5px solid #b026ff!important;margin:8px 6px!important}
+.panel{border:1.5px solid #69438c!important;margin:8px 6px!important}
 .rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
-.techrow,.rnav,.chartnav{border-color:#b026ff!important}
+.techrow,.rnav,.chartnav{border-color:#69438c!important}
 
 </style>
 <section class="panel">
