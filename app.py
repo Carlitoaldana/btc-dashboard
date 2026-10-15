@@ -3186,8 +3186,7 @@ def render_signal_requirements(sig, round_signal, market, seconds_left, now=None
     if not pd.isna(end):
         closed = closed or end <= pd.Timestamp(now)
     ready = view['valid'] and bool(state) and not closed and not pd.isna(end)
-    active_side = state.get('active_direction') if ready else None
-    side = active_side if active_side in ('UP', 'DOWN') else sig.get('candidate') or state.get('first_direction')
+    side = sig.get('candidate') or state.get('active_direction') or state.get('first_direction')
     if side not in ('UP', 'DOWN') and view['valid']:
         side = max(('UP', 'DOWN'), key=lambda d: max(r['met']/r['total'] for r in view['sides'][d]))
     checks = []
@@ -3202,7 +3201,7 @@ def render_signal_requirements(sig, round_signal, market, seconds_left, now=None
     met = sum(bool(ok) for _, ok in checks) if ready else 0
     bars = ''.join('<i class="sq-on" title="' + html.escape(label, quote=True) + '"></i>' if ready and ok else
                    '<i title="' + html.escape(label, quote=True) + '"></i>' for label, ok in checks)
-    label = ('REQUISITOS ' + side + (' · SEÑAL ACTIVA' if active_side == side else ' · SIN CONFIRMAR')) if side in ('UP','DOWN') else 'REQUISITOS DE LA SEÑAL'
+    label = 'REQUISITOS ' + side if side in ('UP','DOWN') else 'REQUISITOS DE LA SEÑAL'
     note = 'RONDA TERMINADA' if closed else 'ESPERANDO DATOS' if not ready else 'Cada barra representa un requisito.'
     number = str(met) + '<small>/' + str(total) + '</small>' if total else '—'
     return '<style>.sq-box{margin:12px 0;padding:18px;border:1px solid #23685e;border-radius:18px;background:linear-gradient(125deg,#0c2026,#0a151e);color:#eef5f8}.sq-title{font-size:11px;font-weight:800;letter-spacing:1.5px;color:#8ca1ab}.sq-number{font-size:38px;font-weight:900;margin:14px 0;line-height:1.1}.sq-number small{font-size:20px;color:#81949f}.sq-bars{display:flex;gap:7px;margin:14px 0}.sq-bars i{height:7px;flex:1;background:#1d3038;border-radius:9px}.sq-bars .sq-on{background:#00dfb5;box-shadow:0 0 10px #00dfb54d}.sq-note{font-size:11px;color:#a5b6be}.sq-down .sq-bars .sq-on{background:#e64b4b;box-shadow:0 0 10px #e64b4b4d}</style><section class="sq-box' + (' sq-down' if side == 'DOWN' else '') + '"><div class="sq-title">' + label + '</div><div class="sq-number">' + number + '</div><div class="sq-bars">' + bars + '</div><div class="sq-note">' + note + '</div></section>'
