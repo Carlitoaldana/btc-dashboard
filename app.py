@@ -32,6 +32,24 @@ NEW_ENTRY_LOCK = 75
 # Tres lecturas coherentes, separadas por al menos 2 s (mínimo 4 s).
 SIGNAL_CONFIRM_READINGS = 3
 SIGNAL_CONFIRM_INTERVAL = 2.0
+# Caducidad operativa: una pausa >10s reinicia las lecturas pendientes.
+SIGNAL_CONFIRM_MAX_GAP = 10.0
+LIVE_PRICE_MAX_AGE = 30.0
+_PRICE_OBSERVATIONS = threading.local()
+
+def _valid_live_observation(price, observed_at, source):
+    value = float(price)
+    stamp = pd.to_datetime(observed_at, utc=True, errors="coerce")
+    if not np.isfinite(value) or value <= 0 or pd.isna(stamp):
+        raise ValueError("Precio o fecha de origen inválidos.")
+    age = (pd.Timestamp.now(tz="UTC") - stamp).total_seconds()
+    if age < -5 or age > LIVE_PRICE_MAX_AGE:
+        raise ValueError("Precio de origen atrasado o fechado en el futuro.")
+    observations = getattr(_PRICE_OBSERVATIONS, "values", {})
+    observations[source] = stamp.timestamp()
+    _PRICE_OBSERVATIONS.values = observations
+    return value
+
 
 UP_THRESHOLD = 4.0
 DOWN_THRESHOLD = -4.0
@@ -1270,6 +1288,13 @@ def _fetch_current_btc_candles():
         frame = frame.dropna().drop_duplicates("time").sort_values("time").reset_index(drop=True)
         if len(frame) < 30:
             raise ValueError("Coinbase devolvió velas inválidas o insuficientes.")
+        values = frame[["low", "high", "open", "close", "volume"]].to_numpy(dtype=float)
+        if (not np.isfinite(values).all() or (values[:, :4] <= 0).any()
+                or (values[:, 4] < 0).any()
+                or (frame["high"] < frame[["open", "close", "low"]].max(axis=1)).any()
+                or (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any()
+                or (frame["time"].diff().dropna() != pd.Timedelta(minutes=1)).any()):
+            raise ValueError("Velas inválidas o con huecos; no se calcula una señal.")
         received_at = datetime.now(timezone.utc)
         latest_start = frame.iloc[-1]["time"]
         age = (received_at - latest_start.to_pydatetime()).total_seconds()
@@ -1321,19 +1346,24 @@ def get_coinbase_whale_flow():
             maker_side = str(row.get("side", "")).lower()
             aggressor = "COMPRA" if maker_side == "sell" else "VENTA" if maker_side == "buy" else ""
             ts = pd.to_datetime(row.get("time"), utc=True, errors="coerce")
-            t = ts.timestamp() if not pd.isna(ts) else now
+            if pd.isna(ts):
+                continue
+            t = ts.timestamp()
+            if (not np.isfinite(price) or not np.isfinite(size) or not np.isfinite(notional)
+                    or price <= 0 or size <= 0 or not 0 <= now - t <= 75):
+                continue
             if notional > 0 and aggressor:
                 tape.append({"id": trade_id, "t": t, "notional": notional, "side": aggressor})
                 seen[trade_id] = t
         except Exception:
             continue
 
-    tape[:] = [x for x in tape if now - x["t"] <= 75]
+    tape[:] = [x for x in tape if 0 <= now - x["t"] <= 75]
     for k in [k for k, t in seen.items() if now - t > 90]:
         seen.pop(k, None)
 
     def window(seconds):
-        w = [x for x in tape if now - x["t"] <= seconds]
+        w = [x for x in tape if 0 <= now - x["t"] <= seconds]
         buy = sum(x["notional"] for x in w if x["side"] == "COMPRA")
         sell = sum(x["notional"] for x in w if x["side"] == "VENTA")
         total = buy + sell
@@ -1423,10 +1453,8 @@ def get_btc_live_price():
         timeout=6,
     )
     response.raise_for_status()
-    price = response.json().get("price")
-    if price in [None, ""]:
-        raise ValueError("Coinbase ticker no devolvió precio.")
-    return float(price)
+    data = response.json()
+    return _valid_live_observation(data.get("price"), data.get("time"), "COINBASE")
 
 
 # =========================================================
@@ -1483,56 +1511,17 @@ def extract_kalshi_btc_price(data):
         except (KeyError, TypeError, ValueError):
             continue
         if np.isfinite(stamp) and stamp > 0 and np.isfinite(value) and 10000 < value < 1000000:
+            # La serie puede devolver epoch en segundos o milisegundos.
+            stamp = stamp / 1000 if stamp > 100_000_000_000 else stamp
             timed_points.append((stamp, index, value))
     if timed_points:
-        return float(max(timed_points)[2])
-    candidates = []
-
-    preferred_keys = {
-        "price", "value", "index_value", "indexvalue",
-        "current_price", "currentprice", "current_value", "currentvalue",
-        "last_price", "lastprice", "close",
-    }
-
-    def walk_preferred(obj):
-        if isinstance(obj, dict):
-            for key, value in obj.items():
-                normalized_key = str(key).lower().replace("-", "_")
-                if normalized_key in preferred_keys:
-                    try:
-                        number = float(value)
-                        if 10000 < number < 1000000:
-                            candidates.append(number)
-                    except (TypeError, ValueError):
-                        pass
-                walk_preferred(value)
-        elif isinstance(obj, list):
-            for item in obj:
-                walk_preferred(item)
-
-    walk_preferred(details)
-    if candidates:
-        return float(candidates[-1])
-
-    pair_candidates = []
-
-    def walk_pairs(obj):
-        if isinstance(obj, list):
-            if len(obj) >= 2:
-                try:
-                    possible_price = float(obj[-1])
-                    if 10000 < possible_price < 1000000:
-                        pair_candidates.append(possible_price)
-                except (TypeError, ValueError):
-                    pass
-            for item in obj:
-                walk_pairs(item)
-        elif isinstance(obj, dict):
-            for value in obj.values():
-                walk_pairs(value)
-
-    walk_pairs(details)
-    return float(pair_candidates[-1]) if pair_candidates else None
+        stamp, _, value = max(timed_points)
+        try:
+            return _valid_live_observation(value, pd.to_datetime(stamp, unit="s", utc=True), "KALSHI LIVE")
+        except (ValueError, TypeError, OverflowError):
+            return None
+    # Un precio sin fecha verificable no se anuncia como live.
+    return None
 
 
 def get_kalshi_live_btc(market):
@@ -1895,6 +1884,23 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
     necesita confirmación. Una lectura neutral cancela la candidatura pendiente;
     la activa se conserva solo si mantiene EMA, mom5 y distancia favorables.
     """
+    # Recalcular el cierre aquí: las consultas de red pueden agotar el contador.
+    closed = seconds_left is not None and seconds_left <= 0
+    close_time = (market or {}).get("close_time")
+    if close_time:
+        end = pd.to_datetime(close_time, utc=True, errors="coerce")
+        if pd.isna(end):
+            candidate = None
+        else:
+            actual_left = (end - pd.Timestamp(now)).total_seconds()
+            seconds_left = actual_left if seconds_left is None else min(seconds_left, actual_left)
+            closed = seconds_left <= 0
+    if closed:
+        for key in ("pending_direction", "pending_since", "pending_last_at", "pending_price_source",
+                    "active_direction", "active_since"):
+            state[key] = None
+        state["pending_count"] = 0
+        return
     if signal is not None and signal.get("data_valid") is False:
         # Una interrupción no demuestra neutralidad ni permite confirmar.
         state["pending_direction"] = None
@@ -1944,6 +1950,13 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
         except ValueError:
             since = None
 
+    if (last is not None and ((now - last).total_seconds() > SIGNAL_CONFIRM_MAX_GAP
+                              or (now - last).total_seconds() < 0)):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        last = since = None
     if state.get("pending_direction") != candidate:
         state["pending_direction"] = candidate
         state["pending_count"] = 1
@@ -2016,12 +2029,17 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
         except Exception:
             pass
 
-    previous_live_price = state.get("last_live_price")
+    # Referencia exclusiva de pantalla: el trabajador no consume este delta.
+    display_previous = st.session_state.setdefault("weakness_previous", {})
+    previous_observation = display_previous.get(ticker, {})
+    previous_live_price = previous_observation.get("price")
     state["previous_live_price"] = previous_live_price
     state["last_live_price"] = price
     price_change = price - previous_live_price if previous_live_price is not None else 0.0
 
-    previous_score = float(state.get("last_score", 0.0))
+    previous_score = float(previous_observation.get("score", score))
+    display_previous.clear()
+    display_previous[ticker] = {"price": price, "score": score}
     state["previous_score"] = previous_score
     state["last_score"] = score
     score_change = score - previous_score
@@ -2094,7 +2112,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-BACKGROUND_DATA_REVISION = "source_consistency_exit_plan_v1"
+BACKGROUND_DATA_REVISION = "source_consistency_audited_v2"
 _BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
@@ -2140,11 +2158,10 @@ def _background_get_live_price(market):
         timeout=6,
     )
     response.raise_for_status()
-    price = response.json().get("price")
-    if price in (None, ""):
-        raise ValueError("Sin precio BTC live.")
+    data = response.json()
+    price = _valid_live_observation(data.get("price"), data.get("time"), "COINBASE")
     _BACKGROUND_PRICE_SOURCE.value = "COINBASE"
-    return float(price)
+    return price
 
 def _background_update_state_without_coordinator(state, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
@@ -2266,11 +2283,19 @@ def update_micro_tape(ticker, live_price, price_source=None):
         st.session_state.micro_prices = []
 
     now_ts = datetime.now(timezone.utc).timestamp()
+    observed_ts = getattr(_PRICE_OBSERVATIONS, "values", {}).get(price_source)
+    if (observed_ts is None or not np.isfinite(float(live_price))
+            or not -5 <= now_ts - observed_ts <= LIVE_PRICE_MAX_AGE):
+        st.session_state.micro_prices = []
+        return
     tape = st.session_state.micro_prices
 
+    # Una pausa rompe la ventana micro; volver a reunir datos continuos.
+    if tape and observed_ts - tape[-1]["t"] > SIGNAL_CONFIRM_MAX_GAP:
+        tape.clear()
     # Evita duplicar muestras dentro del mismo refresco.
-    if not tape or now_ts - tape[-1]["t"] >= 1.0:
-        tape.append({"t": now_ts, "p": float(live_price)})
+    if not tape or observed_ts - tape[-1]["t"] >= 1.0:
+        tape.append({"t": observed_ts, "p": float(live_price)})
 
     # Conserva aproximadamente los últimos 90 segundos.
     cutoff = now_ts - 90
@@ -2281,6 +2306,10 @@ def update_micro_tape(ticker, live_price, price_source=None):
 
 def micro_reading():
     tape = st.session_state.micro_prices
+    if (tape and (datetime.now(timezone.utc).timestamp() - tape[-1]["t"] > 6
+                  or any(b["t"] - a["t"] > SIGNAL_CONFIRM_MAX_GAP
+                         for a, b in zip(tape, tape[1:])))):
+        tape = []
 
     if len(tape) < 4:
         return {
@@ -2299,7 +2328,7 @@ def micro_reading():
     def price_ago(seconds):
         target_t = now_t - seconds
         candidates = [x for x in tape if x["t"] <= target_t]
-        if candidates:
+        if candidates and target_t - candidates[-1]["t"] <= SIGNAL_CONFIRM_INTERVAL:
             return candidates[-1]["p"]
         return None
 
@@ -2334,7 +2363,7 @@ def micro_reading():
         pressure = "NEUTRAL"
 
     return {
-        "ready": p30 is not None,
+        "ready": p10 is not None and p30 is not None,
         "change_5s": c5,
         "change_10s": c10,
         "change_30s": c30,
@@ -2497,11 +2526,11 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         else:
             market_side = "UP" if distance > 0 else "DOWN"
             confidence = int(np.clip(confidence, 52, 64))
-            headline = f"VENTAJA FINAL {market_side}"
+            headline = f"POSICIÓN ACTUAL {market_side}"
             note = (
                 f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
                 f"{'arriba' if distance > 0 else 'abajo'} del target. "
-                f"En este instante el cierre favorece {market_side}."
+                "El margen es pequeño; no se muestra un apoyo direccional."
             )
     elif terminal_override:
         headline = f"CIERRE MUY FAVORECIDO PARA {direction}"
@@ -2536,7 +2565,8 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         bg = "linear-gradient(135deg,rgba(102,20,31,.48),rgba(43,10,17,.80))"
 
     return {
-        "percent": confidence,
+        "percent": 0 if terminal_too_close else confidence,
+        "direction": None if terminal_too_close else direction,
         "headline": headline,
         "note": note,
         "micro": micro_text,
@@ -2757,7 +2787,8 @@ def detect_early_reversal(ticker, micro, whale, price):
     def at_or_before(age):
         cutoff = last_t - age
         earlier = [x for x in tape if float(x["t"]) <= cutoff]
-        return float(earlier[-1]["p"]) if earlier else None
+        return (float(earlier[-1]["p"])
+                if earlier and cutoff - float(earlier[-1]["t"]) <= SIGNAL_CONFIRM_INTERVAL else None)
 
     p10 = at_or_before(10)
     p30 = at_or_before(30)
@@ -2978,7 +3009,7 @@ let saved={};try{saved=JSON.parse(localStorage.getItem('btc-neon-panel-v1')||'{}
 let toggles=Object.assign({ema9:true,ema21:true,vwap:true,volume:true,rsi:true,patterns:true},saved.toggles),visible=saved.visible||48,offset=saved.offset||0;
 function persist(){try{localStorage.setItem('btc-neon-panel-v1',JSON.stringify({toggles,visible,offset,whale:$('whale').open,momentum:$('momentum').open}))}catch(e){}}
 for(const name of ['whale','momentum']){$(name).open=!!saved[name];$(name).addEventListener('toggle',persist)}
-$('subtitle').textContent=D.timeframe.toUpperCase()+' · COINBASE · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('signal').textContent=(D.signal==='UP'?'▲ ':D.signal==='DOWN'?'▼ ':'')+D.signal;$('signal').className=D.signal==='UP'?'green':D.signal==='DOWN'?'red':'cyan';$('model').textContent=fmt(D.signal==='UP'?D.up:D.signal==='DOWN'?D.down:Math.max(D.up,D.down),1)+'%';$('pattern').textContent=D.round_start==null?'SIN RONDA ACTIVA':D.pivot_count+' GIROS EN ESTA RONDA';$('status').textContent=D.rows.length?'DATOS RECIBIDOS':'SIN VELAS';$('updated').textContent='Actualizado '+D.updated;$('viewtf').textContent=D.timeframe+' · VELAS REALES';
+$('subtitle').textContent=D.timeframe.toUpperCase()+' · COINBASE · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('signal').textContent=(D.signal==='UP'?'▲ ':D.signal==='DOWN'?'▼ ':'')+D.signal;$('signal').className=D.signal==='UP'?'green':D.signal==='DOWN'?'red':'cyan';$('model').textContent=fmt(D.signal==='UP'?D.up:D.signal==='DOWN'?D.down:Math.max(D.up,D.down),1)+'%';$('pattern').textContent=D.round_start==null?'SIN RONDA ACTIVA':D.pivot_count+' EXTREMOS CONFIRMADOS EN ESTA RONDA';$('status').textContent=D.rows.length?'DATOS RECIBIDOS':'SIN VELAS';$('updated').textContent='Actualizado '+D.updated;$('viewtf').textContent=D.timeframe+' · VELAS REALES';
 const F=D.flow,total=F.buy+F.sell,known=F.ok;
 $('watch').textContent=!known?'SIN DATOS DE FLUJO':total===0?'ESPERANDO OPERACIONES':F.direction==='NEUTRAL'?'FLUJO EQUILIBRADO':'WATCH '+F.direction;
 for(const [id,value] of [['buy',F.buy],['sell',F.sell],['buytotal',F.buy],['selltotal',F.sell]])$(id).textContent=known?compact(value):'—';
@@ -3118,7 +3149,7 @@ def live_dashboard():
     if not btc_ok:
         reader = {**reader, "percent":0, "headline":"SIN DATOS ACTUALES",
                   "note":"No se puede validar la señal hasta recuperar las velas."}
-    reader_percent_label = f"{reader['percent']}%"
+    reader_percent_label = f"{reader['percent']}%" if reader.get("direction") else "—"
     if round_signal.get("decision") not in ("UP", "DOWN"):
         reader_percent_label = "—"
     if seconds_left is not None and seconds_left <= 0:
@@ -3303,7 +3334,7 @@ def live_dashboard():
       </div>
       <div class="finalanalysis">
         <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>{'ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)' if seconds_left is not None and 0 < seconds_left <= 60 else 'POSICIÓN ACTUAL FRENTE AL TARGET'}</small><b>{final_status}</b><span>{final_note}</span></div></div>
-        <div class="probbox"><small>APOYO AL CIERRE</small><b>{reader_percent_label}</b></div>
+        <div class="probbox"><small>{'APOYO A ' + reader['direction'] if reader.get('direction') else 'SIN APOYO DIRECCIONAL'}</small><b>{reader_percent_label if reader.get('direction') else '—'}</b></div>
       </div>
     </div>'''
 
