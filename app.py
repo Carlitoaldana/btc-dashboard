@@ -2822,7 +2822,35 @@ def _neon_chart_history(timeframe):
     frame["time"] = pd.to_datetime(frame["time"], unit="s", utc=True)
     return frame.sort_values("time").drop_duplicates("time")
 
-def _neon_payload(df, live_price, target, active, timeframe, sig, whale):
+def _neon_round_pivots(df, market, now):
+    # Cada ronda usa sus propias velas 1m cerradas; no mezcla rondas ni temporalidades.
+    if not market or not market.get("close_time"):
+        return [], None, None
+    end = pd.to_datetime(market["close_time"], utc=True, errors="coerce")
+    if pd.isna(end):
+        return [], None, None
+    start = end - pd.Timedelta(minutes=15)
+    frame = df.copy()
+    frame["time"] = pd.to_datetime(frame["time"], utc=True)
+    frame = frame.sort_values("time").drop_duplicates("time")
+    frame = frame[(frame["time"] >= start) & (frame["time"] < end)
+                  & (frame["time"] + pd.Timedelta(minutes=1) <= now)]
+    candles = frame.to_dict("records")
+    pivots = []
+    for i in range(2, len(candles)-2):
+        window = candles[i-2:i+3]
+        row = candles[i]
+        kind = "H" if row["high"] > max(r["high"] for j, r in enumerate(window) if j != 2) else "L" if row["low"] < min(r["low"] for j, r in enumerate(window) if j != 2) else None
+        if kind:
+            pivot = {"t": int(row["time"].timestamp()), "v": float(row["high" if kind == "H" else "low"]), "kind": kind}
+            if pivots and pivots[-1]["kind"] == kind:
+                if (kind == "H" and pivot["v"] > pivots[-1]["v"]) or (kind == "L" and pivot["v"] < pivots[-1]["v"]):
+                    pivots[-1] = pivot
+            else:
+                pivots.append(pivot)
+    return pivots, int(start.timestamp()), int(end.timestamp())
+
+def _neon_payload(df, live_price, target, active, timeframe, sig, whale, market=None, round_df=None):
     intervals = {"1m": 1, "3m": 3, "5m": 5, "15m": 15, "1h": 60, "4h": 240, "1D": 1440}
     minutes = intervals[timeframe]
     frame = df.copy().sort_values("time").drop_duplicates("time")
@@ -2873,18 +2901,15 @@ def _neon_payload(df, live_price, target, active, timeframe, sig, whale):
     activity = (last10/10)/(prior20/20) if prior20 > 0 else None
     imbalance = abs(buy-sell)/(buy+sell) if buy+sell else 0
     direction = "UP" if buy > sell else "DOWN" if sell > buy else "NEUTRAL"
-    # Pivotes confirmados con dos velas a cada lado. A/B/C/D solo son giros observados.
+    round_pivots, round_start, round_end = _neon_round_pivots(
+        round_df if round_df is not None else df, market, now)
+    # A/B/C/D corresponden a los últimos giros confirmados de esta ronda.
     pivots = []
-    for i in range(2, len(rows)-2):
-        window = rows[i-2:i+3]
-        kind = "H" if rows[i]["high"] > max(r["high"] for j,r in enumerate(window) if j != 2) else "L" if rows[i]["low"] < min(r["low"] for j,r in enumerate(window) if j != 2) else None
-        if kind:
-            p = {"i": i, "v": rows[i]["high" if kind == "H" else "low"], "kind": kind}
-            if pivots and pivots[-1]["kind"] == kind:
-                if (kind == "H" and p["v"] > pivots[-1]["v"]) or (kind == "L" and p["v"] < pivots[-1]["v"]):
-                    pivots[-1] = p
-            else:
-                pivots.append(p)
+    for pivot in round_pivots[-4:]:
+        index = next((i for i, row in enumerate(rows)
+                      if row["t"] <= pivot["t"] < row["t"] + minutes*60), None)
+        if index is not None:
+            pivots.append({"i": index, "v": pivot["v"], "kind": pivot["kind"]})
     latest = rows[-1]["close"] if rows else None
     recent_levels = rows[-21:-1]
     support = min((r["low"] for r in recent_levels), default=None)
@@ -2894,7 +2919,7 @@ def _neon_payload(df, live_price, target, active, timeframe, sig, whale):
             "signal": active if active in ("UP", "DOWN") else "ESPERANDO",
             "up": float(sig.get("up_probability", 50)),
             "down": float(sig.get("down_probability", 50)),
-            "support": support, "resistance": resistance, "pivots": pivots[-4:], "pivot_count": len(pivots),
+            "support": support, "resistance": resistance, "pivots": pivots[-4:], "pivot_count": len(round_pivots), "round_start": round_start, "round_end": round_end,
             "flow": {"ok": whale is not None, "buy": buy, "sell": sell,
                      "buys": buys, "sells": sells, "direction": direction,
                      "strength": "ALTA" if imbalance >= .6 else "MEDIA" if imbalance >= .3 else "BAJA",
@@ -2903,8 +2928,8 @@ def _neon_payload(df, live_price, target, active, timeframe, sig, whale):
             "updated": now.strftime("%H:%M:%S UTC"),
             "age": max(0, stamp-rows[-1]["t"]) if rows else None}
 
-def render_neon_chart(df, live_price, target, active, timeframe, sig, whale):
-    payload = _neon_payload(df, live_price, target, active, timeframe, sig, whale)
+def render_neon_chart(df, live_price, target, active, timeframe, sig, whale, market=None, round_df=None):
+    payload = _neon_payload(df, live_price, target, active, timeframe, sig, whale, market, round_df)
     return _NEON_HTML.replace("__PAYLOAD__", json.dumps(payload, ensure_ascii=False, allow_nan=False).replace("<", "\\u003c"))
 
 _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -2953,7 +2978,7 @@ let saved={};try{saved=JSON.parse(localStorage.getItem('btc-neon-panel-v1')||'{}
 let toggles=Object.assign({ema9:true,ema21:true,vwap:true,volume:true,rsi:true,patterns:true},saved.toggles),visible=saved.visible||48,offset=saved.offset||0;
 function persist(){try{localStorage.setItem('btc-neon-panel-v1',JSON.stringify({toggles,visible,offset,whale:$('whale').open,momentum:$('momentum').open}))}catch(e){}}
 for(const name of ['whale','momentum']){$(name).open=!!saved[name];$(name).addEventListener('toggle',persist)}
-$('subtitle').textContent=D.timeframe.toUpperCase()+' · COINBASE · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('signal').textContent=(D.signal==='UP'?'▲ ':D.signal==='DOWN'?'▼ ':'')+D.signal;$('signal').className=D.signal==='UP'?'green':D.signal==='DOWN'?'red':'cyan';$('model').textContent=fmt(D.signal==='UP'?D.up:D.signal==='DOWN'?D.down:Math.max(D.up,D.down),1)+'%';$('pattern').textContent=D.pivot_count?D.pivot_count+' GIROS DETECTADOS':'SCANNING';$('status').textContent=D.rows.length?'DATOS RECIBIDOS':'SIN VELAS';$('updated').textContent='Actualizado '+D.updated;$('viewtf').textContent=D.timeframe+' · VELAS REALES';
+$('subtitle').textContent=D.timeframe.toUpperCase()+' · COINBASE · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('signal').textContent=(D.signal==='UP'?'▲ ':D.signal==='DOWN'?'▼ ':'')+D.signal;$('signal').className=D.signal==='UP'?'green':D.signal==='DOWN'?'red':'cyan';$('model').textContent=fmt(D.signal==='UP'?D.up:D.signal==='DOWN'?D.down:Math.max(D.up,D.down),1)+'%';$('pattern').textContent=D.round_start==null?'SIN RONDA ACTIVA':D.pivot_count+' GIROS EN ESTA RONDA';$('status').textContent=D.rows.length?'DATOS RECIBIDOS':'SIN VELAS';$('updated').textContent='Actualizado '+D.updated;$('viewtf').textContent=D.timeframe+' · VELAS REALES';
 const F=D.flow,total=F.buy+F.sell,known=F.ok;
 $('watch').textContent=!known?'SIN DATOS DE FLUJO':total===0?'ESPERANDO OPERACIONES':F.direction==='NEUTRAL'?'FLUJO EQUILIBRADO':'WATCH '+F.direction;
 for(const [id,value] of [['buy',F.buy],['sell',F.sell],['buytotal',F.buy],['selltotal',F.sell]])$(id).textContent=known?compact(value):'—';
@@ -3376,7 +3401,7 @@ def live_dashboard():
             chart_df = btc_df if chart_timeframe in ("1m", "3m", "5m") else _neon_chart_history(chart_timeframe)
             chart_html = render_neon_chart(
                 chart_df, coinbase_live_price if coinbase_live_ok else None,
-                target, active, chart_timeframe, sig, whale,
+                target, active, chart_timeframe, sig, whale, market, btc_df,
             )
             import streamlit.components.v1 as _neon_components
             _neon_components.html(chart_html, height=1830, scrolling=True)
