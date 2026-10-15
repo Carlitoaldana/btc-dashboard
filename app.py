@@ -3136,34 +3136,80 @@ def signal_requirement_view(sig, seconds_left):
 
 
 def render_signal_requirements(sig, round_signal, market, seconds_left, now=None):
-    """One visual box for individual conditions; never changes confirmation."""
+    """No requests, state writes, timers or changes to the trading engine."""
     view = signal_requirement_view(sig, seconds_left)
     state = round_signal.get('round_state') or {}
     now = now or datetime.now(timezone.utc)
-    end = pd.to_datetime((market or {}).get('close_time'), utc=True, errors='coerce')
     closed = seconds_left is not None and seconds_left <= 0
+    end = pd.to_datetime((market or {}).get('close_time'), utc=True, errors='coerce')
+    bad_close = bool((market or {}).get('close_time')) and pd.isna(end)
     if not pd.isna(end):
         closed = closed or end <= pd.Timestamp(now)
-    ready = view['valid'] and bool(state) and not closed and not pd.isna(end)
-    side = sig.get('candidate') or state.get('active_direction') or state.get('first_direction')
-    if side not in ('UP', 'DOWN') and view['valid']:
-        side = max(('UP', 'DOWN'), key=lambda d: max(r['met']/r['total'] for r in view['sides'][d]))
-    checks = []
-    if view['valid'] and side in ('UP', 'DOWN'):
-        routes = view['sides'][side]
-        # Closing override has priority when applicable, just as in the engine.
-        complete = [r for r in routes if r['complete']]
-        route = (routes[2] if routes[2]['complete'] else complete[0] if complete else
-                 max(routes, key=lambda r: r['met']/r['total']))
-        checks = route['checks'] + [('Fuera de la zona de ruido', view['noise_ok'])]
-    total = len(checks)
-    met = sum(bool(ok) for _, ok in checks) if ready else 0
-    bars = ''.join('<i class="sq-on" title="' + html.escape(label, quote=True) + '"></i>' if ready and ok else
-                   '<i title="' + html.escape(label, quote=True) + '"></i>' for label, ok in checks)
-    label = 'REQUISITOS ' + side if side in ('UP','DOWN') else 'REQUISITOS DE LA SEÑAL'
-    note = 'RONDA TERMINADA' if closed else 'ESPERANDO DATOS' if not ready else 'Cada barra representa un requisito.'
-    number = str(met) + '<small>/' + str(total) + '</small>' if total else '—'
-    return '<style>.sq-box{margin:12px 0;padding:18px;border:1px solid #23685e;border-radius:18px;background:linear-gradient(125deg,#0c2026,#0a151e);color:#eef5f8}.sq-title{font-size:11px;font-weight:800;letter-spacing:1.5px;color:#8ca1ab}.sq-number{font-size:38px;font-weight:900;margin:14px 0;line-height:1.1}.sq-number small{font-size:20px;color:#81949f}.sq-bars{display:flex;gap:7px;margin:14px 0}.sq-bars i{height:7px;flex:1;background:#1d3038;border-radius:9px}.sq-bars .sq-on{background:#00dfb5;box-shadow:0 0 10px #00dfb54d}.sq-note{font-size:11px;color:#a5b6be}.sq-down .sq-bars .sq-on{background:#e64b4b;box-shadow:0 0 10px #e64b4b4d}</style><section class="sq-box' + (' sq-down' if side == 'DOWN' else '') + '"><div class="sq-title">' + label + '</div><div class="sq-number">' + number + '</div><div class="sq-bars">' + bars + '</div><div class="sq-note">' + note + '</div></section>'
+    ready = view['valid'] and bool(state) and not closed and not bad_close
+    active = state.get('active_direction') if ready else None
+    candidate = sig.get('candidate') if ready else None
+    pending = state.get('pending_direction') if ready else None
+    count = min(SIGNAL_CONFIRM_READINGS, max(0, int(state.get('pending_count', 0)))) if pending == candidate and candidate in ('UP', 'DOWN') else 0
+    if active == candidate and candidate in ('UP', 'DOWN'):
+        count = SIGNAL_CONFIRM_READINGS
+    status = 'RONDA TERMINADA' if closed else 'ESPERANDO DATOS' if not ready else 'CONFIRMANDO ' + candidate if candidate and candidate != active else 'SEÑAL ACTIVA ' + active if active else 'ESPERANDO CONDICIONES'
+    bars = ''.join('<i class="sr-lit"></i>' if i < count else '<i></i>' for i in range(SIGNAL_CONFIRM_READINGS))
+    e = html.escape
+    side_html = ''
+    if view['valid']:
+        for side in ('UP', 'DOWN'):
+            routes = view['sides'][side]
+            best = max(routes, key=lambda r: r['met'] / r['total'])
+            missing = [label for label, ok in best['checks'] if not ok]
+            if not ready:
+                summary = 'Ronda terminada; espera la siguiente.' if closed else 'Faltan datos de la ronda para confirmar.'
+            elif candidate == side:
+                summary = 'Condiciones elegidas por el motor cumplidas.'
+            elif not view['noise_ok']:
+                summary = 'Falta salir de la zona de poco movimiento o aumentar la fuerza de tendencia.'
+            elif missing:
+                summary = 'Falta: ' + ' · '.join(missing) + '.'
+            else:
+                summary = 'Esta vía cumple; el motor está evaluando la vía que tiene prioridad.'
+            route_html = ''
+            for route in routes:
+                rows = ''.join('<div class="sr-row"><span>' + e(label) + '</span><b class="' + ('sr-ok' if ok else 'sr-wait') + '">' + ('✓ CUMPLE' if ok else '○ FALTA') + '</b></div>' for label, ok in route['checks'])
+                check_bars = ''.join('<i class="sr-lit" title="' + e(label, quote=True) + '"></i>' if ok else '<i title="' + e(label, quote=True) + '"></i>' for label, ok in route['checks'])
+                route_html += '<div class="sr-route" data-side="' + side + '" data-route="' + e(route['name'], quote=True) + '"><h4>' + e(route['name']) + '<span>' + str(route['met']) + '/' + str(route['total']) + '</span></h4><div class="sr-bars sr-condition-bars">' + check_bars + '</div>' + rows + '</div>'
+            side_html += '<div class="sr-card"><div class="sr-label">REQUISITOS PARA ' + side + '</div><h3 class="sr-ok">' + ('✓ LISTOS' if candidate == side else 'EN REVISIÓN') + '</h3><p>' + e(summary) + '</p><div class="sr-progress"><i style="width:' + str(round(best['met'] / best['total'] * 100)) + '%"></i></div><p>Vía con más requisitos cumplidos: ' + e(best['name']) + ' · ' + str(best['met']) + '/' + str(best['total']) + '</p><div class="sr-details"><p class="sr-note">Cada marca se actualiza por separado.</p>' + route_html + '<div class="sr-row"><span>Fuera de la zona de ruido</span><b class="' + ('sr-ok' if view['noise_ok'] else 'sr-wait') + '">' + ('✓ CUMPLE' if view['noise_ok'] else '○ FALTA') + '</b></div></div></div>'
+    else:
+        side_html = '<div class="sr-card"><p>Sin indicadores actuales. Las condiciones UP y DOWN aparecerán al recibir datos válidos.</p></div>'
+    note = ('Se conserva una señal previa con sus reglas de mantenimiento. No hay una nueva candidatura ahora.' if active and candidate != active and not candidate else 'Nueva candidatura ' + candidate + '; la señal activa sigue ' + active + ' hasta que se confirme el cambio.' if active and candidate and active != candidate else 'Las marcas pueden cambiar con el mercado. Una vía completa propone la dirección; las lecturas espaciadas la confirman.')
+    if ready and candidate and active != candidate:
+        note = f'Faltan {SIGNAL_CONFIRM_READINGS - count} lecturas para confirmar {candidate}. ' + note
+    target = get_target_from_market(market)
+    target_text = f'${target:,.2f}' if target is not None else '—'
+    badge = 'RONDA CERRADA' if closed else 'DATOS RECIBIDOS' if ready else 'ESPERANDO DATOS'
+    return '''<style>
+.sr-panel{--sr-green:#00dfb5;margin:12px 0;padding:16px;border:1px solid #23685e;border-radius:20px;background:#06121a;color:#eef5f8;font-family:Inter,Arial,sans-serif}
+.sr-panel *{box-sizing:border-box}.sr-panel .sr-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0 18px}.sr-panel h2{font-size:22px;margin:6px 0;font-weight:850}.sr-panel .sr-label{font-size:10px;font-weight:800;letter-spacing:1.4px;color:#8ca1ab}.sr-panel .sr-brand,.sr-panel .sr-ok{color:var(--sr-green)!important}.sr-panel .sr-brand{font-size:11px;letter-spacing:2px;font-weight:850}.sr-panel .sr-badge{color:var(--sr-green);border:1px solid #23685e;border-radius:24px;padding:8px;font-size:10px;white-space:nowrap}
+.sr-panel .sr-card{padding:18px;margin:12px 0;background:linear-gradient(125deg,#0c2026,#0a151e);border:1px solid #244047;border-radius:18px}.sr-panel .sr-official{border-color:#23685e}.sr-panel h3{font-size:27px;line-height:1.2;margin:14px 0 8px;font-weight:900}.sr-panel p{font-size:12px;color:#a5b6be;line-height:1.55;margin:9px 0 0}.sr-panel .sr-number{font-size:38px;font-weight:900;margin:14px 0;color:#edf5f8}.sr-panel .sr-number small{font-size:20px;color:#81949f}
+.sr-panel .sr-bars{display:flex;gap:7px;margin:14px 0}.sr-panel .sr-bars i{height:7px;flex:1;background:#1d3038;border-radius:9px}.sr-panel .sr-bars .sr-lit,.sr-panel .sr-progress i{background:var(--sr-green);box-shadow:0 0 10px #00dfb54d}.sr-panel .sr-progress{height:5px;background:#1d3038;border-radius:8px;margin:14px 0 8px;overflow:hidden}.sr-panel .sr-progress i{display:block;height:100%;border-radius:8px}
+.sr-panel .sr-info{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sr-panel .sr-info .sr-card{margin:0;padding:14px}.sr-panel .sr-info strong{display:block;margin-top:10px;font-size:20px;overflow-wrap:anywhere}.sr-panel .sr-details{border:0!important;box-shadow:none!important;background:transparent;margin-top:14px;border-top:1px solid #244047!important;border-radius:0}.sr-panel .sr-details summary{font-size:12px;color:#00dfb5;cursor:pointer;padding:12px 0}.sr-panel .sr-route h4{font-size:12px;margin:16px 0 5px}.sr-panel .sr-route h4 span{float:right;color:#8ca1ab}.sr-panel .sr-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #172b33;padding:10px 0;font-size:11px;line-height:1.4}.sr-panel .sr-row b{font-size:10px;white-space:nowrap}.sr-panel .sr-wait{color:#b1bdc5}.sr-panel .sr-note{font-size:11px;color:#8398a4}
+@media(max-width:460px){.sr-panel{padding:12px}.sr-panel h2{font-size:19px}.sr-panel .sr-card{padding:15px}.sr-panel .sr-info strong{font-size:17px}}
+
+/* Uniform turquoise presentation. Signal values and timing are unchanged. */
+.stApp,[data-testid="stAppViewContainer"]{background:#06121a!important}
+.refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
+.refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp>section[style],
+.panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div{
+ background:linear-gradient(125deg,#0c2026,#0a151e)!important;
+ border-color:#23685e!important;box-shadow:none!important;
+}
+.refapp .techrow,.refapp .techrow>div,.refapp .rnav,.panel .chartnav{border-color:#244047!important}
+.refapp .gear,.panel summary:after{color:#00dfb5!important;text-shadow:none!important}
+.refapp .finalcard,.refapp .finalclose,.refapp .analysisbox,.refapp .probbox{border-color:#244047!important}
+.stRadio label,[data-testid="stButton"] button,.panel .toggle,.panel .chartnav button{
+ background:#0a151e!important;border-color:#23685e!important;color:#e3f0ee!important;
+}
+.panel{background:#06121a!important}
+
+</style><section class="sr-panel"><div class="sr-top"><div><div class="sr-brand">BTC SIGNAL · BTC 15M</div><h2>Qué falta para la señal</h2></div><span class="sr-badge">● ''' + badge + '''</span></div><div class="sr-card sr-official"><div class="sr-label">SEÑAL OFICIAL</div><h3 class="sr-ok">''' + e(active or 'ESPERANDO') + '</h3><p>' + e(status) + '</p></div><div class="sr-card"><div class="sr-label">LECTURAS CONSECUTIVAS DEL MOTOR' + (' · ' + e(candidate) if candidate else '') + '</div><div class="sr-number">' + str(count) + '<small>/' + str(SIGNAL_CONFIRM_READINGS) + '</small></div><p>' + e(note) + '</p><p class="sr-note">Este contador es de lecturas, no de requisitos. Las condiciones siguen marcadas abajo aunque se retire la señal. Se requieren 3 lecturas separadas al menos 2 s. El contador se reinicia si cambia la candidatura, la referencia de precio o se interrumpen las lecturas.</p></div><div class="sr-info"><div class="sr-card"><div class="sr-label">TARGET</div><strong>' + target_text + '</strong></div><div class="sr-card"><div class="sr-label">TIEMPO RESTANTE</div><strong>' + format_countdown(seconds_left) + '</strong></div></div>' + side_html + '<p class="sr-note">Son vías alternativas: no tienen que cumplirse todas a la vez. El progreso muestra requisitos cumplidos, no probabilidad de ganar. Flujo de ballenas: contexto independiente.</p></section>'
 
 
 @st.fragment(run_every="2s")
