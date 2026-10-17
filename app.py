@@ -3598,8 +3598,17 @@ def live_dashboard():
                 chart_df, coinbase_live_price if coinbase_live_ok else None,
                 target, active, chart_timeframe, sig, whale, market, btc_df,
             )
-            import streamlit.components.v1 as _neon_components
-            _neon_components.html(chart_html, height=1830, scrolling=True)
+            # Sin iframe: evita reiniciar un documento completo cada 2 segundos.
+            # Requiere Streamlit >= 1.52 (st.html con JavaScript habilitado).
+            # El motor, sus datos y la frecuencia de 2s no se modifican.
+            import inspect as _neon_inspect
+            if "unsafe_allow_javascript" in _neon_inspect.signature(st.html).parameters:
+                st.html(chart_html, unsafe_allow_javascript=True)
+            else:
+                st.error(
+                    "Esta versión requiere Streamlit 1.52 o superior para mostrar "
+                    "la gráfica sin iframe. Actualiza Streamlit en requirements.txt."
+                )
         except Exception:
             st.warning("No se pudo cargar esta temporalidad. Prueba 1m o vuelve a seleccionarla.")
 
