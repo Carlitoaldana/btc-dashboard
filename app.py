@@ -70,24 +70,6 @@ st.markdown(
 [data-testid="stDecoration"] {display:none;}
 [data-testid="stStatusWidget"] {display:none;}
 
-/* Mobile repaint stability: no behavioral / signal engine changes. */
-[data-testid="stStatusWidget"], [data-testid="stSpinner"],
-[data-testid="stAppStatusWidget"], [data-testid="stNotificationContentRunning"] {display:none!important;}
-html {scroll-behavior:auto!important;}
-.stApp {overflow-anchor:auto;}
-.refapp, .refapp .rcard, .refapp .mini, .refapp .reader,
-.refapp .presignal, .refapp .rhero, .refapp .finalcard {
-  transition:none!important;
-  animation:none!important;
-}
-.refapp .rhero {min-height:88px;}
-.refapp .rsignal, .refapp .rhero, .refapp .mini,
-.refapp .rcard, .refapp .predirection, .refapp .prepercent,
-.refapp .finalcard, .refapp .close-reader, .ticker {
-  font-variant-numeric:tabular-nums;
-}
-
-
 html, body, [class*="css"] {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -1348,7 +1330,7 @@ def _fetch_current_btc_candles():
     raise last_error
 
 
-@st.cache_data(ttl=5, show_spinner=False)
+@st.cache_data(ttl=5)
 def get_btc_data():
     return _fetch_current_btc_candles()
 
@@ -1496,7 +1478,7 @@ def get_btc_live_price():
 # KALSHI BTC 15 MIN
 # =========================================================
 
-@st.cache_data(ttl=2, show_spinner=False)
+@st.cache_data(ttl=2)
 def get_kalshi_btc_market():
     response = requests.get(
         "https://external-api.kalshi.com/trade-api/v2/markets",
