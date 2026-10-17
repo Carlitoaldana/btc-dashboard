@@ -70,6 +70,24 @@ st.markdown(
 [data-testid="stDecoration"] {display:none;}
 [data-testid="stStatusWidget"] {display:none;}
 
+/* Mobile repaint stability: no behavioral / signal engine changes. */
+[data-testid="stStatusWidget"], [data-testid="stSpinner"],
+[data-testid="stAppStatusWidget"], [data-testid="stNotificationContentRunning"] {display:none!important;}
+html {scroll-behavior:auto!important;}
+.stApp {overflow-anchor:auto;}
+.refapp, .refapp .rcard, .refapp .mini, .refapp .reader,
+.refapp .presignal, .refapp .rhero, .refapp .finalcard {
+  transition:none!important;
+  animation:none!important;
+}
+.refapp .rhero {min-height:88px;}
+.refapp .rsignal, .refapp .rhero, .refapp .mini,
+.refapp .rcard, .refapp .predirection, .refapp .prepercent,
+.refapp .finalcard, .refapp .close-reader, .ticker {
+  font-variant-numeric:tabular-nums;
+}
+
+
 html, body, [class*="css"] {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
