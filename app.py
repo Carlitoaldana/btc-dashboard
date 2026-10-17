@@ -3585,23 +3585,17 @@ def live_dashboard():
 <div class="ticker">{ticker} • SCORE {sig["final_score"]:+.2f}</div>
 """, unsafe_allow_html=True)
 
-    # Panel neón: capa visual independiente. No altera el motor de señales.
-    if btc_ok:
-        chart_timeframe = st.radio(
-            "Temporalidad del gráfico",
-            ["1m", "3m", "5m", "15m", "1h", "4h", "1D"],
-            horizontal=True, key="chart_timeframe", label_visibility="collapsed",
-        )
-        try:
-            chart_df = btc_df if chart_timeframe in ("1m", "3m", "5m") else _neon_chart_history(chart_timeframe)
-            chart_html = render_neon_chart(
-                chart_df, coinbase_live_price if coinbase_live_ok else None,
-                target, active, chart_timeframe, sig, whale, market, btc_df,
-            )
-            import streamlit.components.v1 as _neon_components
-            _neon_components.html(chart_html, height=1830, scrolling=True)
-        except Exception:
-            st.warning("No se pudo cargar esta temporalidad. Prueba 1m o vuelve a seleccionarla.")
+    # La instantánea visual NO altera los cálculos ni las confirmaciones.
+    # El fragmento de gráfica se ejecuta por separado del panel de señales.
+    st.session_state["_neon_visual_snapshot"] = {
+        "btc_df": btc_df if btc_ok else None,
+        "coinbase_price": coinbase_live_price if coinbase_live_ok else None,
+        "target": target,
+        "active": active,
+        "sig": sig,
+        "whale": whale,
+        "market": market,
+    }
 
     if round_signal["reversal"]:
         st.markdown(
@@ -3623,6 +3617,31 @@ def live_dashboard():
         )
     if kalshi_error:
         st.error("Error Kalshi: " + kalshi_error)
+
+
+@st.fragment(run_every="2s")
+def live_chart_only():
+    """Visualización aislada: no recalcula ni modifica el motor de señales."""
+    snap = st.session_state.get("_neon_visual_snapshot")
+    if not snap or snap["btc_df"] is None:
+        return
+    chart_timeframe = st.radio(
+        "Temporalidad del gráfico",
+        ["1m", "3m", "5m", "15m", "1h", "4h", "1D"],
+        horizontal=True, key="chart_timeframe", label_visibility="collapsed",
+    )
+    try:
+        btc_df = snap["btc_df"]
+        chart_df = btc_df if chart_timeframe in ("1m", "3m", "5m") else _neon_chart_history(chart_timeframe)
+        chart_html = render_neon_chart(
+            chart_df, snap["coinbase_price"], snap["target"],
+            snap["active"], chart_timeframe, snap["sig"], snap["whale"],
+            snap["market"], btc_df,
+        )
+        import streamlit.components.v1 as _neon_components
+        _neon_components.html(chart_html, height=1830, scrolling=True)
+    except Exception:
+        st.warning("No se pudo cargar esta temporalidad. Prueba 1m o vuelve a seleccionarla.")
 
 
 import zlib
@@ -3796,3 +3815,4 @@ elif page == "settings":
     render_history_page()
 else:
     live_dashboard()
+    live_chart_only()
