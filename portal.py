@@ -18,19 +18,57 @@ st.markdown("""<style>
 .brand{text-align:center;margin:22px 0 28px}.brand-icon{width:92px;height:92px;margin:0 auto 12px;border:2px solid #00ddb8;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:950;color:#00e0bb;box-shadow:0 0 27px #00caaa33;background:#061a20}
 .brand-title{font-size:29px;line-height:1.06;font-weight:950;letter-spacing:1px}.brand-title span{color:#00dfb5}
 .brand-sub{font-size:11px;color:#92b7b5;letter-spacing:2px;margin-top:8px}
-h2{text-align:center;font-size:22px!important}
+h2{text-align:center;font-size:22px!important;color:#edf8f7!important}
+.stTextInput label,.stTextInput label p,.stTextInput [data-testid="stWidgetLabel"]{color:#edf8f7!important}
 .stTextInput input{background:#0b1e25!important;color:#fff!important;border:1px solid #206158!important;border-radius:11px!important}
-[data-testid="stFormSubmitButton"] button,.stButton>button[kind="primary"]{background:#00bc9c!important;color:#041914!important;border:0!important;border-radius:12px!important;font-weight:900!important;width:100%}
-.stButton>button{border-color:#206158}
-.stTabs [data-baseweb="tab"]{color:#a3b9b9!important}
-.stTabs [aria-selected="true"]{color:#00e0bb!important}
+.stTextInput input::placeholder{color:#b7c9ca!important;opacity:1!important}
+
+/* Navigation tabs: force readable text in both selected and unselected states. */
+.stTabs [data-baseweb="tab"],
+.stTabs [data-baseweb="tab"] *,
+.stTabs button[role="tab"],
+.stTabs button[role="tab"] *{color:#edf8f7!important;opacity:1!important}
+.stTabs [aria-selected="true"],
+.stTabs [aria-selected="true"] *{color:#00e0bb!important}
+.stTabs [data-baseweb="tab-highlight"]{background-color:#00e0bb!important}
+
+/* Radio navigation on the approved administrator view. */
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] label *,
+[data-testid="stRadio"] p,
+[data-testid="stRadio"] span{color:#edf8f7!important;opacity:1!important}
+[data-testid="stRadio"] [role="radiogroup"]{gap:0.8rem}
+
+/* Buttons, including the secondary "Cerrar sesión" button. */
+.stButton>button,
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stDownloadButton"] button{
+  background:#00bc9c!important;color:#041914!important;border:1px solid #00dfb5!important;
+  border-radius:12px!important;font-weight:900!important
+}
+.stButton>button[kind="secondary"]{
+  background:#0b1e25!important;color:#ffffff!important;border:1px solid #00bc9c!important
+}
+.stButton>button p,.stButton>button span,
+[data-testid="stFormSubmitButton"] button *,
+[data-testid="stDownloadButton"] button *{color:inherit!important;opacity:1!important}
+.stButton>button:hover{background:#00d4b0!important;color:#041914!important}
+.stButton>button[kind="secondary"]:hover{background:#123a3b!important;color:#ffffff!important}
+
+/* General Streamlit messages and labels on the dark background. */
+.stMarkdown,.stMarkdown p,.stCaption,.stCaption *,
+[data-testid="stAlert"] p,[data-testid="stAlert"] div,
+[data-testid="stWidgetLabel"]{color:#edf8f7}
+[data-testid="stAlert"] a{color:#70b7ff!important}
 </style>""", unsafe_allow_html=True)
+
 
 def brand():
     st.markdown("""<div class="brand"><div class="brand-icon">₿↗</div>
     <div class="brand-title">ALPHA PULSE <span>BTC</span></div>
     <div class="brand-sub">PRIVATE BTC SIGNAL PORTAL</div></div>""",
     unsafe_allow_html=True)
+
 
 def api(method, path, *, bearer=None, payload=None, params=None):
     headers = {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"}
@@ -49,6 +87,7 @@ def api(method, path, *, bearer=None, payload=None, params=None):
             reason = None
         raise RuntimeError(str(reason or "Operación no disponible")[:250])
     return data
+
 
 def verify_session():
     token = st.session_state.get("alpha_access_token")
@@ -86,6 +125,7 @@ def verify_session():
             "approved": bool(rows and rows[0].get("approved")),
             "is_admin": bool(admins)}
 
+
 def logout():
     token = st.session_state.pop("alpha_access_token", None)
     st.session_state.pop("alpha_refresh_token", None)
@@ -95,6 +135,7 @@ def logout():
         except Exception:
             pass
     st.rerun()
+
 
 def admin_panel(current):
     # Only a verified admin can reach this panel. Supabase RLS independently
@@ -126,10 +167,12 @@ def admin_panel(current):
             except Exception:
                 st.error("No se pudo cambiar el acceso. Inténtalo nuevamente.")
 
+
 if not SUPABASE_URL.startswith("https://") or not SUPABASE_ANON_KEY:
     brand()
     st.error("Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY en Render → Environment.")
     st.stop()
+
 try:
     current = verify_session()
 except Exception:
