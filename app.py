@@ -3599,6 +3599,16 @@ def live_dashboard():
                 target, active, chart_timeframe, sig, whale, market, btc_df,
             )
             import streamlit.components.v1 as _neon_components
+            # PRUEBA VISUAL: evita el destello blanco del iframe al recargarse.
+            # No altera datos, motor de señales ni la frecuencia de 2 segundos.
+            st.markdown(
+                """<style>
+                div[data-testid="stIFrame"] {background:#07121a !important;
+                    min-height:1830px; overflow:hidden;}
+                div[data-testid="stIFrame"] iframe {background:#07121a !important;
+                    display:block; border:0 !important;}
+                </style>""", unsafe_allow_html=True
+            )
             _neon_components.html(chart_html, height=1830, scrolling=True)
         except Exception:
             st.warning("No se pudo cargar esta temporalidad. Prueba 1m o vuelve a seleccionarla.")
