@@ -4,13 +4,19 @@ import runpy
 from pathlib import Path
 import requests
 import streamlit as st
+from PIL import Image
 
-st.set_page_config(page_title="ALPHA PULSE BTC", page_icon="🔐",
+# Use the uploaded logo when present; keep the original icon as a safe fallback.
+_logo_candidates = sorted(Path(__file__).parent.glob('2649B951*'))
+try:
+    _page_icon = Image.open(_logo_candidates[0]) if _logo_candidates else '🔐'
+except (OSError, ValueError):
+    _page_icon = '🔐'
+st.set_page_config(page_title="ALPHA PULSE BTC", page_icon=_page_icon,
                    layout="centered", initial_sidebar_state="collapsed")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
 TIMEOUT = 12
-
 st.markdown("""<style>
 #MainMenu,footer,header,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important}
 .stApp{background:radial-gradient(circle at 50% 0%,#123a3b 0%,#07131b 38%,#04090e 100%);color:#edf8f7}
@@ -22,7 +28,6 @@ h2{text-align:center;font-size:22px!important;color:#edf8f7!important}
 .stTextInput label,.stTextInput label p,.stTextInput [data-testid="stWidgetLabel"]{color:#edf8f7!important}
 .stTextInput input{background:#0b1e25!important;color:#fff!important;border:1px solid #206158!important;border-radius:11px!important}
 .stTextInput input::placeholder{color:#b7c9ca!important;opacity:1!important}
-
 /* Navigation tabs: force readable text in both selected and unselected states. */
 .stTabs [data-baseweb="tab"],
 .stTabs [data-baseweb="tab"] *,
@@ -31,14 +36,12 @@ h2{text-align:center;font-size:22px!important;color:#edf8f7!important}
 .stTabs [aria-selected="true"],
 .stTabs [aria-selected="true"] *{color:#00e0bb!important}
 .stTabs [data-baseweb="tab-highlight"]{background-color:#00e0bb!important}
-
 /* Radio navigation on the approved administrator view. */
 [data-testid="stRadio"] label,
 [data-testid="stRadio"] label *,
 [data-testid="stRadio"] p,
 [data-testid="stRadio"] span{color:#edf8f7!important;opacity:1!important}
 [data-testid="stRadio"] [role="radiogroup"]{gap:0.8rem}
-
 /* Buttons, including the secondary "Cerrar sesión" button. */
 .stButton>button,
 [data-testid="stFormSubmitButton"] button,
@@ -54,22 +57,17 @@ h2{text-align:center;font-size:22px!important;color:#edf8f7!important}
 [data-testid="stDownloadButton"] button *{color:inherit!important;opacity:1!important}
 .stButton>button:hover{background:#00d4b0!important;color:#041914!important}
 .stButton>button[kind="secondary"]:hover{background:#123a3b!important;color:#ffffff!important}
-
 /* General Streamlit messages and labels on the dark background. */
 .stMarkdown,.stMarkdown p,.stCaption,.stCaption *,
 [data-testid="stAlert"] p,[data-testid="stAlert"] div,
 [data-testid="stWidgetLabel"]{color:#edf8f7}
 [data-testid="stAlert"] a{color:#70b7ff!important}
 </style>""", unsafe_allow_html=True)
-
-
 def brand():
     st.markdown("""<div class="brand"><div class="brand-icon">₿↗</div>
     <div class="brand-title">ALPHA PULSE <span>BTC</span></div>
     <div class="brand-sub">PRIVATE BTC SIGNAL PORTAL</div></div>""",
     unsafe_allow_html=True)
-
-
 def api(method, path, *, bearer=None, payload=None, params=None):
     headers = {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"}
     headers["Authorization"] = "Bearer " + (bearer or SUPABASE_ANON_KEY)
@@ -87,8 +85,6 @@ def api(method, path, *, bearer=None, payload=None, params=None):
             reason = None
         raise RuntimeError(str(reason or "Operación no disponible")[:250])
     return data
-
-
 def verify_session():
     token = st.session_state.get("alpha_access_token")
     refresh = st.session_state.get("alpha_refresh_token")
@@ -124,8 +120,6 @@ def verify_session():
     return {"id": user_id, "email": user.get("email", ""),
             "approved": bool(rows and rows[0].get("approved")),
             "is_admin": bool(admins)}
-
-
 def logout():
     token = st.session_state.pop("alpha_access_token", None)
     st.session_state.pop("alpha_refresh_token", None)
@@ -135,8 +129,6 @@ def logout():
         except Exception:
             pass
     st.rerun()
-
-
 def admin_panel(current):
     # Only a verified admin can reach this panel. Supabase RLS independently
     # enforces the same rule on every read and update.
@@ -166,20 +158,16 @@ def admin_panel(current):
                 st.rerun()
             except Exception:
                 st.error("No se pudo cambiar el acceso. Inténtalo nuevamente.")
-
-
 if not SUPABASE_URL.startswith("https://") or not SUPABASE_ANON_KEY:
     brand()
     st.error("Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY en Render → Environment.")
     st.stop()
-
 try:
     current = verify_session()
 except Exception:
     brand()
     st.error("No se pudo verificar el acceso. Reintenta en unos segundos.")
     st.stop()
-
 if current is None:
     brand()
     login_tab, register_tab = st.tabs(["Sign In", "Create Account"])
@@ -216,14 +204,12 @@ if current is None:
                 except Exception:
                     st.error("No se pudo registrar. Revisa el correo y vuelve a intentarlo.")
     st.stop()
-
 if not current["approved"]:
     brand()
     st.info("Cuenta registrada. Esperando la autorización del administrador de ALPHA PULSE BTC.")
     if st.button("Cerrar sesión"):
         logout()
     st.stop()
-
 if current["is_admin"]:
     # Separate admin page: regular bot view remains unchanged.
     mode = st.radio("Vista", ["Señales BTC", "Administrar usuarios"],
@@ -234,7 +220,6 @@ if current["is_admin"]:
         if st.button("Cerrar sesión"):
             logout()
         st.stop()
-
 # Existing bot executes only after authenticated approval.
 original = Path(__file__).with_name("app.py")
 if not original.exists():
