@@ -3055,11 +3055,12 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 <div class="chartnav"><button id="older" aria-label="Velas anteriores">←</button><button id="newer" aria-label="Velas siguientes">→</button><button id="zoomin" aria-label="Acercar">＋</button><button id="zoomout" aria-label="Alejar">−</button><button id="reset">AHORA</button><span id="viewtf"></span></div>
 <div class="footer">COINBASE · BTC/USD · Objetivo de la ronda Kalshi. Soporte/resistencia: extremos de las últimas 20 velas anteriores. VWAP: sesión UTC, con las velas disponibles. Actualización al recibir nuevos datos; intervalo solicitado 2 s.</div></section>
 <script>
-const D=__PAYLOAD__, $=id=>document.getElementById(id), fmt=(v,n=2)=>v==null?'—':Number(v).toLocaleString('en-US',{minimumFractionDigits:n,maximumFractionDigits:n}), usd=v=>v==null?'—':'$'+fmt(v), compact=v=>v==null?'—':v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+fmt(v,0);
+let D=__PAYLOAD__; const $=id=>document.getElementById(id), fmt=(v,n=2)=>v==null?'—':Number(v).toLocaleString('en-US',{minimumFractionDigits:n,maximumFractionDigits:n}), usd=v=>v==null?'—':'$'+fmt(v), compact=v=>v==null?'—':v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+fmt(v,0);
 let saved={};try{saved=JSON.parse(localStorage.getItem('btc-neon-panel-v1')||'{}')}catch(e){}
 let toggles=Object.assign({ema9:true,ema21:true,vwap:true,volume:true,rsi:true,patterns:true},saved.toggles),visible=saved.visible||48,offset=saved.offset||0,pricePan=Number.isFinite(saved.pricePan)?saved.pricePan:0;
 function persist(){try{localStorage.setItem('btc-neon-panel-v1',JSON.stringify({toggles,visible,offset,pricePan,whale:$('whale').open,momentum:$('momentum').open}))}catch(e){}}
 for(const name of ['whale','momentum']){$(name).open=!!saved[name];$(name).addEventListener('toggle',persist)}
+function refreshLabels(){
 $('subtitle').textContent=D.timeframe.toUpperCase()+' · COINBASE · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('signal').textContent=(D.signal==='UP'?'▲ ':D.signal==='DOWN'?'▼ ':'')+D.signal;$('signal').className=D.signal==='UP'?'green':D.signal==='DOWN'?'red':'cyan';$('model').textContent=fmt(D.signal==='UP'?D.up:D.signal==='DOWN'?D.down:Math.max(D.up,D.down),1)+'%';$('pattern').textContent=D.round_start==null?'SIN RONDA ACTIVA':D.pivot_count+' EXTREMOS CONFIRMADOS EN ESTA RONDA';$('status').textContent=D.rows.length?'DATOS RECIBIDOS':'SIN VELAS';$('updated').textContent='Actualizado '+D.updated;$('viewtf').textContent=D.timeframe+' · VELAS REALES';
 const F=D.flow,total=F.buy+F.sell,known=F.ok;
 $('watch').textContent=!known?'SIN DATOS DE FLUJO':total===0?'ESPERANDO OPERACIONES':F.direction==='NEUTRAL'?'FLUJO EQUILIBRADO':'WATCH '+F.direction;
@@ -3067,7 +3068,10 @@ for(const [id,value] of [['buy',F.buy],['sell',F.sell],['buytotal',F.buy],['sell
 $('diff').textContent=known?compact(Math.abs(F.buy-F.sell))+' '+(F.buy>F.sell?'BUY':F.sell>F.buy?'SELL':'NEUTRAL'):'—';$('diff').className=F.buy>F.sell?'green':'red';$('activity').textContent=known&&F.activity!=null?fmt(F.activity,1)+'×':'—';$('strength').textContent=known&&total?F.strength:'—';
 for(const [id,v] of [['buys',F.buys],['sells',F.sells],['floatbuy',F.buys],['floatsell',F.sells]])$(id).textContent=known?v:'—';
 $('countdiff').textContent=known?Math.abs(F.buys-F.sells)+' '+(F.buys>F.sells?'BUY':F.sells>F.buys?'SELL':'NEUTRAL'):'—';$('buybar').style.width=(total?100*F.buy/total:0)+'%';$('sellbar').style.width=(total?100*F.sell/total:0)+'%';
+$('momrows').replaceChildren();
 for(const key of ['mom3','mom5','mom15']){const v=D[key],box=document.createElement('div');box.className='metric';box.innerHTML='<small>'+key.slice(3)+' MINUTOS</small><b class="'+(v>=0?'green':'red')+'">'+(v==null?'—':(v>0?'+':'')+fmt(v,2)+'%')+'</b>';$('momrows').append(box)}
+}
+refreshLabels();
 const colors={ema9:'#f000ff',ema21:'#00eaff',vwap:'#6261ff',volume:'#00d7b0',rsi:'#f000ff',patterns:'#b668f5'};
 for(const [key,label] of Object.entries({ema9:'EMA9',ema21:'EMA21',vwap:'VWAP',volume:'VOLUME',rsi:'RSI',patterns:'PATTERNS'})){const b=document.createElement('button');b.style.setProperty('--c',colors[key]);b.dataset.key=key;b.onclick=()=>{toggles[key]=!toggles[key];persist();draw()};$('toggles').append(b);b.dataset.label=label}
 let geometry=null;
@@ -3135,6 +3139,13 @@ $('canvas').addEventListener('wheel',e=>{
 },{passive:false});
 function inspectCandle(px){if(!geometry)return;const g=geometry,i=Math.max(0,Math.min(g.rows.length-1,Math.floor((px-g.L)/(g.W-g.L-g.R)*g.rows.length))),r=g.rows[i],time=new Date(r.t*1000).toLocaleString('en-US',{timeZone:'America/New_York'});$('tooltip').textContent=time+' · O '+fmt(r.open)+'  H '+fmt(r.high)+'  L '+fmt(r.low)+'  C '+fmt(r.close)+' · Vol '+fmt(r.volume,3);$('crosshair').innerHTML='<line x1="'+g.x(i)+'" x2="'+g.x(i)+'" y1="'+g.T+'" y2="'+g.B+'" stroke="#b8a5e0" stroke-dasharray="4 4"/>'}
 
+window.addEventListener('message', function(event){
+  if (!event.data || event.data.kind !== 'alpha-chart-update') return;
+  // Only the chart data changes: preserve iframe, zoom, gesture handlers and cards.
+  D = event.data.payload;
+  refreshLabels();
+  draw();
+});
 draw();
 </script></html>'''
 
@@ -3604,8 +3615,19 @@ def live_dashboard():
                 chart_df, coinbase_live_price if coinbase_live_ok else None,
                 target, active, chart_timeframe, sig, whale, market, btc_df,
             )
-            import streamlit.components.v1 as _neon_components
-            _neon_components.html(chart_html, height=1830, scrolling=True)
+            # Keep the chart in its permanent host outside this 2-second fragment.
+            # Send only new JSON payload; never recreate the iframe on each refresh.
+            chart_payload = _neon_payload(
+                chart_df, coinbase_live_price if coinbase_live_ok else None,
+                target, active, chart_timeframe, sig, whale, market, btc_df,
+            )
+            st.session_state["_alpha_chart_html_initial"] = chart_html
+            payload_script = json.dumps(chart_payload, ensure_ascii=False, allow_nan=False).replace("<", "\\u003c")
+            st.html(
+                "<script>window.__alphaNextChart=" + payload_script + ";"
+                "if(window.__alphaPushChart)window.__alphaPushChart(window.__alphaNextChart);</script>",
+                unsafe_allow_javascript=True,
+            )
         except Exception:
             st.warning("No se pudo cargar esta temporalidad. Prueba 1m o vuelve a seleccionarla.")
 
@@ -3854,3 +3876,30 @@ elif page == "settings":
 else:
     st.html(_ALPHA_STABLE_PANEL, unsafe_allow_javascript=True)
     live_dashboard()
+    # Persistent chart host: not within the periodic Streamlit fragment.
+    # Initial srcdoc contains the complete original chart markup and controls.
+    initial_html = st.session_state.get("_alpha_chart_html_initial")
+    if initial_html:
+        safe_html = json.dumps(initial_html, ensure_ascii=False).replace("<", "\\u003c")
+        st.html(
+            '<div id="alpha-chart-stable-host" style="width:100%;min-height:1830px"></div>'
+            '<script>(function(){'
+            'const host=document.getElementById("alpha-chart-stable-host");'
+            'if(!host)return;'
+            'let frame=host.querySelector("iframe");'
+            'if(!frame){frame=document.createElement("iframe");'
+            'frame.setAttribute("title","Gráfica BTC interactiva");'
+            'frame.style.cssText="width:100%;height:1830px;border:0;display:block;background:#06121a";'
+            'frame.setAttribute("scrolling","yes");'
+            'frame.srcdoc=' + safe_html + ';host.appendChild(frame);}'
+            'window.__alphaPushChart=function(payload){'
+            'window.__alphaNextChart=payload;'
+            'if(frame.contentWindow)frame.contentWindow.postMessage({kind:"alpha-chart-update",payload:payload},"*");'
+            '};'
+            'frame.addEventListener("load",function(){'
+            'if(window.__alphaNextChart)window.__alphaPushChart(window.__alphaNextChart);'
+            '});'
+            'if(window.__alphaNextChart)window.__alphaPushChart(window.__alphaNextChart);'
+            '})();</script>',
+            unsafe_allow_javascript=True,
+        )
