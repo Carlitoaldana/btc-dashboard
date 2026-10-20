@@ -2865,17 +2865,21 @@ def render_intelligent_market_panel(book, flow, active):
         if active in ("UP", "DOWN"):
             contrary = active != direction
             headline = f"{active} EN RIESGO" if contrary else f"APOYO A {active}"
-            color = "#ff806b" if contrary else "#00dfb5"
+            color = "#ffb347" if contrary else ("#ef4444" if active == "DOWN" else "#00dfb5")
         else:
-            headline, color = f"PRESIÓN CONJUNTA {direction}", "#dce7f3"
+            headline, color = f"PRESIÓN CONJUNTA {direction}", ("#ef4444" if direction == "DOWN" else "#00dfb5")
         detail = "Order Book y Order Flow coinciden."
     else:
         headline, color, detail = "LECTURAS MIXTAS", "#e9bb66", "Sin confirmación conjunta entre indicadores."
-    return f'''<section style="margin:12px 0;padding:18px;min-height:300px;display:flex;flex-direction:column;justify-content:center;border:1px solid {color};border-radius:18px;background:#0b1520">
+    def pressure_color(label):
+        return "#ef4444" if "DOWN" in label else "#00dfb5" if "UP" in label else "#cbd5e1"
+    book_color = pressure_color(book_label)
+    flow_color = pressure_color(flow_label)
+    return f'''<section style="margin:12px 0;padding:18px;min-height:300px;display:flex;flex-direction:column;justify-content:center;border:1px solid {color};border-radius:18px;background:#0b1520;box-shadow:0 0 18px {color}20">
       <div style="font-size:13px;font-weight:900;color:#dce7f3">ANÁLISIS INTELIGENTE · BTC · COINBASE</div>
-      <div style="margin-top:14px;font-size:24px;font-weight:950;color:{color}">{headline}</div>
-      <div style="margin-top:12px;font-size:14px;color:#cbd5e1"><b>ORDER BOOK:</b> {book_label} · {book_pct}</div>
-      <div style="margin-top:9px;font-size:14px;color:#cbd5e1"><b>ORDER FLOW (30 s):</b> {flow_label} · {flow_pct}</div>
+      <div style="margin-top:14px;font-size:clamp(25px,5vw,34px);font-weight:950;color:{color};text-shadow:0 0 16px {color}55">{headline}</div>
+      <div style="margin-top:12px;font-size:14px;color:#cbd5e1"><b>ORDER BOOK:</b> <span style="color:{book_color};font-weight:900">{book_label} · {book_pct}</span></div>
+      <div style="margin-top:9px;font-size:14px;color:#cbd5e1"><b>ORDER FLOW (30 s):</b> <span style="color:{flow_color};font-weight:900">{flow_label} · {flow_pct}</span></div>
       <div style="margin-top:14px;font-size:13px;color:#cbd5e1">{detail}</div>
       <div style="margin-top:15px;font-size:12px;color:#94a3b8">Solo informativo. No predice aciertos ni cambia la señal oficial. Las órdenes pueden cancelarse y el flujo puede ser incompleto.</div>
     </section>'''
