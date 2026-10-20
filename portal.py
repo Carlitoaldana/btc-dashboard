@@ -171,11 +171,16 @@ def admin_panel(current):
         with st.expander(f"{email}  ·  {status}", expanded=False):
             st.write(f"**Correo:** {email}")
             st.write(f"**Estado:** {status}")
-            st.write(f"**Vencimiento:** {date_label(expiry)}")
-            if expiry and parse_expiry(expiry):
+            # Pending users are not lifetime users: show no assigned term until access is approved.
+            if not approved:
+                st.write("**Vencimiento:** Sin asignar")
+                st.write("**Días restantes:** No activado")
+            elif expiry and parse_expiry(expiry):
+                st.write(f"**Vencimiento:** {date_label(expiry)}")
                 seconds = (parse_expiry(expiry) - datetime.now(timezone.utc)).total_seconds()
                 st.write(f"**Días restantes:** {max(0, int((seconds + 86399) // 86400))}")
             else:
+                st.write("**Vencimiento:** De por vida")
                 st.write("**Días restantes:** Sin vencimiento")
             if uid == current["id"]:
                 st.caption("Cuenta administradora: no se puede modificar aquí.")
