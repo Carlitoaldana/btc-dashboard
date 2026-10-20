@@ -2811,6 +2811,75 @@ def render_history_page():
 
 
 # =========================================================
+
+# ORDER BOOK + ORDER FLOW: panel independiente, solo informativo.
+@st.cache_data(ttl=5, show_spinner=False)
+def get_coinbase_order_book():
+    r = requests.get("https://api.exchange.coinbase.com/products/BTC-USD/book",
+                     params={"level": 2}, timeout=6,
+                     headers={"User-Agent": "MacalyAlphaBot/4.6.1"})
+    r.raise_for_status()
+    data = r.json()
+    def notional(rows):
+        value = 0.0
+        for row in rows[:15]:
+            price, size = float(row[0]), float(row[1])
+            if not np.isfinite(price) or not np.isfinite(size) or price <= 0 or size < 0:
+                raise ValueError("Nivel inválido")
+            value += price * size
+        return value
+    bids, asks = data.get("bids", []), data.get("asks", [])
+    if not bids or not asks:
+        raise ValueError("Libro vacío")
+    buy, sell = notional(bids), notional(asks)
+    if buy + sell <= 0:
+        raise ValueError("Sin liquidez")
+    imbalance = (buy - sell) / (buy + sell)
+    return {"direction": "UP" if imbalance >= .15 else "DOWN" if imbalance <= -.15 else None,
+            "imbalance": imbalance, "reliable": True}
+
+
+def get_order_flow_advisory(whale):
+    if not whale:
+        return {"direction": None, "imbalance": 0, "reliable": False}
+    buy, sell = float(whale.get("buy30", 0) or 0), float(whale.get("sell30", 0) or 0)
+    if buy + sell < 100_000:
+        return {"direction": None, "imbalance": 0, "reliable": False}
+    imbalance = (buy - sell) / (buy + sell)
+    return {"direction": "UP" if imbalance >= .18 else "DOWN" if imbalance <= -.18 else None,
+            "imbalance": imbalance, "reliable": True}
+
+
+def render_intelligent_market_panel(book, flow, active):
+    def describe(item):
+        if not item or not item.get("reliable"):
+            return "SIN DATOS", "—"
+        d = item.get("direction")
+        return ("PRESIÓN " + d if d else "EQUILIBRADO"), f"{abs(item['imbalance'])*100:.0f}%"
+    book_label, book_pct = describe(book)
+    flow_label, flow_pct = describe(flow)
+    if not book or not flow.get("reliable"):
+        headline, color, detail = "DATOS INSUFICIENTES", "#94a3b8", "Esperando lecturas válidas de Coinbase."
+    elif book["direction"] and book["direction"] == flow["direction"]:
+        direction = book["direction"]
+        if active in ("UP", "DOWN"):
+            contrary = active != direction
+            headline = f"{active} EN RIESGO" if contrary else f"APOYO A {active}"
+            color = "#ff806b" if contrary else "#00dfb5"
+        else:
+            headline, color = f"PRESIÓN CONJUNTA {direction}", "#dce7f3"
+        detail = "Order Book y Order Flow coinciden."
+    else:
+        headline, color, detail = "LECTURAS MIXTAS", "#e9bb66", "Sin confirmación conjunta entre indicadores."
+    return f'''<section style="margin:12px 0;padding:18px;min-height:300px;display:flex;flex-direction:column;justify-content:center;border:1px solid {color};border-radius:18px;background:#0b1520">
+      <div style="font-size:13px;font-weight:900;color:#dce7f3">ANÁLISIS INTELIGENTE · BTC · COINBASE</div>
+      <div style="margin-top:14px;font-size:24px;font-weight:950;color:{color}">{headline}</div>
+      <div style="margin-top:12px;font-size:14px;color:#cbd5e1"><b>ORDER BOOK:</b> {book_label} · {book_pct}</div>
+      <div style="margin-top:9px;font-size:14px;color:#cbd5e1"><b>ORDER FLOW (30 s):</b> {flow_label} · {flow_pct}</div>
+      <div style="margin-top:14px;font-size:13px;color:#cbd5e1">{detail}</div>
+      <div style="margin-top:15px;font-size:12px;color:#94a3b8">Solo informativo. No predice aciertos ni cambia la señal oficial. Las órdenes pueden cancelarse y el flujo puede ser incompleto.</div>
+    </section>'''
+
 # DETECTOR TEMPRANO DE REVERSIÓN (SOLO OBSERVACIÓN)
 # Independiente: NO modifica build_signal, preseñal, ni señales oficiales.
 # =========================================================
@@ -3361,8 +3430,12 @@ def live_dashboard():
     )
 
     # Render del panel de ballenas. Solo visual; no altera el motor v4.6.1.
-    reversal_detector = detect_early_reversal(ticker, micro, whale, live_btc_price)
-    reversal_detector_html = render_early_reversal_panel(reversal_detector)
+    try:
+        order_book = get_coinbase_order_book()
+    except Exception:
+        order_book = None
+    order_flow = get_order_flow_advisory(whale)
+    reversal_detector_html = render_intelligent_market_panel(order_book, order_flow, active)
 
     if active == "UP":
         accent = "#00dfb5"
