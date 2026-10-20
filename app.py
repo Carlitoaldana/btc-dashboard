@@ -3689,11 +3689,6 @@ def live_dashboard():
     <div><b>⚙</b><span>Ajustes</span></div>
   </nav>
 
-  <section class="features">
-    <div><b>ϟ</b><p><strong>SEÑAL EN TIEMPO REAL</strong><span>UP o DOWN, sin duda</span></p></div>
-    <div><b>◎</b><p><strong>DATOS CLAVE</strong><span>BTC, target, distancia y countdown</span></p></div>
-    <div><b>▥</b><p><strong>APOYO VISUAL</strong><span>Con barra y porcentaje</span></p></div>
-  </section>
   <footer><span>BTC SIGNAL v4.6.1 &nbsp; | &nbsp; DISEÑADO PARA TRADERS REALES</span><span>MENOS RUIDO. MÁS RESULTADOS.</span></footer>
 </div>
 <div class="ticker">{ticker} • SCORE {sig["final_score"]:+.2f}</div>
