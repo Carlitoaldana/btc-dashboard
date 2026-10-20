@@ -1232,11 +1232,11 @@ def reconcile_history_once(limit=4, fetch_market=None):
 
 def _history_verification_loop():
     started = time.monotonic()
-    while time.monotonic() - started < BACKGROUND_RUN_SECONDS:
+    while True:
         try:
             reconcile_history_once()
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[ALPHA HISTORY VERIFY] {type(exc).__name__}: {exc}")
         time.sleep(30)
 
 
@@ -2138,7 +2138,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 
 # =========================================================
-# REGISTRADOR AUTÓNOMO 12 HORAS — SOLO HISTORIAL
+# REGISTRADOR AUTÓNOMO CONTINUO — SOLO HISTORIAL
 # Sigue leyendo las rondas aunque no haya una sesión de Streamlit abierta,
 # siempre que el proceso del servidor siga encendido.
 # NO modifica el motor, la preseñal, el lector, ballenas ni la interfaz.
@@ -2146,7 +2146,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-BACKGROUND_DATA_REVISION = "source_consistency_audited_v2"
+BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v3"
 _BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
@@ -2197,6 +2197,51 @@ def _background_get_live_price(market):
     _BACKGROUND_PRICE_SOURCE.value = "COINBASE"
     return price
 
+# =========================================================
+# ALPHA AI SHADOW — observational only; NEVER alters UP/DOWN
+# Stores one immutable decision-time snapshot per ticker.
+# Training labels must come from official Kalshi settlement.
+# =========================================================
+SHADOW_AI_DB = "alpha_ai_shadow.db"
+SHADOW_FEATURES = ("rsi", "rsi3", "rsi5", "mom3", "mom5", "mom15", "vol_ratio",
+                   "technical_score", "target_score", "adx", "macd3", "macd5",
+                   "atr", "vwap_atr", "target_atr", "distance_pct")
+
+def _shadow_capture(ticker, sig, state, seconds_left):
+    """Read-only capture of existing engine output; no signal writes or model inference."""
+    if not ticker or not isinstance(sig, dict) or seconds_left is None:
+        return
+    try:
+        remaining = float(seconds_left)
+        if not 0 < remaining <= 900:
+            return
+        price = float(sig.get("price"))
+        target = float(state.get("last_target"))
+        if not np.isfinite(price) or not np.isfinite(target) or target <= 0:
+            return
+        def safe_float(value):
+            try:
+                number = float(value)
+                return number if np.isfinite(number) else None
+            except (TypeError, ValueError, OverflowError):
+                return None
+        features = {name: safe_float(sig.get(name)) for name in SHADOW_FEATURES}
+        signal = sig.get("candidate")
+        if signal not in ("UP", "DOWN"):
+            signal = None
+        with sqlite3.connect(SHADOW_AI_DB, timeout=3) as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS snapshots (
+                ticker TEXT PRIMARY KEY, observed_at TEXT NOT NULL,
+                seconds_left REAL NOT NULL, btc_price REAL NOT NULL,
+                target REAL NOT NULL, candidate TEXT, features_json TEXT NOT NULL)""")
+            conn.execute("""INSERT OR IGNORE INTO snapshots
+                (ticker, observed_at, seconds_left, btc_price, target, candidate, features_json)
+                VALUES (?,?,?,?,?,?,?)""",
+                (str(ticker), datetime.now(timezone.utc).isoformat(), remaining,
+                 price, target, signal, json.dumps(features, allow_nan=False)))
+    except (sqlite3.Error, TypeError, ValueError, OverflowError):
+        return
+
 def _background_update_state_without_coordinator(state, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
     price = float(sig.get("price", 0.0))
@@ -2210,14 +2255,14 @@ def _background_update_state_without_coordinator(state, sig, market, seconds_lef
     state["last_score"] = float(sig.get("final_score", 0.0))
     confirm_round_candidate(state, sig.get("candidate"), market, seconds_left, now, sig)
     save_round_state(state)
+    _shadow_capture(state.get("ticker"), sig, state, seconds_left)
     return state
 
 def _background_history_loop(stop_event=None):
     started = time.monotonic()
     active_ticker = None
     active_state = None
-    while (time.monotonic() - started < BACKGROUND_RUN_SECONDS
-           and not (stop_event and stop_event.is_set())):
+    while not (stop_event and stop_event.is_set()):
         try:
             market = _background_get_market()
             if not market:
@@ -2243,10 +2288,11 @@ def _background_history_loop(stop_event=None):
             if stop_event and stop_event.is_set():
                 break
             active_state = _background_update_state(active_state, sig, market, seconds_left)
+            _shadow_capture(ticker, sig, active_state, seconds_left)
             if seconds_left is not None and seconds_left <= 0:
                 save_round_history(active_state)
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[ALPHA HISTORY WORKER] {type(exc).__name__}: {exc}")
         if stop_event:
             stop_event.wait(BACKGROUND_POLL_SECONDS)
         else:
@@ -2287,7 +2333,7 @@ def _retire_history_workers():
     return current
 
 @st.cache_resource(validate=lambda worker: worker.is_alive() and getattr(worker, "_btc_data_revision", None) == BACKGROUND_DATA_REVISION)
-def start_12h_history_worker():
+def start_continuous_history_worker():
     current = _retire_history_workers()
     if current is not None:
         return current
@@ -2794,7 +2840,7 @@ def render_history_page():
 .panel{background:#06121a!important}
 
 </style>""", unsafe_allow_html=True)
-    df=load_history(250); stats=history_stats(df)
+    df=load_history(2000); stats=history_stats(df)
     st.markdown(f"""
     <a class="settings-back" href="?page=signal" target="_self">← Señal</a>
     <div class="settings-title">⚙ Ajustes</div>
@@ -3950,8 +3996,8 @@ _ALPHA_STABLE_PANEL = r"""
 </script>
 """
 
-# Inicia una sola vez el registrador autónomo de 12 horas.
-start_12h_history_worker()
+# Inicia una sola vez el registrador autónomo continuo.
+start_continuous_history_worker()
 start_history_verifier()
 
 page = str(st.query_params.get("page", "signal"))
