@@ -747,6 +747,23 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 }
 .panel{background:#06121a!important}
 
+/* Visible only when the already-existing reversal flag is active. */
+.weakness-inline{
+    margin:2px auto 6px;
+    padding:6px 9px;
+    width:fit-content;
+    max-width:98%;
+    border:1px solid #d99a31;
+    border-radius:8px;
+    background:#3b2b12;
+    color:#ffdb8b!important;
+    text-align:center;
+    font-size:10px;
+    font-weight:900;
+    line-height:1.35;
+    letter-spacing:.1px;
+}
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -3511,6 +3528,14 @@ def live_dashboard():
 
     requirements_html = render_signal_requirements(sig, round_signal, market, seconds_left)
 
+    # Advertencia compacta únicamente visual; usa el aviso existente del motor.
+    weakness_html = (
+        '<div class="weakness-inline" role="status">⚠ ' +
+        html.escape(round_signal.get("reversal_text") or "SEÑAL PERDIENDO FUERZA") +
+        '</div>'
+        if round_signal.get("reversal") and active in ("UP", "DOWN") else ""
+    )
+
     panel_html = f"""
 <div class="refapp dir-{active.lower() if active in ("UP","DOWN") else "wait"}" style="--accent:{accent};--glow:{glow};--soft:{soft};">
   <header class="rhead">
@@ -3524,6 +3549,8 @@ def live_dashboard():
     <div class="rsignal"><span class="cssarrow"></span><span>{hero_word}</span></div>
     <div class="rconf">{'APOYO DEL MOTOR ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
   </section>
+
+  {weakness_html}
 
   {pre_html}
 
@@ -3630,12 +3657,6 @@ def live_dashboard():
             )
         except Exception:
             st.warning("No se pudo cargar esta temporalidad. Prueba 1m o vuelve a seleccionarla.")
-
-    if round_signal["reversal"]:
-        st.markdown(
-            f'<div class="alert">⚠ {round_signal["reversal_text"]}</div>',
-            unsafe_allow_html=True,
-        )
 
     if target is None and kalshi_ok:
         st.warning(
