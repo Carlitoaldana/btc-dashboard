@@ -3682,13 +3682,6 @@ def live_dashboard():
     </div>
   </section>
 
-  <nav class="rnav">
-    <div class="active"><b>⌂</b><span>Señal</span></div>
-    <div><b>⌁</b><span>Gráfico</span></div>
-    <div><b>▣</b><span>Kalshi</span></div>
-    <div><b>⚙</b><span>Ajustes</span></div>
-  </nav>
-
   <footer><span>BTC SIGNAL v4.6.1 &nbsp; | &nbsp; DISEÑADO PARA TRADERS REALES</span><span>MENOS RUIDO. MÁS RESULTADOS.</span></footer>
 </div>
 <div class="ticker">{ticker} • SCORE {sig["final_score"]:+.2f}</div>
