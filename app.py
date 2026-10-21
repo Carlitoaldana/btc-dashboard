@@ -1768,9 +1768,16 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None):
         candidate="DOWN"
         quality="TEMPRANA"
     # Near expiry, the contract target can dominate only when BTC has a meaningful ATR cushion.
-    if seconds_left is not None and seconds_left<=180 and distance is not None:
-        if target_atr>=0.35 and d5!="DOWN": candidate="UP"
-        elif target_atr<=-0.35 and d5!="UP": candidate="DOWN"
+    if seconds_left is not None and 0 < seconds_left <= 180 and distance is not None:
+        # Al acercarse el cierre, la posición frente al target pesa más que
+        # una tendencia lenta. Exigir colchón ATR; sin él, no forzar giro.
+        cushion = 0.35 if seconds_left > 60 else 0.25
+        if target_atr >= cushion:
+            candidate = "UP"
+        elif target_atr <= -cushion:
+            candidate = "DOWN"
+        else:
+            candidate = None
     if near_noise and not trend_strong: candidate=None
     if candidate:
         confirmations=(d3==candidate)+(d5==candidate)+((l3["macd_hist"]>0) if candidate=="UP" else (l3["macd_hist"]<0))+((l5["plus_di"]>l5["minus_di"]) if candidate=="UP" else (l5["minus_di"]>l5["plus_di"]))
@@ -1778,6 +1785,12 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None):
             quality="CONFIRMADA" if confirmations>=3 else "EN FORMACIÓN"
     # Compatibility score: descriptive evidence for existing UI/closing reader; no longer gates entries at +/-4.
     evidence=(1 if d3=="UP" else -1 if d3=="DOWN" else 0)+(1.5 if d5=="UP" else -1.5 if d5=="DOWN" else 0)+(0.75 if l3["macd_hist"]>0 else -0.75)+(0.75 if l5["plus_di"]>l5["minus_di"] else -0.75)+float(np.clip(target_atr,-2,2))
+    # El apoyo visual debe reflejar el riesgo de cierre, no solo EMA/MACD.
+    # Es un índice heurístico de apoyo, NO una probabilidad calibrada.
+    if seconds_left is not None and 0 < seconds_left <= 180 and distance is not None:
+        expiry_weight = 0.50 if seconds_left > 60 else 0.75
+        target_evidence = float(np.clip(target_atr, -2.0, 2.0)) * 3.0
+        evidence = (1.0-expiry_weight)*evidence + expiry_weight*target_evidence
     up_probability=float(np.clip(50+evidence*7,5,95)); down_probability=100-up_probability
     momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
     return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr}
