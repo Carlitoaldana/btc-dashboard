@@ -1367,9 +1367,11 @@ class _KalshiPublicReads:
             return payload
 
 
-@st.cache_resource
+@st.cache_resource(validate=lambda reader: callable(getattr(reader, "current_market", None)) and hasattr(reader, "current_round"))
 def _kalshi_public_reads():
-    return _KalshiPublicReads()
+    # Cambiar el cuerpo también invalida el recurso de versiones anteriores.
+    reader = _KalshiPublicReads()
+    return reader
 
 
 def _kalshi_public_json(path, params=None, ttl=2.0, timeout=6):
