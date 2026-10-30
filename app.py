@@ -4149,7 +4149,11 @@ def live_dashboard():
             st.error("Error Kalshi: " + kalshi_error)
 
 
-    render_recent_alerts(state, sig, market)
+    st.session_state['_recent_alert_context'] = {
+        'state': copy.deepcopy(state), 'signal': dict(sig),
+        'market': dict(market) if market else None,
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+    }
 
 
 import zlib
@@ -4702,18 +4706,25 @@ def _recent_alerts_html(rows, live=False, now=None):
 
 
 def render_recent_alerts(state, sig, market):
+    # Render actual HTML directly; no script message or pending browser host.
+    now = datetime.now(timezone.utc)
+    end = _recent_alert_time((market or {}).get('close_time'))
+    live = bool(market and sig and sig.get('data_valid') is not False and end and now < end)
     try:
-        now = datetime.now(timezone.utc)
-        end = _recent_alert_time((market or {}).get('close_time'))
-        live = bool(market and sig and sig.get('data_valid') is not False and end and now < end)
         content = _recent_alerts_html(_recent_alert_rows(state, sig, market, now=now), live, now)
-        payload = json.dumps(content, ensure_ascii=False).replace('<', '\\u003c')
-        st.html('<script>window.__alphaRecentAlertsHtml=' + payload + ';'
-                'if(window.__alphaUpdateRecentAlerts)window.__alphaUpdateRecentAlerts(window.__alphaRecentAlertsHtml);</script>',
-                unsafe_allow_javascript=True)
     except Exception:
-        # The visual layer never interrupts the signal engine or existing chart.
-        pass
+        content = '<section class="ra93-panel"><h2>Alertas recientes</h2><p class="ra93-note">No se pudo leer el historial de señales en esta actualización.</p></section>'
+    st.markdown('<div id="alpha-recent-alerts">' + content + '</div>', unsafe_allow_html=True)
+
+
+@st.fragment(run_every="2s")
+def recent_alerts_panel():
+    context = st.session_state.get('_recent_alert_context') or {}
+    sig = dict(context.get('signal') or {})
+    updated = _recent_alert_time(context.get('updated_at'))
+    if updated is None or not 0 <= (datetime.now(timezone.utc)-updated).total_seconds() < 15:
+        sig['data_valid'] = False
+    render_recent_alerts(context.get('state'), sig, context.get('market'))
 
 
 _RECENT_ALERTS_HOST = r'''
@@ -4741,23 +4752,6 @@ _RECENT_ALERTS_HOST = r'''
 #alpha-recent-alerts .ra93-empty{color:#8b9ca6;padding:22px 0;font-size:13px;line-height:1.6}
 @media(max-width:480px){#alpha-recent-alerts .ra93-panel{padding:17px 12px}#alpha-recent-alerts h2{font-size:23px}#alpha-recent-alerts .ra93-heading p{font-size:11px}#alpha-recent-alerts .ra93-badge{font-size:9px}#alpha-recent-alerts .ra93-card{padding:16px 12px}#alpha-recent-alerts .ra93-direction{font-size:16px}#alpha-recent-alerts .ra93-symbol{font-size:12px}#alpha-recent-alerts .ra93-status{font-size:9px;max-width:100px}#alpha-recent-alerts .ra93-grid{gap:6px}#alpha-recent-alerts .ra93-value{font-size:17px}#alpha-recent-alerts .ra93-bottom{font-size:9px}}
 </style>
-<div id="alpha-recent-alerts"><div class="ra93-empty">Cargando señales guardadas…</div></div>
-<script>
-(function(){
- const root=document.getElementById('alpha-recent-alerts');if(!root)return;
- // Permanent host, after the chart. It is not recreated by the 2-second fragment.
- const update=function(content){if(root.__content!==content){root.innerHTML=content;root.__content=content}root.__updated=Date.now()};
- window.__alphaUpdateRecentAlerts=update;
- if(window.__alphaRecentAlertsHtml)update(window.__alphaRecentAlertsHtml);
- if(window.__alphaRecentAlertsWatch)clearInterval(window.__alphaRecentAlertsWatch);
- window.__alphaRecentAlertsWatch=setInterval(function(){
-  if(!root.isConnected){clearInterval(window.__alphaRecentAlertsWatch);return}
-  if(!root.__updated||Date.now()-root.__updated<15000)return;
-  const badge=root.querySelector('.ra93-badge');if(badge){badge.textContent='● SIN DATOS ACTUALES';badge.className='ra93-badge waiting'}
-  for(const el of root.querySelectorAll('.ra93-status.live')){el.textContent='SIN DATOS ACTUALES';el.className='ra93-status waiting'}
- },1000);
-})();
-</script>
 '''
 
 
@@ -4779,7 +4773,7 @@ else:
     if initial_html:
         safe_html = json.dumps(initial_html, ensure_ascii=False).replace("<", "\\u003c")
         st.html(
-            '<div id="alpha-chart-stable-host" style="width:100%;min-height:1830px"></div>'
+            '<div id="alpha-chart-stable-host" style="width:100%;min-height:0"></div>'
             '<script>(function(){'
             'const host=document.getElementById("alpha-chart-stable-host");'
             'if(!host)return;'
@@ -4793,12 +4787,21 @@ else:
             'window.__alphaNextChart=payload;'
             'if(frame.contentWindow)frame.contentWindow.postMessage({kind:"alpha-chart-update",payload:payload},"*");'
             '};'
+            'function fitChartHeight(){try{'
+            'const panel=frame.contentDocument&&frame.contentDocument.querySelector(".panel");'
+            'if(!panel)return;const pixels=Math.max(360,Math.ceil(panel.getBoundingClientRect().bottom+8));'
+            'if(frame.style.height!==pixels+"px")frame.style.height=pixels+"px";'
+            '}catch(e){}}'
+            'window.addEventListener("resize",fitChartHeight);'
             'frame.addEventListener("load",function(){'
             'if(window.__alphaNextChart)window.__alphaPushChart(window.__alphaNextChart);'
+            'fitChartHeight();try{const panel=frame.contentDocument.querySelector(".panel");'
+            'if(panel)new ResizeObserver(fitChartHeight).observe(panel);}catch(e){}'
             '});'
             'if(window.__alphaNextChart)window.__alphaPushChart(window.__alphaNextChart);'
             '})();</script>',
             unsafe_allow_javascript=True,
         )
 
-    st.html(_RECENT_ALERTS_HOST, unsafe_allow_javascript=True)
+    st.markdown(_RECENT_ALERTS_HOST, unsafe_allow_html=True)
+    recent_alerts_panel()
