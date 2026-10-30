@@ -1474,87 +1474,97 @@ def history_stats(df):
 # COINBASE — VELAS ORIGINALES DE 1 MINUTO
 # =========================================================
 
-def _fetch_current_btc_candles():
-    """Recover incomplete Coinbase responses without inventing candle values.
+def _validate_btc_candle_frame(frame, requested_at, source):
+    """Common contract for a single BTC/USD venue; no filling/interpolation."""
+    columns = ["time", "low", "high", "open", "close", "volume"]
+    frame = frame[columns].copy()
+    frame["time"] = pd.to_numeric(frame["time"], errors="coerce")
+    frame["time"] = pd.to_datetime(frame["time"], unit="s", utc=True, errors="coerce")
+    if frame["time"].isna().any():
+        raise ValueError(source + ": fechas inválidas.")
+    start = requested_at.replace(second=0, microsecond=0) - pd.Timedelta(minutes=299)
+    frame = frame[(frame["time"] >= pd.Timestamp(start)) &
+                  (frame["time"] <= pd.Timestamp(requested_at))]
+    frame = frame.drop_duplicates("time", keep="last").sort_values("time").reset_index(drop=True)
+    if len(frame) < 30:
+        raise ValueError(source + ": menos de 30 velas actuales.")
+    for column in columns[1:]:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    values = frame[columns[1:]].to_numpy(dtype=float)
+    if not np.isfinite(values).all() or (values[:, :4] <= 0).any() or (values[:, 4] < 0).any():
+        raise ValueError(source + ": precios o volúmenes inválidos.")
+    if ((frame["high"] < frame[["open", "close", "low"]].max(axis=1)).any()
+            or (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any()):
+        raise ValueError(source + ": máximos/mínimos inconsistentes.")
+    if (frame["time"] != frame["time"].dt.floor("min")).any():
+        raise ValueError(source + ": intervalos distintos de 1 minuto.")
+    gaps = frame["time"].diff().dropna() != pd.Timedelta(minutes=1)
+    if gaps.any():
+        missing = frame.loc[gaps[gaps].index[0], "time"] - pd.Timedelta(minutes=1)
+        raise ValueError(source + ": historial incompleto cerca de " + missing.strftime("%H:%M UTC") + ".")
+    received_at = datetime.now(timezone.utc)
+    latest = frame.iloc[-1]["time"]
+    age = (received_at - latest.to_pydatetime()).total_seconds()
+    if not -5 <= age <= 120:
+        raise ValueError(source + f": última vela atrasada ({age:.0f} s).")
+    frame.attrs.update(received_at=received_at.isoformat(), latest_candle_at=latest.isoformat(),
+                       candle_age_seconds=age, candle_source=source, candle_pair="BTC/USD")
+    return frame
 
-    The first request keeps the original 299-minute window. If any validation
-    fails, retry that window in two overlapping blocks below Coinbase's
-    300-candle response limit. Only complete, current minute data may return.
+
+def _fetch_btc_candle_source(source, requested_at):
+    """Normalize real public 1m candles, retaining their original OHLCV."""
+    start = requested_at.replace(second=0, microsecond=0) - pd.Timedelta(minutes=299)
+    headers = {"User-Agent": "MacalyAlphaBot/4.6.1", "Cache-Control": "no-cache"}
+    if source == "COINBASE":
+        response = requests.get(
+            "https://api.exchange.coinbase.com/products/BTC-USD/candles",
+            params={"granularity": 60, "start": start.isoformat(), "end": requested_at.isoformat()},
+            headers=headers, timeout=8)
+        response.raise_for_status()
+        rows = response.json()
+        if (not isinstance(rows, list) or not rows or
+                any(not isinstance(row, (list, tuple)) or len(row) != 6 for row in rows)):
+            raise ValueError("COINBASE: respuesta de velas inválida.")
+        frame = pd.DataFrame(rows, columns=["time", "low", "high", "open", "close", "volume"])
+    elif source == "KRAKEN":
+        response = requests.get("https://api.kraken.com/0/public/OHLC",
+            params={"pair": "XBTUSD", "interval": 1, "since": int(start.timestamp())},
+            headers=headers, timeout=8)
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, dict) or data.get("error"):
+            raise ValueError("KRAKEN: consulta de velas no disponible.")
+        result = data.get("result")
+        # Bind the response to the requested dollar market, never another pair.
+        rows = result.get("XXBTZUSD") if isinstance(result, dict) else None
+        if rows is None and isinstance(result, dict):
+            rows = result.get("XBTUSD")
+        if (not isinstance(rows, list) or not rows or
+                any(not isinstance(row, (list, tuple)) or len(row) != 8 for row in rows)):
+            raise ValueError("KRAKEN: respuesta BTC/USD inválida.")
+        frame = pd.DataFrame(rows, columns=["time", "open", "high", "low", "close", "vwap", "volume", "count"])
+    else:
+        raise ValueError("Fuente de velas desconocida.")
+    return _validate_btc_candle_frame(frame, requested_at, source)
+
+
+def _fetch_current_btc_candles():
+    """Use one complete venue history, not bars stitched across exchanges.
+
+    Coinbase stays primary. If its response is missing minute buckets, the
+    entire analysis window comes from Kraken BTC/USD and is validated under
+    the same contract. Both failures keep the existing no-signal behavior.
     """
-    last_error = None
-    for attempt in range(2):
-        requested_at = datetime.now(timezone.utc)
-        minute_start = requested_at.replace(second=0, microsecond=0)
-        start = minute_start - pd.Timedelta(minutes=299)
-        midpoint = start + pd.Timedelta(minutes=150)
-        windows = [(start, requested_at)] if attempt == 0 else [
-            (start, midpoint), (midpoint - pd.Timedelta(minutes=1), requested_at)]
+    failures = []
+    for source in ("COINBASE", "KRAKEN"):
         try:
-            rows = []
-            for window_start, window_end in windows:
-                response = requests.get(
-                    "https://api.exchange.coinbase.com/products/BTC-USD/candles",
-                    params={"granularity": 60, "start": window_start.isoformat(),
-                            "end": window_end.isoformat()},
-                    headers={"User-Agent": "MacalyAlphaBot/4.6.1",
-                             "Cache-Control": "no-cache, no-store, max-age=0",
-                             "Pragma": "no-cache"},
-                    timeout=10,
-                )
-                response.raise_for_status()
-                page = response.json()
-                if not isinstance(page, list) or not page:
-                    raise ValueError("Coinbase no devolvió velas en el intervalo solicitado.")
-                if any(not isinstance(row, (list, tuple)) or len(row) != 6 for row in page):
-                    raise ValueError("Coinbase devolvió una estructura de velas inválida.")
-                # Coinbase may include candles before the requested start.
-                # Do not let overlapping/out-of-window history introduce gaps.
-                block = pd.DataFrame(page, columns=["time", "low", "high", "open", "close", "volume"])
-                block["time"] = pd.to_numeric(block["time"], errors="coerce")
-                block["time"] = pd.to_datetime(block["time"], unit="s", utc=True, errors="coerce")
-                if block["time"].isna().any():
-                    raise ValueError("Coinbase devolvió fechas de velas inválidas.")
-                block = block[(block["time"] >= pd.Timestamp(window_start)) &
-                              (block["time"] <= pd.Timestamp(window_end))]
-                rows.append(block)
-            frame = pd.concat(rows, ignore_index=True)
-            for column in ["low", "high", "open", "close", "volume"]:
-                frame[column] = pd.to_numeric(frame[column], errors="coerce")
-            # Later blocks own their overlap, including a newer in-progress bar.
-            frame = frame.drop_duplicates("time", keep="last").sort_values("time").reset_index(drop=True)
-            if len(frame) < 30:
-                raise ValueError("Coinbase devolvió menos de 30 velas válidas.")
-            values = frame[["low", "high", "open", "close", "volume"]].to_numpy(dtype=float)
-            if not np.isfinite(values).all() or (values[:, :4] <= 0).any() or (values[:, 4] < 0).any():
-                raise ValueError("Coinbase devolvió precios o volúmenes inválidos.")
-            if ((frame["high"] < frame[["open", "close", "low"]].max(axis=1)).any()
-                    or (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any()):
-                raise ValueError("Coinbase devolvió velas con máximos/mínimos inconsistentes.")
-            if (frame["time"] != frame["time"].dt.floor("min")).any():
-                raise ValueError("Coinbase devolvió velas fuera de los intervalos de 1 minuto.")
-            gaps = frame["time"].diff().dropna() != pd.Timedelta(minutes=1)
-            if gaps.any():
-                missing_at = frame.loc[gaps[gaps].index[0], "time"] - pd.Timedelta(minutes=1)
-                raise ValueError("Historial Coinbase incompleto; falta una vela cerca de " +
-                                 missing_at.strftime("%H:%M UTC") + ".")
-            received_at = datetime.now(timezone.utc)
-            latest_start = frame.iloc[-1]["time"]
-            age = (received_at - latest_start.to_pydatetime()).total_seconds()
-            if not -5 <= age <= 120:
-                raise ValueError("Velas Coinbase desactualizadas: última vela " +
-                                 latest_start.strftime("%H:%M:%S UTC") +
-                                 f" ({age:.0f} s). El motor necesita velas actuales.")
-            frame.attrs["received_at"] = received_at.isoformat()
-            frame.attrs["latest_candle_at"] = latest_start.isoformat()
-            frame.attrs["candle_age_seconds"] = age
-            frame.attrs["recovery_used"] = bool(attempt)
+            frame = _fetch_btc_candle_source(source, datetime.now(timezone.utc))
+            frame.attrs["candle_fallback"] = bool(failures)
             return frame
         except Exception as error:
-            # The old implementation raised on gaps/OHLC before its retry.
-            # Retry once using real Coinbase bars, retaining all validity gates.
-            last_error = error
-    raise ValueError("No se recuperaron velas Coinbase completas y actuales tras reintentar: " +
-                     str(last_error)) from last_error
+            failures.append(source + ": " + str(error))
+    raise ValueError("No hay historial BTC/USD completo y actual. " + " | ".join(failures))
 
 
 @st.cache_data(ttl=5)
@@ -2563,7 +2573,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_recovery_v1"
+BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_sources_v2"
 _BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
@@ -3489,7 +3499,7 @@ def _neon_payload(df, live_price, target, active, timeframe, sig, whale, market=
     recent_levels = rows[-21:-1]
     support = min((r["low"] for r in recent_levels), default=None)
     resistance = max((r["high"] for r in recent_levels), default=None)
-    return {"rows": rows, "timeframe": timeframe, "price": price or latest,
+    return {"rows": rows, "candle_source": df.attrs.get("candle_source", "COINBASE"), "timeframe": timeframe, "price": price or latest,
             "target": float(target) if target is not None else None,
             "signal": active if active in ("UP", "DOWN") else "ESPERANDO",
             "up": float(sig.get("up_probability", 50)),
@@ -3571,7 +3581,7 @@ let toggles=Object.assign({ema9:true,ema21:true,vwap:true,volume:true,rsi:true,}
 function persist(){try{localStorage.setItem('btc-neon-panel-v1',JSON.stringify({toggles,visible,offset,pricePan,whale:$('whale').open,momentum:$('momentum').open}))}catch(e){}}
 for(const name of ['whale','momentum']){$(name).open=!!saved[name];$(name).addEventListener('toggle',persist)}
 function refreshLabels(){
-$('subtitle').textContent=D.timeframe.toUpperCase()+' · COINBASE · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('signal').textContent=(D.signal==='UP'?'▲ ':D.signal==='DOWN'?'▼ ':'')+D.signal;$('signal').className=D.signal==='UP'?'green':D.signal==='DOWN'?'red':'cyan';$('model').textContent=fmt(D.signal==='UP'?D.up:D.signal==='DOWN'?D.down:Math.max(D.up,D.down),1)+'%';$('status').textContent=D.rows.length?'DATOS RECIBIDOS':'SIN VELAS';$('updated').textContent='Actualizado '+D.updated;$('viewtf').textContent=D.timeframe+' · VELAS REALES';
+$('subtitle').textContent=D.timeframe.toUpperCase()+' · '+(D.candle_source||'COINBASE')+' · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('signal').textContent=(D.signal==='UP'?'▲ ':D.signal==='DOWN'?'▼ ':'')+D.signal;$('signal').className=D.signal==='UP'?'green':D.signal==='DOWN'?'red':'cyan';$('model').textContent=fmt(D.signal==='UP'?D.up:D.signal==='DOWN'?D.down:Math.max(D.up,D.down),1)+'%';$('status').textContent=D.rows.length?'DATOS RECIBIDOS':'SIN VELAS';$('updated').textContent='Actualizado '+D.updated;$('viewtf').textContent=D.timeframe+' · VELAS REALES';
 const F=D.flow,total=F.buy+F.sell,known=F.ok;
 $('watch').textContent=!known?'SIN DATOS DE FLUJO':total===0?'ESPERANDO OPERACIONES':F.direction==='NEUTRAL'?'FLUJO EQUILIBRADO':'WATCH '+F.direction;
 for(const [id,value] of [['buy',F.buy],['sell',F.sell],['buytotal',F.buy],['selltotal',F.sell]])$(id).textContent=known?compact(value):'—';
@@ -4155,7 +4165,7 @@ def live_dashboard():
             "Kalshi está conectado, pero esta ronda no entregó un target numérico."
         )
     if btc_error:
-        st.error("Error Coinbase velas: " + btc_error)
+        st.error("Error de velas BTC/USD: " + btc_error)
     if live_price_error and live_btc_price is None:
         st.warning("Coinbase live: " + live_price_error)
     if kalshi_live_error and coinbase_live_price is not None:
