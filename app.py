@@ -4149,6 +4149,9 @@ def live_dashboard():
             st.error("Error Kalshi: " + kalshi_error)
 
 
+    render_recent_alerts(state, sig, market)
+
+
 import zlib
 
 SIGNAL_TRACE_DB = "btc_signal_decisions.db"
@@ -4377,6 +4380,7 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=
     if not isinstance(state.get("exit_plan"), dict) and state.get("first_direction") in ("UP", "DOWN"):
         state["exit_plan"] = make_exit_plan(state, signal, seconds_left, now)
     update_exit_plan(state, signal, seconds_left, now)
+    _capture_recent_alert(state, signal, market, now)
 
     try:
         payload = {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "engine_variant":"limited_retention_exit_plan_v1", "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}
@@ -4526,6 +4530,237 @@ _ALPHA_STABLE_PANEL = r"""
 </script>
 """
 
+# =========================================================
+# ALERTAS RECIENTES — observación de primeras confirmaciones
+# No propone, confirma, retira ni cambia una señal del motor.
+# Reutiliza los resultados oficiales del historial existente.
+# =========================================================
+RECENT_ALERTS_DB = 'btc_signal_recent_alerts.db'
+
+
+def _recent_alert_time(value):
+    try:
+        value = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        return value.astimezone(timezone.utc) if value.tzinfo else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _capture_recent_alert(state, sig, market, now):
+    """Best-effort, immutable metrics from an actual first confirmation."""
+    conn = None
+    try:
+        side = state.get('first_direction')
+        first = _recent_alert_time(state.get('first_signal_time'))
+        # Never attach today's metrics to a confirmation restored from the past.
+        if side not in ('UP', 'DOWN') or first is None or first != now:
+            return
+        ticker = state.get('ticker')
+        if not ticker or (market or {}).get('ticker') != ticker:
+            return
+        support = _plan_number((sig or {}).get('up_probability' if side == 'UP' else 'down_probability'))
+        if support is not None and not 0 <= support <= 100:
+            support = None
+        target = _plan_number(get_target_from_market(market))
+        quote = _plan_number(state.get('first_signal_price'))
+        conn = sqlite3.connect(RECENT_ALERTS_DB, timeout=0.05)
+        conn.execute('''CREATE TABLE IF NOT EXISTS recent_signal_metrics(
+            ticker TEXT PRIMARY KEY, side TEXT NOT NULL, first_at TEXT NOT NULL,
+            support REAL, target REAL, quote REAL, close_time TEXT)''')
+        conn.execute('''INSERT OR IGNORE INTO recent_signal_metrics
+            (ticker,side,first_at,support,target,quote,close_time) VALUES (?,?,?,?,?,?,?)''',
+            (ticker, side, first.isoformat(), support, target, quote, market.get('close_time')))
+        conn.commit()
+    except Exception:
+        # Optional history cannot change confirmation or fail the dashboard.
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def _recent_alert_rows(current_state=None, sig=None, market=None, limit=4, now=None):
+    """Read persisted signals and official results, with no API requests."""
+    now = now or datetime.now(timezone.utc)
+    items = {}
+    current_ticker = (market or {}).get('ticker')
+
+    def add_state(state):
+        ticker = state.get('ticker')
+        side = state.get('first_direction')
+        at = _recent_alert_time(state.get('first_signal_time'))
+        if not ticker or side not in ('UP', 'DOWN') or at is None:
+            return
+        items[ticker] = dict(ticker=ticker, side=side, first_at=at.isoformat(),
+                             support=None, edge=None, target=_plan_number(state.get('last_target')),
+                             close_time=None, outcome=None, closed=False)
+
+    conn = None
+    try:
+        conn = sqlite3.connect('file:' + ROUND_STATE_DB + '?mode=ro', uri=True, timeout=0.1)
+        for row in conn.execute('SELECT payload FROM round_state ORDER BY updated_at DESC LIMIT 100'):
+            try:
+                add_state(json.loads(row[0]))
+            except (ValueError, TypeError):
+                continue
+    except sqlite3.Error:
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
+
+    # The existing history is the authority for a round's first signal/outcome.
+    conn = None
+    try:
+        conn = sqlite3.connect('file:' + HISTORY_DB + '?mode=ro', uri=True, timeout=0.1)
+        conn.row_factory = sqlite3.Row
+        for row in conn.execute('SELECT * FROM round_history ORDER BY closed_at DESC LIMIT 100'):
+            data = dict(row)
+            side = data.get('first_signal')
+            at = _recent_alert_time(data.get('first_signal_time'))
+            if side not in ('UP', 'DOWN') or at is None:
+                continue
+            ticker = data['ticker']
+            item = items.setdefault(ticker, dict(ticker=ticker, support=None, edge=None, close_time=None))
+            item.update(side=side, first_at=at.isoformat(), target=_plan_number(data.get('target')), closed=True,
+                        outcome=data.get('official_result') if data.get('verification_status') == 'official' else None)
+    except sqlite3.Error:
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
+
+    # Include a newly confirmed first signal before its next disk refresh.
+    if current_state:
+        ticker = current_state.get('ticker')
+        if ticker not in items:
+            add_state(current_state)
+        if ticker in items and ticker == current_ticker:
+            items[ticker]['close_time'] = (market or {}).get('close_time')
+            current_target = _plan_number(get_target_from_market(market))
+            if current_target is not None:
+                items[ticker]['target'] = current_target
+
+    # Historical support is only shown when captured at that confirmation.
+    conn = None
+    try:
+        conn = sqlite3.connect('file:' + RECENT_ALERTS_DB + '?mode=ro', uri=True, timeout=0.1)
+        conn.row_factory = sqlite3.Row
+        for row in conn.execute('SELECT * FROM recent_signal_metrics ORDER BY first_at DESC LIMIT 100'):
+            data = dict(row)
+            item = items.get(data['ticker'])
+            if item and item['side'] == data['side'] and _recent_alert_time(item['first_at']) == _recent_alert_time(data['first_at']):
+                item['support'] = _plan_number(data['support'])
+                item['close_time'] = item.get('close_time') or data['close_time']
+                if item.get('target') is None:
+                    item['target'] = _plan_number(data['target'])
+    except sqlite3.Error:
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
+
+    for item in items.values():
+        end = _recent_alert_time(item.get('close_time'))
+        if item.get('outcome') in ('yes', 'no'):
+            won = (item['side'] == 'UP') == (item['outcome'] == 'yes')
+            item['status'] = 'GANADA' if won else 'PERDIDA'
+        elif item.get('closed') or (end is not None and now >= end):
+            item['status'] = 'POR RESOLVER'
+        elif item['ticker'] == current_ticker and sig and sig.get('data_valid') is not False and end and now < end:
+            item['status'] = ('EN VIVO' if (current_state or {}).get('active_direction') == item['side'] else 'RETIRADA')
+        else:
+            item['status'] = 'SIN DATOS ACTUALES'
+    return sorted(items.values(), key=lambda item: item['first_at'], reverse=True)[:limit]
+
+
+def _recent_alerts_html(rows, live=False, now=None):
+    now = now or datetime.now(timezone.utc)
+    cards = []
+    for item in rows:
+        up = item['side'] == 'UP'
+        at = _recent_alert_time(item.get('first_at'))
+        minutes = max(0, int((now-at).total_seconds() // 60)) if at else None
+        age = ('Hora no disponible' if minutes is None else 'Ahora' if minutes < 1 else
+               f'Hace {minutes} min' if minutes < 60 else f'Hace {minutes//60} h' if minutes < 1440 else f'Hace {minutes//1440} d')
+        support = _plan_number(item.get('support'))
+        support_text = f'{support:.1f}%' if support is not None and 0 <= support <= 100 else '—'
+        target = _plan_number(item.get('target'))
+        target_text = f'${target:,.2f}' if target is not None else '—'
+        status = item['status']
+        status_class = {'GANADA':'win', 'PERDIDA':'loss', 'EN VIVO':'live'}.get(status, 'waiting')
+        cards.append(f'''<article class="ra93-card">
+<div class="ra93-top"><div><span class="ra93-symbol">BTC 15M</span> <b class="ra93-direction {'up' if up else 'down'}">{'▲ UP' if up else '▼ DOWN'}</b></div><span class="ra93-status {status_class}">{html.escape(status)}</span></div>
+<div class="ra93-grid"><div><div class="ra93-label">APOYO</div><div class="ra93-value">{support_text}</div></div><div><div class="ra93-label">VENTAJA</div><div class="ra93-value">—</div></div><div><div class="ra93-label">OBJETIVO</div><div class="ra93-value">{target_text}</div></div></div>
+<div class="ra93-bottom"><span title="{html.escape(item.get('first_at') or '', quote=True)}">{age}</span><span>{html.escape(item['ticker'])}</span></div></article>''')
+    if not cards:
+        cards.append('<div class="ra93-empty">Todavía no hay señales confirmadas guardadas.</div>')
+    return f'''<section class="ra93-panel" aria-label="Alertas recientes">
+<div class="ra93-heading"><div><h2>Alertas recientes</h2><p>BTC 15M · Primera señal confirmada de cada ronda</p></div><span class="ra93-badge {'live' if live else 'waiting'}">● {'EN VIVO' if live else 'SIN DATOS ACTUALES'}</span></div>
+{''.join(cards)}
+<p class="ra93-note">Apoyo del motor al confirmar; no es probabilidad de acierto. Ventaja no calculada. Los datos anteriores sin captura muestran —. Ganada/perdida evalúa la primera señal con el resultado oficial de Kalshi, no ganancias de una operación.</p></section>'''
+
+
+def render_recent_alerts(state, sig, market):
+    try:
+        now = datetime.now(timezone.utc)
+        end = _recent_alert_time((market or {}).get('close_time'))
+        live = bool(market and sig and sig.get('data_valid') is not False and end and now < end)
+        content = _recent_alerts_html(_recent_alert_rows(state, sig, market, now=now), live, now)
+        payload = json.dumps(content, ensure_ascii=False).replace('<', '\\u003c')
+        st.html('<script>window.__alphaRecentAlertsHtml=' + payload + ';'
+                'if(window.__alphaUpdateRecentAlerts)window.__alphaUpdateRecentAlerts(window.__alphaRecentAlertsHtml);</script>',
+                unsafe_allow_javascript=True)
+    except Exception:
+        # The visual layer never interrupts the signal engine or existing chart.
+        pass
+
+
+_RECENT_ALERTS_HOST = r'''
+<style>
+#alpha-recent-alerts{margin:20px 0 24px;color:#e6edf3;font-family:Inter,system-ui,sans-serif}
+#alpha-recent-alerts .ra93-panel{padding:22px;border:1px solid #263844;border-radius:22px;background:#04121a}
+#alpha-recent-alerts .ra93-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}
+#alpha-recent-alerts h2{color:#e6edf3;font-size:25px;font-weight:750;line-height:1.25;letter-spacing:0;margin:0 0 8px;padding:0;border:0}
+#alpha-recent-alerts .ra93-heading p{color:#7f909a;font-size:14px;margin:0;line-height:1.5}
+#alpha-recent-alerts .ra93-badge{font-size:12px;white-space:nowrap;color:#81929e}
+#alpha-recent-alerts .ra93-badge.live{color:#45edbe}
+#alpha-recent-alerts .ra93-card{background:#0b141e;border:1px solid #222d38;border-radius:18px;padding:20px;margin-top:15px}
+#alpha-recent-alerts .ra93-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:22px}
+#alpha-recent-alerts .ra93-symbol{font-size:15px;color:#889ba5}
+#alpha-recent-alerts .ra93-direction{font-size:18px;font-weight:750;white-space:nowrap}
+#alpha-recent-alerts .up{color:#45edbe}#alpha-recent-alerts .down{color:#ff5c7e}
+#alpha-recent-alerts .ra93-status{font-size:11px;font-weight:800;letter-spacing:.7px;text-align:right}
+#alpha-recent-alerts .ra93-status.win{color:#45edbe}#alpha-recent-alerts .ra93-status.loss{color:#ff5c7e}#alpha-recent-alerts .ra93-status.live{color:#efc864}#alpha-recent-alerts .ra93-status.waiting{color:#81929e}
+#alpha-recent-alerts .ra93-grid{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;margin-bottom:23px}
+#alpha-recent-alerts .ra93-label{font-size:11px;color:#788c99;margin-bottom:7px}
+#alpha-recent-alerts .ra93-value{font-size:22px;line-height:1.3;color:#e5edf2;font-variant-numeric:tabular-nums}
+#alpha-recent-alerts .ra93-bottom{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;color:#70838f;font-size:11px;line-height:1.5}
+#alpha-recent-alerts .ra93-bottom span:last-child{text-align:right;overflow-wrap:anywhere;min-width:0}
+#alpha-recent-alerts .ra93-note{color:#80939f;font-size:11px;line-height:1.6;margin:18px 0 0}
+#alpha-recent-alerts .ra93-empty{color:#8b9ca6;padding:22px 0;font-size:13px;line-height:1.6}
+@media(max-width:480px){#alpha-recent-alerts .ra93-panel{padding:17px 12px}#alpha-recent-alerts h2{font-size:23px}#alpha-recent-alerts .ra93-heading p{font-size:11px}#alpha-recent-alerts .ra93-badge{font-size:9px}#alpha-recent-alerts .ra93-card{padding:16px 12px}#alpha-recent-alerts .ra93-direction{font-size:16px}#alpha-recent-alerts .ra93-symbol{font-size:12px}#alpha-recent-alerts .ra93-status{font-size:9px;max-width:100px}#alpha-recent-alerts .ra93-grid{gap:6px}#alpha-recent-alerts .ra93-value{font-size:17px}#alpha-recent-alerts .ra93-bottom{font-size:9px}}
+</style>
+<div id="alpha-recent-alerts"><div class="ra93-empty">Cargando señales guardadas…</div></div>
+<script>
+(function(){
+ const root=document.getElementById('alpha-recent-alerts');if(!root)return;
+ // Permanent host, after the chart. It is not recreated by the 2-second fragment.
+ const update=function(content){if(root.__content!==content){root.innerHTML=content;root.__content=content}root.__updated=Date.now()};
+ window.__alphaUpdateRecentAlerts=update;
+ if(window.__alphaRecentAlertsHtml)update(window.__alphaRecentAlertsHtml);
+ if(window.__alphaRecentAlertsWatch)clearInterval(window.__alphaRecentAlertsWatch);
+ window.__alphaRecentAlertsWatch=setInterval(function(){
+  if(!root.isConnected){clearInterval(window.__alphaRecentAlertsWatch);return}
+  if(!root.__updated||Date.now()-root.__updated<15000)return;
+  const badge=root.querySelector('.ra93-badge');if(badge){badge.textContent='● SIN DATOS ACTUALES';badge.className='ra93-badge waiting'}
+  for(const el of root.querySelectorAll('.ra93-status.live')){el.textContent='SIN DATOS ACTUALES';el.className='ra93-status waiting'}
+ },1000);
+})();
+</script>
+'''
+
+
 # Inicia una sola vez el registrador autónomo continuo.
 start_continuous_history_worker()
 start_history_verifier()
@@ -4565,3 +4800,5 @@ else:
             '})();</script>',
             unsafe_allow_javascript=True,
         )
+
+    st.html(_RECENT_ALERTS_HOST, unsafe_allow_javascript=True)
