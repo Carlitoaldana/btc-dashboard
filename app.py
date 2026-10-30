@@ -2543,7 +2543,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery"
+BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1"
 _BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
@@ -4551,36 +4551,30 @@ def _recent_alert_time(value):
 
 
 def _capture_recent_alert(state, sig, market, now):
-    """Best-effort, immutable metrics from an actual first confirmation."""
-    conn = None
+    """Attach display metrics to the same persisted first-confirmation state."""
     try:
         side = state.get('first_direction')
         first = _recent_alert_time(state.get('first_signal_time'))
-        # Never attach today's metrics to a confirmation restored from the past.
         if side not in ('UP', 'DOWN') or first is None or first != now:
             return
         ticker = state.get('ticker')
         if not ticker or (market or {}).get('ticker') != ticker:
             return
+        previous = state.get('recent_alert_metrics') or {}
+        if previous.get('side') == side and _recent_alert_time(previous.get('first_at')) == first:
+            return
         support = _plan_number((sig or {}).get('up_probability' if side == 'UP' else 'down_probability'))
         if support is not None and not 0 <= support <= 100:
             support = None
-        target = _plan_number(get_target_from_market(market))
-        quote = _plan_number(state.get('first_signal_price'))
-        conn = sqlite3.connect(RECENT_ALERTS_DB, timeout=0.05)
-        conn.execute('''CREATE TABLE IF NOT EXISTS recent_signal_metrics(
-            ticker TEXT PRIMARY KEY, side TEXT NOT NULL, first_at TEXT NOT NULL,
-            support REAL, target REAL, quote REAL, close_time TEXT)''')
-        conn.execute('''INSERT OR IGNORE INTO recent_signal_metrics
-            (ticker,side,first_at,support,target,quote,close_time) VALUES (?,?,?,?,?,?,?)''',
-            (ticker, side, first.isoformat(), support, target, quote, market.get('close_time')))
-        conn.commit()
+        # save_round_state(), already called by both existing signal paths,
+        # saves this metadata together with the confirmation in one transaction.
+        state['recent_alert_metrics'] = {
+            'side': side, 'first_at': first.isoformat(), 'support': support,
+            'target': _plan_number(get_target_from_market(market)),
+            'close_time': market.get('close_time'),
+        }
     except Exception:
-        # Optional history cannot change confirmation or fail the dashboard.
         pass
-    finally:
-        if conn is not None:
-            conn.close()
 
 
 def _recent_alert_rows(current_state=None, sig=None, market=None, limit=4, now=None):
@@ -4595,9 +4589,15 @@ def _recent_alert_rows(current_state=None, sig=None, market=None, limit=4, now=N
         at = _recent_alert_time(state.get('first_signal_time'))
         if not ticker or side not in ('UP', 'DOWN') or at is None:
             return
+        metrics = state.get('recent_alert_metrics') or {}
+        captured = metrics.get('side') == side and _recent_alert_time(metrics.get('first_at')) == at
+        support = _plan_number(metrics.get('support')) if captured else None
+        if support is not None and not 0 <= support <= 100:
+            support = None
+        target = _plan_number(state.get('last_target'))
         items[ticker] = dict(ticker=ticker, side=side, first_at=at.isoformat(),
-                             support=None, edge=None, target=_plan_number(state.get('last_target')),
-                             close_time=None, outcome=None, closed=False)
+                             support=support, target=target if target is not None else _plan_number(metrics.get('target')) if captured else None,
+                             close_time=metrics.get('close_time') if captured else None, outcome=None, closed=False)
 
     conn = None
     try:
@@ -4654,7 +4654,8 @@ def _recent_alert_rows(current_state=None, sig=None, market=None, limit=4, now=N
             data = dict(row)
             item = items.get(data['ticker'])
             if item and item['side'] == data['side'] and _recent_alert_time(item['first_at']) == _recent_alert_time(data['first_at']):
-                item['support'] = _plan_number(data['support'])
+                if item.get('support') is None:
+                    item['support'] = _plan_number(data['support'])
                 item['close_time'] = item.get('close_time') or data['close_time']
                 if item.get('target') is None:
                     item['target'] = _plan_number(data['target'])
@@ -4691,12 +4692,14 @@ def _recent_alerts_html(rows, live=False, now=None):
         support_text = f'{support:.1f}%' if support is not None and 0 <= support <= 100 else '—'
         target = _plan_number(item.get('target'))
         target_text = f'${target:,.2f}' if target is not None else '—'
+        local_at = at.astimezone(ZoneInfo('America/New_York')) if at else None
+        date_label = local_at.strftime('%d/%m/%Y · %I:%M %p') if local_at else 'Hora no disponible'
         status = item['status']
         status_class = {'GANADA':'ra93-is-win', 'PERDIDA':'ra93-is-loss', 'EN VIVO':'ra93-is-live'}.get(status, 'ra93-is-waiting')
         cards.append(f'''<article class="ra93-card">
 <div class="ra93-top"><div><span class="ra93-symbol">BTC 15M</span> <b class="ra93-direction {'ra93-up' if up else 'ra93-down'}">{'▲ UP' if up else '▼ DOWN'}</b></div><span class="ra93-status {status_class}">{html.escape(status)}</span></div>
-<div class="ra93-grid"><div><div class="ra93-label" title="Apoyo del motor al confirmar; no es probabilidad de acierto">APOYO</div><div class="ra93-value">{support_text}</div></div><div><div class="ra93-label" title="El motor no calcula una ventaja estimada">VENTAJA</div><div class="ra93-value">—</div></div><div><div class="ra93-label">OBJETIVO</div><div class="ra93-value">{target_text}</div></div></div>
-<div class="ra93-bottom"><span title="{html.escape(item.get('first_at') or '', quote=True)}">{age}</span><span>{html.escape(item['ticker'])}</span></div></article>''')
+<div class="ra93-grid"><div><div class="ra93-label" title="Apoyo del motor al confirmar; no es probabilidad de acierto">APOYO</div><div class="ra93-value">{support_text}</div></div><div><div class="ra93-label">OBJETIVO</div><div class="ra93-value">{target_text}</div></div></div>
+<div class="ra93-bottom"><span title="{html.escape(item.get('first_at') or '', quote=True)}">{age}</span><span title="Primera señal · {html.escape(item['ticker'], quote=True)}">{date_label}</span></div></article>''')
     if not cards:
         cards.append('<div class="ra93-empty">Todavía no hay señales confirmadas guardadas.</div>')
     return f'''<section class="ra93-panel" aria-label="Alertas recientes">
@@ -4743,7 +4746,7 @@ _RECENT_ALERTS_HOST = r'''
 #alpha-recent-alerts .ra93-up{color:#45edbe}#alpha-recent-alerts .ra93-down{color:#ff5c7e}
 #alpha-recent-alerts .ra93-status{position:static;flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:.7px;text-align:right}
 #alpha-recent-alerts .ra93-status.ra93-is-win{color:#45edbe}#alpha-recent-alerts .ra93-status.ra93-is-loss{color:#ff5c7e}#alpha-recent-alerts .ra93-status.ra93-is-live{color:#efc864}#alpha-recent-alerts .ra93-status.ra93-is-waiting{color:#81929e}
-#alpha-recent-alerts .ra93-grid{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;margin-bottom:23px}
+#alpha-recent-alerts .ra93-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:12px;margin-bottom:23px}
 #alpha-recent-alerts .ra93-label{font-size:11px;color:#788c99;margin-bottom:7px}
 #alpha-recent-alerts .ra93-value{font-size:22px;line-height:1.3;color:#e5edf2;font-variant-numeric:tabular-nums}
 #alpha-recent-alerts .ra93-bottom{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;color:#70838f;font-size:11px;line-height:1.5}
