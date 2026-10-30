@@ -16,7 +16,7 @@ try:
 except (OSError, ValueError):
     page_icon = "🔐"
 
-st.set_page_config(page_title="ALPHA PULSE BTC", page_icon=page_icon,
+st.set_page_config(page_title="JC ALPHA EDGE", page_icon=page_icon,
                    layout="centered", initial_sidebar_state="collapsed")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
@@ -24,34 +24,34 @@ TIMEOUT = 12
 
 st.markdown("""<style>
 #MainMenu,footer,header,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important}
-.stApp{background:radial-gradient(circle at 50% 0%,#123a3b 0%,#07131b 38%,#04090e 100%);color:#edf8f7}
+.stApp{background:radial-gradient(circle at 50% 0%,#182b4b 0%,#091326 38%,#050b18 100%);color:#edf8f7}
 .block-container{max-width:450px!important;padding:38px 20px 30px!important}
-.brand{text-align:center;margin:22px 0 28px}.brand-icon{width:92px;height:92px;margin:0 auto 12px;border:2px solid #00ddb8;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:950;color:#00e0bb;box-shadow:0 0 27px #00caaa33;background:#061a20}
-.brand-title{font-size:29px;line-height:1.06;font-weight:950;letter-spacing:1px}.brand-title span{color:#00dfb5}
-.brand-sub{font-size:11px;color:#92b7b5;letter-spacing:2px;margin-top:8px}
+.brand{text-align:center;margin:22px 0 28px}.brand-icon{width:92px;height:92px;margin:0 auto 12px;border:2px solid #d8ad55;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:950;color:#e4b85d;box-shadow:0 0 27px #d8ad5533;background:#101e35}
+.brand-title{font-size:29px;line-height:1.06;font-weight:950;letter-spacing:1px}.brand-title span{color:#e4b85d}
+.brand-sub{font-size:11px;color:#b8c2d6;letter-spacing:2px;margin-top:8px}
 h2{text-align:center;font-size:22px!important;color:#edf8f7!important}
 .stTextInput label,.stTextInput label p,.stTextInput [data-testid="stWidgetLabel"]{color:#edf8f7!important}
-.stTextInput input{background:#0b1e25!important;color:#fff!important;border:1px solid #206158!important;border-radius:11px!important}
+.stTextInput input{background:#111f36!important;color:#fff!important;border:1px solid #5c4c37!important;border-radius:11px!important}
 .stTextInput input::placeholder{color:#b7c9ca!important;opacity:1!important}
 .stTabs [data-baseweb="tab"],.stTabs [data-baseweb="tab"] *, .stTabs button[role="tab"],.stTabs button[role="tab"] *{color:#edf8f7!important;opacity:1!important}
-.stTabs [aria-selected="true"],.stTabs [aria-selected="true"] *{color:#00e0bb!important}
-.stTabs [data-baseweb="tab-highlight"]{background-color:#00e0bb!important}
+.stTabs [aria-selected="true"],.stTabs [aria-selected="true"] *{color:#e4b85d!important}
+.stTabs [data-baseweb="tab-highlight"]{background-color:#e4b85d!important}
 [data-testid="stRadio"] label,[data-testid="stRadio"] label *,[data-testid="stRadio"] p,[data-testid="stRadio"] span{color:#edf8f7!important;opacity:1!important}
 [data-testid="stRadio"] [role="radiogroup"]{gap:.8rem}
-.stButton>button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button{background:#00bc9c!important;color:#041914!important;border:1px solid #00dfb5!important;border-radius:12px!important;font-weight:900!important}
-.stButton>button[kind="secondary"]{background:#0b1e25!important;color:#fff!important;border:1px solid #00bc9c!important}
+.stButton>button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button{background:#cba04b!important;color:#101625!important;border:1px solid #e4b85d!important;border-radius:12px!important;font-weight:900!important}
+.stButton>button[kind="secondary"]{background:#111f36!important;color:#fff!important;border:1px solid #cba04b!important}
 .stButton>button p,.stButton>button span,[data-testid="stFormSubmitButton"] button *,[data-testid="stDownloadButton"] button *{color:inherit!important;opacity:1!important}
-.stButton>button:hover{background:#00d4b0!important;color:#041914!important}
-.stButton>button[kind="secondary"]:hover{background:#123a3b!important;color:#fff!important}
+.stButton>button:hover{background:#f1ca76!important;color:#101625!important}
+.stButton>button[kind="secondary"]:hover{background:#182b4b!important;color:#fff!important}
 .stMarkdown,.stMarkdown p,.stCaption,.stCaption *,[data-testid="stAlert"] p,[data-testid="stAlert"] div,[data-testid="stWidgetLabel"]{color:#edf8f7}
-[data-testid="stAlert"] a{color:#70b7ff!important}
+[data-testid="stAlert"] a{color:#9ec4ff!important}
 details summary,details summary p{color:#edf8f7!important}
 </style>""", unsafe_allow_html=True)
 
 
 def brand():
     st.markdown("""<div class="brand"><div class="brand-icon">₿↗</div>
-    <div class="brand-title">ALPHA PULSE <span>BTC</span></div>
+    <div class="brand-title">JC ALPHA <span>EDGE</span></div>
     <div class="brand-sub">PRIVATE BTC SIGNAL PORTAL</div></div>""", unsafe_allow_html=True)
 
 
@@ -267,7 +267,7 @@ if not current["access_active"] and not current["is_admin"]:
     if current["approved"] and current.get("expires_at"):
         st.warning("Tu acceso ha vencido. Contacta al administrador para renovarlo.")
     else:
-        st.info("Cuenta registrada. Esperando la autorización del administrador de ALPHA PULSE BTC.")
+        st.info("Cuenta registrada. Esperando la autorización del administrador de JC ALPHA EDGE.")
     if st.button("Cerrar sesión"):
         logout()
     st.stop()
