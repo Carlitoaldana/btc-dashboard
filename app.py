@@ -85,7 +85,7 @@ html, body, [class*="css"] {
 }
 
 .block-container {
-    max-width:410px !important;
+    max-width:760px !important;
     padding:8px 10px 24px !important;
 }
 
@@ -767,6 +767,10 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     letter-spacing:.1px;
 }
 
+/* Responsive tablet layout and clear dashboard spacing */
+@media(min-width:700px){.block-container{max-width:760px!important;padding:18px 26px 42px!important}}
+@media(max-width:699px){.block-container{max-width:100%!important;padding:12px 14px 32px!important}}
+.stApp{background:radial-gradient(ellipse at 50% -8%,rgba(23,80,166,.3),transparent 48%),#060d1f!important}
 </style>
 """,
     unsafe_allow_html=True,
@@ -3563,6 +3567,43 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 }
 .panel{background:#06121a!important}
 
+
+/* JC ALPHA EDGE — diseño responsive aprobado: únicamente presentación */
+body{background:#050d1f;color:#eaf2ff}
+.panel{background:radial-gradient(ellipse at 50% 0%,#14356a55,transparent 58%),#071328!important;border:1px solid #2466bf!important;border-radius:24px!important;box-shadow:0 0 24px #167cff19!important;margin:5px 2px!important}
+.header{padding:26px 24px 20px;align-items:center}
+.header h2{font-size:clamp(25px,4.4vw,34px);color:#f0f6ff}
+.price{color:#79c5ff;font-size:clamp(23px,4vw,31px);text-shadow:0 0 16px #3c92ff44}
+.live{color:#78baff}
+.cards{gap:15px;padding:0 24px 25px}
+.card{min-height:118px;padding:20px;background:linear-gradient(140deg,#0d2447,#08162f);border:1px solid #28569a;border-radius:17px}
+.card .label,.tools h3{color:#9dc4ff}
+.card strong{font-size:clamp(23px,3.7vw,30px)}
+.signal{border-color:#316ed0;background:linear-gradient(140deg,#13294f,#101a32)}
+.tools{padding:10px 24px 0}
+.tools h3{margin:20px 0 16px}
+.toggle{background:#102b53;border:1px solid #3274cc;padding:12px 16px}
+.toggle.off{opacity:.55}
+.chartnav{margin:18px 24px 8px;padding:13px 0;border-top:1px solid #244a7e;border-bottom:1px solid #244a7e}
+.chartnav button{background:#102a52;border:1px solid #3674cc;color:#e6f1ff;padding:11px 15px;min-height:42px;border-radius:10px}
+.chartnav button:active{background:#2359a1}
+.tooltip{padding:12px 24px;min-height:45px}
+.canvas{min-height:340px;background:#081a35;border-radius:12px;overflow:hidden}
+.canvas svg{min-height:340px}
+.metric,details{background:#0b1d39;border-color:#28569a}
+.floatcounts{padding:14px 24px;gap:12px}
+.floatcounts div{background:#0d2447;border-radius:13px}
+.footer{padding:18px 24px 24px}
+@media(max-width:600px){
+ .header{padding:22px 17px 20px}.cards{padding:0 17px 20px;grid-template-columns:1fr 1fr;gap:12px}
+ .card{min-height:124px;padding:15px}.card strong{font-size:22px}
+ .cards .card:last-child{grid-column:1/-1;min-height:95px}
+ .tools{padding:8px 17px 0}.chartnav{margin:14px 17px 8px;gap:7px}
+ .chartnav button{padding:10px 12px;min-height:44px}
+ .tooltip{padding:12px 17px}.canvas,.canvas svg{min-height:310px}
+ .floatcounts{padding:12px 17px}.floatcounts b{display:inline-block}
+}
+@media(min-width:601px){.canvas,.canvas svg{min-height:420px}}
 </style>
 <section class="panel">
 <header class="header"><div><h2>BTC / USD</h2><div class="sub" id="subtitle"></div></div><div><div class="price" id="price"></div><div class="live" id="live"></div></div></header>
@@ -3571,8 +3612,9 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 <details id="momentum"><summary>⚡ SHORT-TERM MOMENTUM <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>MOVIMIENTO RECIENTE DE BTC</h3><div class="metrics" id="momrows"></div><p class="note">Cambio porcentual calculado por el motor en 3, 5 y 15 minutos. La temporalidad de la gráfica no cambia estos valores.</p></div></details>
 <div class="tools"><h3>INDICADORES</h3><div class="toggles" id="toggles"></div><div class="legend" id="legend"></div></div>
 <div class="floatcounts"><div>🐋 BUY WHALES <b id="floatbuy"></b></div><div>🐋 SELL WHALES <b id="floatsell"></b></div></div>
-<div class="tooltip" id="tooltip">Arrastra con un dedo · amplía con dos · AHORA vuelve al precio actual.</div><div class="canvas" id="canvas"></div>
 <div class="chartnav"><button id="older" aria-label="Velas anteriores">←</button><button id="newer" aria-label="Velas siguientes">→</button><button id="zoomin" aria-label="Acercar">＋</button><button id="zoomout" aria-label="Alejar">−</button><button id="reset">AHORA</button><span id="viewtf"></span></div>
+<div class="tooltip" id="tooltip">Arrastra con un dedo · amplía con dos · AHORA vuelve al precio actual.</div><div class="canvas" id="canvas"></div>
+
 </section>
 <script>
 let D=__PAYLOAD__; const $=id=>document.getElementById(id), fmt=(v,n=2)=>v==null?'—':Number(v).toLocaleString('en-US',{minimumFractionDigits:n,maximumFractionDigits:n}), usd=v=>v==null?'—':'$'+fmt(v), compact=v=>v==null?'—':v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+fmt(v,0);
@@ -4607,7 +4649,7 @@ def _capture_recent_alert(state, sig, market, now):
         pass
 
 
-def _recent_alert_rows(current_state=None, sig=None, market=None, limit=4, now=None):
+def _recent_alert_rows(current_state=None, sig=None, market=None, limit=5, now=None):
     """Read persisted signals and official results, with no API requests."""
     now = now or datetime.now(timezone.utc)
     items = {}
