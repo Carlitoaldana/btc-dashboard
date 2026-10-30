@@ -3543,7 +3543,7 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 <div class="floatcounts"><div>🐋 BUY WHALES <b id="floatbuy"></b></div><div>🐋 SELL WHALES <b id="floatsell"></b></div></div>
 <div class="tooltip" id="tooltip">Arrastra con un dedo · amplía con dos · AHORA vuelve al precio actual.</div><div class="canvas" id="canvas"></div>
 <div class="chartnav"><button id="older" aria-label="Velas anteriores">←</button><button id="newer" aria-label="Velas siguientes">→</button><button id="zoomin" aria-label="Acercar">＋</button><button id="zoomout" aria-label="Alejar">−</button><button id="reset">AHORA</button><span id="viewtf"></span></div>
-<div class="footer">COINBASE · BTC/USD · Objetivo de la ronda Kalshi. Soporte/resistencia: extremos de las últimas 20 velas anteriores. VWAP: sesión UTC, con las velas disponibles. Actualización al recibir nuevos datos; intervalo solicitado 2 s.</div></section>
+</section>
 <script>
 let D=__PAYLOAD__; const $=id=>document.getElementById(id), fmt=(v,n=2)=>v==null?'—':Number(v).toLocaleString('en-US',{minimumFractionDigits:n,maximumFractionDigits:n}), usd=v=>v==null?'—':'$'+fmt(v), compact=v=>v==null?'—':v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+fmt(v,0);
 let saved={};try{saved=JSON.parse(localStorage.getItem('btc-neon-panel-v1')||'{}')}catch(e){}
@@ -4692,17 +4692,17 @@ def _recent_alerts_html(rows, live=False, now=None):
         target = _plan_number(item.get('target'))
         target_text = f'${target:,.2f}' if target is not None else '—'
         status = item['status']
-        status_class = {'GANADA':'win', 'PERDIDA':'loss', 'EN VIVO':'live'}.get(status, 'waiting')
+        status_class = {'GANADA':'ra93-is-win', 'PERDIDA':'ra93-is-loss', 'EN VIVO':'ra93-is-live'}.get(status, 'ra93-is-waiting')
         cards.append(f'''<article class="ra93-card">
-<div class="ra93-top"><div><span class="ra93-symbol">BTC 15M</span> <b class="ra93-direction {'up' if up else 'down'}">{'▲ UP' if up else '▼ DOWN'}</b></div><span class="ra93-status {status_class}">{html.escape(status)}</span></div>
-<div class="ra93-grid"><div><div class="ra93-label">APOYO</div><div class="ra93-value">{support_text}</div></div><div><div class="ra93-label">VENTAJA</div><div class="ra93-value">—</div></div><div><div class="ra93-label">OBJETIVO</div><div class="ra93-value">{target_text}</div></div></div>
+<div class="ra93-top"><div><span class="ra93-symbol">BTC 15M</span> <b class="ra93-direction {'ra93-up' if up else 'ra93-down'}">{'▲ UP' if up else '▼ DOWN'}</b></div><span class="ra93-status {status_class}">{html.escape(status)}</span></div>
+<div class="ra93-grid"><div><div class="ra93-label" title="Apoyo del motor al confirmar; no es probabilidad de acierto">APOYO</div><div class="ra93-value">{support_text}</div></div><div><div class="ra93-label" title="El motor no calcula una ventaja estimada">VENTAJA</div><div class="ra93-value">—</div></div><div><div class="ra93-label">OBJETIVO</div><div class="ra93-value">{target_text}</div></div></div>
 <div class="ra93-bottom"><span title="{html.escape(item.get('first_at') or '', quote=True)}">{age}</span><span>{html.escape(item['ticker'])}</span></div></article>''')
     if not cards:
         cards.append('<div class="ra93-empty">Todavía no hay señales confirmadas guardadas.</div>')
     return f'''<section class="ra93-panel" aria-label="Alertas recientes">
-<div class="ra93-heading"><div><h2>Alertas recientes</h2><p>BTC 15M · Primera señal confirmada de cada ronda</p></div><span class="ra93-badge {'live' if live else 'waiting'}">● {'EN VIVO' if live else 'SIN DATOS ACTUALES'}</span></div>
+<div class="ra93-heading"><div><h2>Alertas recientes</h2><p>BTC 15M · Señales del bot</p></div><span class="ra93-badge {'ra93-connected' if live else 'ra93-disconnected'}">● {'EN VIVO' if live else 'SIN DATOS ACTUALES'}</span></div>
 {''.join(cards)}
-<p class="ra93-note">Apoyo del motor al confirmar; no es probabilidad de acierto. Ventaja no calculada. Los datos anteriores sin captura muestran —. Ganada/perdida evalúa la primera señal con el resultado oficial de Kalshi, no ganancias de una operación.</p></section>'''
+</section>'''
 
 
 def render_recent_alerts(state, sig, market):
@@ -4731,18 +4731,18 @@ _RECENT_ALERTS_HOST = r'''
 <style>
 #alpha-recent-alerts{margin:20px 0 24px;color:#e6edf3;font-family:Inter,system-ui,sans-serif}
 #alpha-recent-alerts .ra93-panel{padding:22px;border:1px solid #263844;border-radius:22px;background:#04121a}
-#alpha-recent-alerts .ra93-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}
+#alpha-recent-alerts .ra93-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:24px}
 #alpha-recent-alerts h2{color:#e6edf3;font-size:25px;font-weight:750;line-height:1.25;letter-spacing:0;margin:0 0 8px;padding:0;border:0}
 #alpha-recent-alerts .ra93-heading p{color:#7f909a;font-size:14px;margin:0;line-height:1.5}
-#alpha-recent-alerts .ra93-badge{font-size:12px;white-space:nowrap;color:#81929e}
-#alpha-recent-alerts .ra93-badge.live{color:#45edbe}
+#alpha-recent-alerts .ra93-badge{position:static;flex:0 0 auto;font-size:12px;white-space:nowrap;color:#81929e}
+#alpha-recent-alerts .ra93-badge.ra93-connected{color:#45edbe}
 #alpha-recent-alerts .ra93-card{background:#0b141e;border:1px solid #222d38;border-radius:18px;padding:20px;margin-top:15px}
 #alpha-recent-alerts .ra93-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:22px}
 #alpha-recent-alerts .ra93-symbol{font-size:15px;color:#889ba5}
 #alpha-recent-alerts .ra93-direction{font-size:18px;font-weight:750;white-space:nowrap}
-#alpha-recent-alerts .up{color:#45edbe}#alpha-recent-alerts .down{color:#ff5c7e}
-#alpha-recent-alerts .ra93-status{font-size:11px;font-weight:800;letter-spacing:.7px;text-align:right}
-#alpha-recent-alerts .ra93-status.win{color:#45edbe}#alpha-recent-alerts .ra93-status.loss{color:#ff5c7e}#alpha-recent-alerts .ra93-status.live{color:#efc864}#alpha-recent-alerts .ra93-status.waiting{color:#81929e}
+#alpha-recent-alerts .ra93-up{color:#45edbe}#alpha-recent-alerts .ra93-down{color:#ff5c7e}
+#alpha-recent-alerts .ra93-status{position:static;flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:.7px;text-align:right}
+#alpha-recent-alerts .ra93-status.ra93-is-win{color:#45edbe}#alpha-recent-alerts .ra93-status.ra93-is-loss{color:#ff5c7e}#alpha-recent-alerts .ra93-status.ra93-is-live{color:#efc864}#alpha-recent-alerts .ra93-status.ra93-is-waiting{color:#81929e}
 #alpha-recent-alerts .ra93-grid{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;margin-bottom:23px}
 #alpha-recent-alerts .ra93-label{font-size:11px;color:#788c99;margin-bottom:7px}
 #alpha-recent-alerts .ra93-value{font-size:22px;line-height:1.3;color:#e5edf2;font-variant-numeric:tabular-nums}
@@ -4750,7 +4750,7 @@ _RECENT_ALERTS_HOST = r'''
 #alpha-recent-alerts .ra93-bottom span:last-child{text-align:right;overflow-wrap:anywhere;min-width:0}
 #alpha-recent-alerts .ra93-note{color:#80939f;font-size:11px;line-height:1.6;margin:18px 0 0}
 #alpha-recent-alerts .ra93-empty{color:#8b9ca6;padding:22px 0;font-size:13px;line-height:1.6}
-@media(max-width:480px){#alpha-recent-alerts .ra93-panel{padding:17px 12px}#alpha-recent-alerts h2{font-size:23px}#alpha-recent-alerts .ra93-heading p{font-size:11px}#alpha-recent-alerts .ra93-badge{font-size:9px}#alpha-recent-alerts .ra93-card{padding:16px 12px}#alpha-recent-alerts .ra93-direction{font-size:16px}#alpha-recent-alerts .ra93-symbol{font-size:12px}#alpha-recent-alerts .ra93-status{font-size:9px;max-width:100px}#alpha-recent-alerts .ra93-grid{gap:6px}#alpha-recent-alerts .ra93-value{font-size:17px}#alpha-recent-alerts .ra93-bottom{font-size:9px}}
+@media(max-width:480px){#alpha-recent-alerts .ra93-panel{padding:17px 12px}#alpha-recent-alerts h2{font-size:23px}#alpha-recent-alerts .ra93-heading p{font-size:11px}#alpha-recent-alerts .ra93-badge{font-size:9px}#alpha-recent-alerts .ra93-card{padding:13px 12px}#alpha-recent-alerts .ra93-direction{font-size:16px}#alpha-recent-alerts .ra93-symbol{font-size:12px}#alpha-recent-alerts .ra93-status{font-size:9px;max-width:100px;line-height:1.3}#alpha-recent-alerts .ra93-grid{gap:6px}#alpha-recent-alerts .ra93-value{font-size:16px}#alpha-recent-alerts .ra93-bottom{font-size:9px}#alpha-recent-alerts .ra93-top{margin-bottom:14px}#alpha-recent-alerts .ra93-grid{margin-bottom:15px}#alpha-recent-alerts .ra93-heading{margin-bottom:18px}}
 </style>
 '''
 
