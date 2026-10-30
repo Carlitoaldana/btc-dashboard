@@ -48,6 +48,36 @@ div[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"]{
  border-bottom-color:#efbd55!important;
 }
 
+/* Texto de las pestañas: visible incluso en versiones nuevas de Streamlit */
+.stTabs [data-baseweb="tab-list"] button,
+.stTabs [data-baseweb="tab-list"] button *,
+.stTabs [data-baseweb="tab-list"] [role="tab"],
+.stTabs [data-baseweb="tab-list"] [role="tab"] *{
+ color:#f5f5fa!important;-webkit-text-fill-color:#f5f5fa!important;
+ opacity:1!important;visibility:visible!important;text-shadow:none!important;
+}
+.stTabs [data-baseweb="tab-list"] [aria-selected="true"],
+.stTabs [data-baseweb="tab-list"] [aria-selected="true"] *{
+ color:#f4c766!important;-webkit-text-fill-color:#f4c766!important;
+}
+/* Único ajuste: letras de las pestañas; conservar la raya roja */
+.stTabs [data-baseweb="tab-list"] [role="tab"],
+.stTabs [data-baseweb="tab-list"] [role="tab"] *,
+.stTabs [data-baseweb="tab-list"] button,
+.stTabs [data-baseweb="tab-list"] button *{
+ color:#e4b653!important;-webkit-text-fill-color:#e4b653!important;
+ opacity:1!important;visibility:visible!important;
+}
+.stTabs [data-baseweb="tab-list"] [aria-selected="true"],
+.stTabs [data-baseweb="tab-list"] [aria-selected="true"] *{
+ color:#ffe09a!important;-webkit-text-fill-color:#ffe09a!important;
+}
+.stTabs [data-baseweb="tab-highlight"],
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"]::after{
+ background:#ed4961!important;background-color:#ed4961!important;
+ border-color:#ed4961!important;
+}
 [data-testid="stForm"]{background:linear-gradient(145deg,#09172e,#061020)!important;border:1px solid #b88b37!important;border-radius:20px!important;padding:23px 19px 25px!important;box-shadow:0 0 10px #cba04465, inset 0 0 18px #b58c1717!important}
 .stTextInput label,.stTextInput label p,[data-testid="stWidgetLabel"]{color:#f1f1f6!important;font-size:15px!important}
 .stTextInput input{background:#0a172c!important;color:white!important;border:1px solid #897b6a!important;border-radius:11px!important;min-height:53px!important}
