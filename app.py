@@ -85,7 +85,7 @@ html, body, [class*="css"] {
 }
 
 .block-container {
-    max-width:760px !important;
+    max-width:410px !important;
     padding:8px 10px 24px !important;
 }
 
@@ -767,10 +767,6 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     letter-spacing:.1px;
 }
 
-/* Responsive tablet layout and clear dashboard spacing */
-@media(min-width:700px){.block-container{max-width:760px!important;padding:18px 26px 42px!important}}
-@media(max-width:699px){.block-container{max-width:100%!important;padding:12px 14px 32px!important}}
-.stApp{background:radial-gradient(ellipse at 50% -8%,rgba(23,80,166,.3),transparent 48%),#060d1f!important}
 </style>
 """,
     unsafe_allow_html=True,
@@ -3568,53 +3564,40 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 .panel{background:#06121a!important}
 
 
-/* JC ALPHA EDGE — diseño responsive aprobado: únicamente presentación */
-body{background:#050d1f;color:#eaf2ff}
-.panel{background:radial-gradient(ellipse at 50% 0%,#14356a55,transparent 58%),#071328!important;border:1px solid #2466bf!important;border-radius:24px!important;box-shadow:0 0 24px #167cff19!important;margin:5px 2px!important}
-.header{padding:26px 24px 20px;align-items:center}
-.header h2{font-size:clamp(25px,4.4vw,34px);color:#f0f6ff}
-.price{color:#79c5ff;font-size:clamp(23px,4vw,31px);text-shadow:0 0 16px #3c92ff44}
-.live{color:#78baff}
-.cards{gap:15px;padding:0 24px 25px}
-.card{min-height:118px;padding:20px;background:linear-gradient(140deg,#0d2447,#08162f);border:1px solid #28569a;border-radius:17px}
-.card .label,.tools h3{color:#9dc4ff}
-.card strong{font-size:clamp(23px,3.7vw,30px)}
-.signal{border-color:#316ed0;background:linear-gradient(140deg,#13294f,#101a32)}
-.tools{padding:10px 24px 0}
-.tools h3{margin:20px 0 16px}
-.toggle{background:#102b53;border:1px solid #3274cc;padding:12px 16px}
-.toggle.off{opacity:.55}
-.chartnav{margin:18px 24px 8px;padding:13px 0;border-top:1px solid #244a7e;border-bottom:1px solid #244a7e}
-.chartnav button{background:#102a52;border:1px solid #3674cc;color:#e6f1ff;padding:11px 15px;min-height:42px;border-radius:10px}
-.chartnav button:active{background:#2359a1}
-.tooltip{padding:12px 24px;min-height:45px}
-.canvas{min-height:340px;background:#081a35;border-radius:12px;overflow:hidden}
-.canvas svg{min-height:340px}
-.metric,details{background:#0b1d39;border-color:#28569a}
-.floatcounts{padding:14px 24px;gap:12px}
-.floatcounts div{background:#0d2447;border-radius:13px}
-.footer{padding:18px 24px 24px}
-@media(max-width:600px){
- .header{padding:22px 17px 20px}.cards{padding:0 17px 20px;grid-template-columns:1fr 1fr;gap:12px}
- .card{min-height:124px;padding:15px}.card strong{font-size:22px}
- .cards .card:last-child{grid-column:1/-1;min-height:95px}
- .tools{padding:8px 17px 0}.chartnav{margin:14px 17px 8px;gap:7px}
- .chartnav button{padding:10px 12px;min-height:44px}
- .tooltip{padding:12px 17px}.canvas,.canvas svg{min-height:310px}
- .floatcounts{padding:12px 17px}.floatcounts b{display:inline-block}
-}
-@media(min-width:601px){.canvas,.canvas svg{min-height:420px}}
+/* JC ALPHA EDGE: nueva estructura visual; motor y eventos intactos */
+:root{--edge:#138cff;--edge-bright:#32b8ff;--edge-bg:#04112b}
+body{background:linear-gradient(135deg,#02091c,#061838 58%,#02091c)!important;color:#eaf4ff}
+.panel{border:1.5px solid #168bff!important;border-radius:20px!important;background:linear-gradient(155deg,#071b3a,#030d22)!important;box-shadow:0 0 22px #007bff32,inset 0 0 25px #137fff12!important;margin:8px 2px!important;padding-bottom:18px}
+.header{padding:25px 22px 20px}.header h2{font-size:clamp(24px,4vw,35px);font-weight:900}.price{color:#4ebaff!important;text-shadow:0 0 17px #238aff66}
+.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:0 20px 20px}
+.card{border:1px solid #1479d9!important;background:linear-gradient(135deg,#0a2147,#07152e)!important;border-radius:15px;min-height:125px;padding:18px!important;box-shadow:0 0 12px #147dff28!important}
+.card.signal{border-color:#168bff!important}.card strong{font-size:clamp(23px,3vw,35px)}.card .label{color:#8cc8ff}
+.card:nth-child(3){grid-column:1/-1;min-height:90px}
+details{margin:0 20px 13px!important;border:1px solid #137be0!important;background:#071a38!important;border-radius:14px!important;box-shadow:0 0 11px #117aff23}
+summary{padding:18px!important}summary:after{color:#39b6ff!important}
+.charttitle{margin:24px 20px 0;color:#b7deff;font-weight:850;letter-spacing:1px;font-size:15px}
+.chartnav{margin:10px 20px 0;padding:12px 0!important;border-top:1px solid #1c6bba!important;gap:9px}
+.chartnav button{background:#09254c!important;border:1px solid #1989ed!important;color:#e3f5ff!important;padding:11px 13px!important;border-radius:10px!important;min-height:43px;box-shadow:0 0 8px #147fff26}
+.chartnav span{color:#9bcfff!important}
+.canvas{margin:8px 12px 0;width:calc(100% - 24px);border:1px solid #156bcb;border-radius:12px;overflow:hidden;background:#06152f;min-height:360px;touch-action:none}
+.canvas svg{min-height:360px}
+.tooltip{padding:15px 21px;color:#aacde9!important}
+.tools{padding:12px 20px 5px!important}.tools h3{color:#8cc8ff!important;font-size:13px}
+.toggle{background:#081c3c!important;border:1px solid #187bd3!important;color:#f1f7ff!important;padding:12px 15px!important}
+.floatcounts{padding:8px 20px 16px}.floatcounts div{border-color:#157edb!important;background:#091c3b;padding:14px!important}
+@media(max-width:560px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))!important;padding:0 13px 16px;gap:9px}.card{min-height:135px!important;padding:12px!important}.card .label{font-size:10px}.card strong{font-size:21px}.card:nth-child(3){min-height:85px!important}.header{padding:20px 15px}.chartnav{margin:9px 12px 0;gap:6px}.chartnav button{padding:9px!important;min-height:40px}.chartnav span{width:100%;margin-left:0}.charttitle{margin:20px 12px 0}.canvas{margin:8px 5px;width:calc(100% - 10px)}.canvas svg{min-height:330px}details{margin:0 12px 12px!important}.tools{padding:12px!important}.floatcounts{padding:8px 12px 15px}}
 </style>
 <section class="panel">
 <header class="header"><div><h2>BTC / USD</h2><div class="sub" id="subtitle"></div></div><div><div class="price" id="price"></div><div class="live" id="live"></div></div></header>
 <div class="cards"><div class="card signal"><div class="label">SEÑAL OFICIAL DEL BOT</div><strong id="signal"></strong><small>Motor BTC Signal v4.6.1</small></div><div class="card"><div class="label">APOYO DEL MODELO</div><strong class="cyan" id="model"></strong><small>Apoyo calculado · no probabilidad de acierto</small></div><div class="card"><div class="label">ESTADO DE LA GRÁFICA</div><strong class="status" id="status"></strong><small id="updated"></small></div></div>
 <details id="whale"><summary>🐋 WHALE FLOW <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>🐋 WHALE FLOW — LIVE</h3><div class="note">Operaciones observadas de Coinbase · últimos 30 s</div><div class="watch" id="watch"></div><div class="metrics"><div class="metric"><small>BUY FLOW</small><b class="green" id="buy"></b></div><div class="metric"><small>SELL FLOW</small><b class="red" id="sell"></b></div><div class="metric"><small>DIFERENCIA</small><b id="diff"></b></div><div class="metric"><small>ACTIVIDAD</small><b id="activity"></b></div><div class="metric"><small>FUERZA DEL DESEQUILIBRIO</small><b id="strength"></b></div></div><div class="bars"><div class="bar">BUY<div class="track"><i id="buybar" style="background:#00dfb5"></i></div><b id="buytotal"></b></div><div class="bar">SELL<div class="track"><i id="sellbar" style="background:#e64b4b"></i></div><b id="selltotal"></b></div></div><div class="count"><div class="metric"><small>🐋 BUY WHALES</small><b class="green" id="buys"></b></div><div class="metric"><small>🐋 SELL WHALES</small><b class="red" id="sells"></b></div></div><div class="metric difference"><small>DIFERENCIA DE OPERACIONES</small><b id="countdiff"></b></div><p class="note">«Whales»: operaciones individuales de al menos $10,000, no personas identificadas. Muestra recibida por la API; puede omitir operaciones entre consultas. Actividad: ritmo de los últimos 10 s frente a los 20 s anteriores. En el laboratorio, el flujo puede apoyar una candidatura solo con confirmación técnica; no decide por sí solo.</p></div></details>
 <details id="momentum"><summary>⚡ SHORT-TERM MOMENTUM <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>MOVIMIENTO RECIENTE DE BTC</h3><div class="metrics" id="momrows"></div><p class="note">Cambio porcentual calculado por el motor en 3, 5 y 15 minutos. La temporalidad de la gráfica no cambia estos valores.</p></div></details>
+<div class="charttitle">📈 BTC / USD · GRÁFICA INTERACTIVA</div>
+<div class="chartnav"><button id="older" aria-label="Velas anteriores">←</button><button id="newer" aria-label="Velas siguientes">→</button><button id="zoomin" aria-label="Acercar">＋</button><button id="zoomout" aria-label="Alejar">−</button><button id="reset">AHORA</button><span id="viewtf"></span></div>
+<div class="canvas" id="canvas"></div>
+<div class="tooltip" id="tooltip">Arrastra con un dedo · amplía con dos · AHORA vuelve al precio actual.</div>
 <div class="tools"><h3>INDICADORES</h3><div class="toggles" id="toggles"></div><div class="legend" id="legend"></div></div>
 <div class="floatcounts"><div>🐋 BUY WHALES <b id="floatbuy"></b></div><div>🐋 SELL WHALES <b id="floatsell"></b></div></div>
-<div class="chartnav"><button id="older" aria-label="Velas anteriores">←</button><button id="newer" aria-label="Velas siguientes">→</button><button id="zoomin" aria-label="Acercar">＋</button><button id="zoomout" aria-label="Alejar">−</button><button id="reset">AHORA</button><span id="viewtf"></span></div>
-<div class="tooltip" id="tooltip">Arrastra con un dedo · amplía con dos · AHORA vuelve al precio actual.</div><div class="canvas" id="canvas"></div>
-
 </section>
 <script>
 let D=__PAYLOAD__; const $=id=>document.getElementById(id), fmt=(v,n=2)=>v==null?'—':Number(v).toLocaleString('en-US',{minimumFractionDigits:n,maximumFractionDigits:n}), usd=v=>v==null?'—':'$'+fmt(v), compact=v=>v==null?'—':v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+fmt(v,0);
@@ -4768,10 +4751,11 @@ def _recent_alerts_html(rows, live=False, now=None):
         date_label = local_at.strftime('%d/%m/%Y · %I:%M %p') if local_at else 'Hora no disponible'
         status = item['status']
         status_class = {'GANADA':'ra93-is-win', 'PERDIDA':'ra93-is-loss', 'EN VIVO':'ra93-is-live'}.get(status, 'ra93-is-waiting')
-        cards.append(f'''<article class="ra93-card">
-<div class="ra93-top"><div><span class="ra93-symbol">BTC 15M</span> <b class="ra93-direction {'ra93-up' if up else 'ra93-down'}">{'▲ UP' if up else '▼ DOWN'}</b></div><span class="ra93-status {status_class}">{html.escape(status)}</span></div>
-<div class="ra93-grid"><div><div class="ra93-label" title="Apoyo del motor al confirmar; no es probabilidad de acierto">APOYO</div><div class="ra93-value">{support_text}</div></div><div><div class="ra93-label">OBJETIVO</div><div class="ra93-value">{target_text}</div></div></div>
-<div class="ra93-bottom"><span title="{html.escape(item.get('first_at') or '', quote=True)}">{age}</span><span title="Primera señal · {html.escape(item['ticker'], quote=True)}">{date_label}</span></div></article>''')
+        cards.append(f'''<article class="ra93-card ra93-compact">
+<div class="ra93-mini-direction {'ra93-up' if up else 'ra93-down'}">{'▲ UP' if up else '▼ DOWN'}</div>
+<div class="ra93-mini-data"><span>BTC 15M · {date_label}</span><b>OBJETIVO {target_text}</b></div>
+<span class="ra93-status {status_class}">{html.escape(status)}</span>
+</article>''')
     if not cards:
         cards.append('<div class="ra93-empty">Todavía no hay señales confirmadas guardadas.</div>')
     return f'''<section class="ra93-panel" aria-label="Alertas recientes">
@@ -4826,6 +4810,15 @@ _RECENT_ALERTS_HOST = r'''
 #alpha-recent-alerts .ra93-note{color:#80939f;font-size:11px;line-height:1.6;margin:18px 0 0}
 #alpha-recent-alerts .ra93-empty{color:#8b9ca6;padding:22px 0;font-size:13px;line-height:1.6}
 @media(max-width:480px){#alpha-recent-alerts .ra93-panel{padding:17px 12px}#alpha-recent-alerts h2{font-size:23px}#alpha-recent-alerts .ra93-heading p{font-size:11px}#alpha-recent-alerts .ra93-badge{font-size:9px}#alpha-recent-alerts .ra93-card{padding:13px 12px}#alpha-recent-alerts .ra93-direction{font-size:16px}#alpha-recent-alerts .ra93-symbol{font-size:12px}#alpha-recent-alerts .ra93-status{font-size:9px;max-width:100px;line-height:1.3}#alpha-recent-alerts .ra93-grid{gap:6px}#alpha-recent-alerts .ra93-value{font-size:16px}#alpha-recent-alerts .ra93-bottom{font-size:9px}#alpha-recent-alerts .ra93-top{margin-bottom:14px}#alpha-recent-alerts .ra93-grid{margin-bottom:15px}#alpha-recent-alerts .ra93-heading{margin-bottom:18px}}
+
+#alpha-recent-alerts .ra93-panel{border:1px solid #168bff!important;background:linear-gradient(150deg,#081a39,#030d22)!important;box-shadow:0 0 18px #087cff24!important}
+#alpha-recent-alerts .ra93-heading h2{color:#cbe9ff}
+#alpha-recent-alerts .ra93-compact{display:grid!important;grid-template-columns:90px minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 15px!important;margin:7px 0!important;min-height:65px;background:#081b39!important;border:1px solid #154f8c!important;border-radius:11px!important}
+#alpha-recent-alerts .ra93-mini-direction{font-size:15px;font-weight:900;white-space:nowrap}
+#alpha-recent-alerts .ra93-mini-data{display:flex;flex-direction:column;gap:5px;min-width:0;color:#9ebbd6;font-size:11px}
+#alpha-recent-alerts .ra93-mini-data b{font-size:13px;color:#f1f7ff}
+#alpha-recent-alerts .ra93-status{white-space:nowrap}
+@media(max-width:480px){#alpha-recent-alerts .ra93-compact{grid-template-columns:65px minmax(0,1fr) auto;gap:6px;padding:11px 8px!important}#alpha-recent-alerts .ra93-mini-direction{font-size:12px}#alpha-recent-alerts .ra93-mini-data{font-size:9px}#alpha-recent-alerts .ra93-mini-data b{font-size:11px}#alpha-recent-alerts .ra93-status{font-size:9px!important}}
 </style>
 '''
 
@@ -4840,6 +4833,11 @@ if page == "signal_trace":
 elif page == "settings":
     render_history_page()
 else:
+    st.markdown("""<style>
+    .stApp,[data-testid="stAppViewContainer"]{background:linear-gradient(150deg,#02091a,#061731 45%,#020a1c)!important}
+    .block-container{max-width:980px!important;padding:12px 15px 40px!important}
+    @media(max-width:600px){.block-container{max-width:100%!important;padding:8px 10px 25px!important}}
+    </style>""",unsafe_allow_html=True)
     st.html(_ALPHA_STABLE_PANEL, unsafe_allow_javascript=True)
     live_dashboard()
     # Persistent chart host: not within the periodic Streamlit fragment.
