@@ -284,6 +284,34 @@ except Exception:
 if current is None:
     brand()
     login_tab, register_tab = st.tabs(["Iniciar sesión", "Crear cuenta"])
+    # Safari/iPhone: etiqueta los campos existentes para el gestor de contraseñas.
+    # No modifica la autenticación ni almacena credenciales.
+    import inspect
+    _autofill_html = """
+    <script>
+    (() => {
+      const tagFields = () => {
+        const inputs = [...document.querySelectorAll('input')];
+        const email = inputs.find(el => el.getAttribute('aria-label') === 'Correo electrónico');
+        const pass = inputs.find(el => el.getAttribute('aria-label') === 'Contraseña' && el.type === 'password');
+        if (email) {
+          email.setAttribute('autocomplete', 'username');
+          email.setAttribute('name', 'username');
+          email.setAttribute('autocapitalize', 'none');
+        }
+        if (pass) {
+          pass.setAttribute('autocomplete', 'current-password');
+          pass.setAttribute('name', 'password');
+        }
+      };
+      tagFields();
+      new MutationObserver(tagFields).observe(document.body, {childList:true, subtree:true});
+    })();
+    </script>
+    """
+    # Solo usar si la versión instalada permite ejecutar JavaScript en st.html.
+    if hasattr(st, "html") and "unsafe_allow_javascript" in inspect.signature(st.html).parameters:
+        st.html(_autofill_html, unsafe_allow_javascript=True)
     with login_tab:
         with st.form("alpha_login"):
             email = st.text_input("Correo electrónico", key="login_email")
