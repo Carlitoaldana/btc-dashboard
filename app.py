@@ -767,6 +767,11 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
     letter-spacing:.1px;
 }
 
+
+/* Solo logo: esquina superior izquierda; sin modificar el motor */
+.refapp .jc-mini-logo{position:absolute;left:8px;top:5px;display:flex;align-items:center;gap:4px;z-index:5;pointer-events:none;line-height:1;max-width:100px}
+.refapp .jc-mini-mark{display:flex;align-items:center;justify-content:center;width:25px;height:25px;flex:0 0 25px;border:1px solid #bfa25b;border-radius:50%;color:#f6dc91;background:radial-gradient(circle at 30% 20%,#3c331c,#090f19 70%);font-size:10px;font-weight:900;letter-spacing:-.5px;box-shadow:0 0 6px #bfa25b44}
+.refapp .jc-mini-word{font-size:7px;font-weight:900;letter-spacing:.4px;color:#e8cf88;text-align:left;line-height:1.2;white-space:nowrap}
 </style>
 """,
     unsafe_allow_html=True,
@@ -4056,6 +4061,7 @@ def live_dashboard():
 <div class="refapp dir-{active.lower() if active in ("UP","DOWN") else "wait"}" style="--accent:{accent};--glow:{glow};--soft:{soft};">
   <header class="rhead">
     <div class="rtitle">BTC Signal</div>
+    <div class="jc-mini-logo" aria-label="JC ALPHA EDGE"><span class="jc-mini-mark">JC</span><span class="jc-mini-word">ALPHA<br>EDGE</span></div>
     <div class="rver">v4.6.1</div>
     <a class="gear" href="?page=settings" target="_self" aria-label="Ajustes">⚙</a>
     <div class="rlive"><i></i>{'Mercado en vivo' if market_live else 'Conexión parcial'}</div>
