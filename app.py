@@ -790,26 +790,30 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 }
 
 
-/* JC ALPHA EDGE — bordes champagne discretos; solo presentación. */
-:root{--jc-champagne:#c9b38a;--jc-champagne-soft:rgba(201,179,138,.55)}
+/* JC ALPHA EDGE — champagne claro de referencia; solo CSS */
+:root{--jc-gold:#e1c99c;--jc-gold-soft:rgba(225,201,156,.92)}
 .refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp .chartbox,
 .refapp>section[style],.refapp .tech,.refapp .rconf,
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div,
 .panel .chartnav button,.panel .toggle,
 #alpha-recent-alerts .ra93-panel,#alpha-recent-alerts .ra93-card{
- border-color:var(--jc-champagne-soft)!important;
- box-shadow:0 0 3px rgba(201,179,138,.10)!important;
+ border-color:var(--jc-gold-soft)!important;
+ box-shadow:0 0 2px rgba(225,201,156,.13)!important;
 }
 .refapp .techrow,.refapp .techrow>div,.refapp .rnav,
 .refapp .motionrow>div,.panel .chartnav{
- border-color:rgba(201,179,138,.25)!important;
+ border-color:rgba(225,201,156,.30)!important;
 }
-.refapp .prebadge,.refapp .readerhead em,
-.stRadio label,[data-testid="stButton"] button{
- border-color:var(--jc-champagne-soft)!important;
+.refapp .prebadge,.refapp .readerhead em{
+ border-color:var(--jc-gold-soft)!important;
 }
-/* No alterar los colores informativos de UP, DOWN ni las barras. */
+.refapp .rtitle{color:#f1d6a5!important;text-shadow:none!important}
+.refapp .gear{color:#f1d6a5!important;text-shadow:none!important}
+.refapp .rconf{border-color:var(--jc-gold-soft)!important}
+.refapp .rlive{color:#e7d5b8!important;border:1px solid var(--jc-gold-soft)!important;border-radius:18px!important;padding:3px 7px!important;bottom:-2px!important}
+.refapp .rlive i{background:var(--accent)!important;box-shadow:0 0 9px var(--glow)!important}
+/* Colores de señales, alertas, barras y números intactos. */
 </style>
 """,
     unsafe_allow_html=True,
@@ -3607,26 +3611,30 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 .panel{background:#06121a!important}
 
 
-/* JC ALPHA EDGE — bordes champagne discretos; solo presentación. */
-:root{--jc-champagne:#c9b38a;--jc-champagne-soft:rgba(201,179,138,.55)}
+/* JC ALPHA EDGE — champagne claro de referencia; solo CSS */
+:root{--jc-gold:#e1c99c;--jc-gold-soft:rgba(225,201,156,.92)}
 .refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp .chartbox,
 .refapp>section[style],.refapp .tech,.refapp .rconf,
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div,
 .panel .chartnav button,.panel .toggle,
 #alpha-recent-alerts .ra93-panel,#alpha-recent-alerts .ra93-card{
- border-color:var(--jc-champagne-soft)!important;
- box-shadow:0 0 3px rgba(201,179,138,.10)!important;
+ border-color:var(--jc-gold-soft)!important;
+ box-shadow:0 0 2px rgba(225,201,156,.13)!important;
 }
 .refapp .techrow,.refapp .techrow>div,.refapp .rnav,
 .refapp .motionrow>div,.panel .chartnav{
- border-color:rgba(201,179,138,.25)!important;
+ border-color:rgba(225,201,156,.30)!important;
 }
-.refapp .prebadge,.refapp .readerhead em,
-.stRadio label,[data-testid="stButton"] button{
- border-color:var(--jc-champagne-soft)!important;
+.refapp .prebadge,.refapp .readerhead em{
+ border-color:var(--jc-gold-soft)!important;
 }
-/* No alterar los colores informativos de UP, DOWN ni las barras. */
+.refapp .rtitle{color:#f1d6a5!important;text-shadow:none!important}
+.refapp .gear{color:#f1d6a5!important;text-shadow:none!important}
+.refapp .rconf{border-color:var(--jc-gold-soft)!important}
+.refapp .rlive{color:#e7d5b8!important;border:1px solid var(--jc-gold-soft)!important;border-radius:18px!important;padding:3px 7px!important;bottom:-2px!important}
+.refapp .rlive i{background:var(--accent)!important;box-shadow:0 0 9px var(--glow)!important}
+/* Colores de señales, alertas, barras y números intactos. */
 </style>
 <section class="panel">
 <header class="header"><div><h2>BTC / USD</h2><div class="sub" id="subtitle"></div></div><div><div class="price" id="price"></div><div class="live" id="live"></div></div></header>
@@ -4850,26 +4858,30 @@ _RECENT_ALERTS_HOST = r'''
 #alpha-recent-alerts .ra93-empty{color:#8b9ca6;padding:22px 0;font-size:13px;line-height:1.6}
 @media(max-width:480px){#alpha-recent-alerts .ra93-panel{padding:17px 12px}#alpha-recent-alerts h2{font-size:23px}#alpha-recent-alerts .ra93-heading p{font-size:11px}#alpha-recent-alerts .ra93-badge{font-size:9px}#alpha-recent-alerts .ra93-card{padding:13px 12px}#alpha-recent-alerts .ra93-direction{font-size:16px}#alpha-recent-alerts .ra93-symbol{font-size:12px}#alpha-recent-alerts .ra93-status{font-size:9px;max-width:100px;line-height:1.3}#alpha-recent-alerts .ra93-grid{gap:6px}#alpha-recent-alerts .ra93-value{font-size:16px}#alpha-recent-alerts .ra93-bottom{font-size:9px}#alpha-recent-alerts .ra93-top{margin-bottom:14px}#alpha-recent-alerts .ra93-grid{margin-bottom:15px}#alpha-recent-alerts .ra93-heading{margin-bottom:18px}}
 
-/* JC ALPHA EDGE — bordes champagne discretos; solo presentación. */
-:root{--jc-champagne:#c9b38a;--jc-champagne-soft:rgba(201,179,138,.55)}
+/* JC ALPHA EDGE — champagne claro de referencia; solo CSS */
+:root{--jc-gold:#e1c99c;--jc-gold-soft:rgba(225,201,156,.92)}
 .refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp .chartbox,
 .refapp>section[style],.refapp .tech,.refapp .rconf,
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div,
 .panel .chartnav button,.panel .toggle,
 #alpha-recent-alerts .ra93-panel,#alpha-recent-alerts .ra93-card{
- border-color:var(--jc-champagne-soft)!important;
- box-shadow:0 0 3px rgba(201,179,138,.10)!important;
+ border-color:var(--jc-gold-soft)!important;
+ box-shadow:0 0 2px rgba(225,201,156,.13)!important;
 }
 .refapp .techrow,.refapp .techrow>div,.refapp .rnav,
 .refapp .motionrow>div,.panel .chartnav{
- border-color:rgba(201,179,138,.25)!important;
+ border-color:rgba(225,201,156,.30)!important;
 }
-.refapp .prebadge,.refapp .readerhead em,
-.stRadio label,[data-testid="stButton"] button{
- border-color:var(--jc-champagne-soft)!important;
+.refapp .prebadge,.refapp .readerhead em{
+ border-color:var(--jc-gold-soft)!important;
 }
-/* No alterar los colores informativos de UP, DOWN ni las barras. */
+.refapp .rtitle{color:#f1d6a5!important;text-shadow:none!important}
+.refapp .gear{color:#f1d6a5!important;text-shadow:none!important}
+.refapp .rconf{border-color:var(--jc-gold-soft)!important}
+.refapp .rlive{color:#e7d5b8!important;border:1px solid var(--jc-gold-soft)!important;border-radius:18px!important;padding:3px 7px!important;bottom:-2px!important}
+.refapp .rlive i{background:var(--accent)!important;box-shadow:0 0 9px var(--glow)!important}
+/* Colores de señales, alertas, barras y números intactos. */
 </style>
 '''
 
