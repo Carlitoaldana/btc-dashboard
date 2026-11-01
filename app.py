@@ -3862,6 +3862,12 @@ def live_dashboard():
             kalshi_live_ok = True
         except Exception as error:
             kalshi_live_error = str(error)
+            # Registrar la causa real sin alterar el fallback ni las señales.
+            import logging
+            logging.getLogger("kalshi_btc_live").warning(
+                "Kalshi BTC live: %s: %s; event=%s",
+                type(error).__name__, error, get_event_ticker_from_market(market),
+            )
 
     if kalshi_live_price is not None:
         live_btc_price = kalshi_live_price
