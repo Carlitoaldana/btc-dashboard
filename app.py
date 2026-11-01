@@ -1,6 +1,7 @@
 # Panel informativo de niveles fijos. No altera candidaturas, confirma ni opera por este panel.
 import streamlit as st
 import requests
+import re
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
