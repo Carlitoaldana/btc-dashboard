@@ -4266,9 +4266,13 @@ def live_dashboard():
     if live_price_error and live_btc_price is None:
         st.warning("Coinbase live: " + live_price_error)
     if kalshi_live_error and coinbase_live_price is not None:
-        st.warning(
-            "Kalshi BTC live falló temporalmente; usando Coinbase."
-        )
+        st.warning("Kalshi BTC live falló temporalmente; usando Coinbase.")
+        # Diagnóstico visible: no cambia la fuente, las señales ni los cálculos.
+        # No mostrar tokens, cabeceras ni credenciales en la pantalla.
+        with st.expander("Ver motivo técnico del fallo de Kalshi", expanded=False):
+            diagnostic = str(kalshi_live_error)
+            diagnostic = re.sub(r"(?i)(api[_-]?key|authorization|token|secret|password)\s*[:=]\s*[^\s,;]+", r"\1=[OCULTO]", diagnostic)
+            st.code(diagnostic[:1200] or "Kalshi no proporcionó detalles del error.", language="text")
     if kalshi_error:
         if market and market.get("_round_refresh_error"):
             st.warning("Kalshi no pudo refrescar: se conserva el target verificado de esta ronda y se reintentará. Cotización de contrato no disponible.")
