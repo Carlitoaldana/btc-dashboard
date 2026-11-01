@@ -1,7 +1,6 @@
 # Panel informativo de niveles fijos. No altera candidaturas, confirma ni opera por este panel.
 import streamlit as st
 import requests
-import re
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
@@ -1781,56 +1780,32 @@ def get_event_ticker_from_market(market):
 
 
 def extract_kalshi_btc_price(data):
-    """Extrae únicamente observaciones BTC fechadas y recientes del feed Kalshi.
-
-    Acepta variantes de estructura sin confundir el precio del contrato
-    con el precio del BTC. La antigüedad sigue validándose estrictamente.
-    """
     if not isinstance(data, dict):
         return None
+
     live_data = data.get("live_data", data)
-    if not isinstance(live_data, dict):
-        return None
-    details = live_data.get("details", {})
-    if not isinstance(details, dict):
-        return None
-
-    points = details.get("timeseries", [])
-    if isinstance(points, dict):
-        points = points.get("points", points.get("data", points.get("values", [])))
-    if not isinstance(points, list):
-        points = []
-
-    observations = []
-    for point in points:
+    details = live_data.get("details", {}) if isinstance(live_data, dict) else {}
+    # Prefiere la observación fechada más reciente a un cierre anterior.
+    timed_points = []
+    points = details.get("timeseries", []) if isinstance(details, dict) else []
+    for index, point in enumerate(points if isinstance(points, list) else []):
         if not isinstance(point, dict):
             continue
-        stamp = next((point[k] for k in ("t", "timestamp", "time", "ts")
-                      if point.get(k) is not None), None)
-        value = next((point[k] for k in ("v", "value", "price")
-                      if point.get(k) is not None), None)
-        if stamp is None or value is None:
-            continue
         try:
-            price = float(value)
-            if not np.isfinite(price) or not 10000 < price < 1000000:
-                continue
-            if isinstance(stamp, (int, float)) or (isinstance(stamp, str) and stamp.isdecimal()):
-                numeric_stamp = float(stamp)
-                if numeric_stamp > 100_000_000_000:
-                    numeric_stamp /= 1000.0
-                when = pd.to_datetime(numeric_stamp, unit="s", utc=True, errors="coerce")
-            else:
-                when = pd.to_datetime(stamp, utc=True, errors="coerce")
-            if pd.notna(when):
-                observations.append((when, price))
-        except (TypeError, ValueError, OverflowError):
+            stamp, value = float(point["t"]), float(point["v"])
+        except (KeyError, TypeError, ValueError):
             continue
-    for when, price in sorted(observations, key=lambda item: item[0], reverse=True):
+        if np.isfinite(stamp) and stamp > 0 and np.isfinite(value) and 10000 < value < 1000000:
+            # La serie puede devolver epoch en segundos o milisegundos.
+            stamp = stamp / 1000 if stamp > 100_000_000_000 else stamp
+            timed_points.append((stamp, index, value))
+    if timed_points:
+        stamp, _, value = max(timed_points)
         try:
-            return _valid_live_observation(price, when, "KALSHI LIVE")
+            return _valid_live_observation(value, pd.to_datetime(stamp, unit="s", utc=True), "KALSHI LIVE")
         except (ValueError, TypeError, OverflowError):
-            continue
+            return None
+    # Un precio sin fecha verificable no se anuncia como live.
     return None
 
 
@@ -1844,7 +1819,7 @@ def get_kalshi_live_btc(market):
     # Siempre se valida la fecha original, incluso al compartir una respuesta.
     price = extract_kalshi_btc_price(data)
     if price is None:
-        raise ValueError("Kalshi live no entregó una observación BTC reciente con fecha válida.")
+        raise ValueError("Kalshi live respondió sin precio BTC válido.")
     return float(price)
 
 
@@ -4267,13 +4242,9 @@ def live_dashboard():
     if live_price_error and live_btc_price is None:
         st.warning("Coinbase live: " + live_price_error)
     if kalshi_live_error and coinbase_live_price is not None:
-        st.warning("Kalshi BTC live falló temporalmente; usando Coinbase.")
-        # Diagnóstico visible: no cambia la fuente, las señales ni los cálculos.
-        # No mostrar tokens, cabeceras ni credenciales en la pantalla.
-        with st.expander("Ver motivo técnico del fallo de Kalshi", expanded=False):
-            diagnostic = str(kalshi_live_error)
-            diagnostic = re.sub(r"(?i)(api[_-]?key|authorization|token|secret|password)\s*[:=]\s*[^\s,;]+", r"\1=[OCULTO]", diagnostic)
-            st.code(diagnostic[:1200] or "Kalshi no proporcionó detalles del error.", language="text")
+        st.warning(
+            "Kalshi BTC live falló temporalmente; usando Coinbase."
+        )
     if kalshi_error:
         if market and market.get("_round_refresh_error"):
             st.warning("Kalshi no pudo refrescar: se conserva el target verificado de esta ronda y se reintentará. Cotización de contrato no disponible.")
