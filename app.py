@@ -1780,32 +1780,56 @@ def get_event_ticker_from_market(market):
 
 
 def extract_kalshi_btc_price(data):
+    """Extrae únicamente observaciones BTC fechadas y recientes del feed Kalshi.
+
+    Acepta variantes de estructura sin confundir el precio del contrato
+    con el precio del BTC. La antigüedad sigue validándose estrictamente.
+    """
     if not isinstance(data, dict):
         return None
-
     live_data = data.get("live_data", data)
-    details = live_data.get("details", {}) if isinstance(live_data, dict) else {}
-    # Prefiere la observación fechada más reciente a un cierre anterior.
-    timed_points = []
-    points = details.get("timeseries", []) if isinstance(details, dict) else []
-    for index, point in enumerate(points if isinstance(points, list) else []):
+    if not isinstance(live_data, dict):
+        return None
+    details = live_data.get("details", {})
+    if not isinstance(details, dict):
+        return None
+
+    points = details.get("timeseries", [])
+    if isinstance(points, dict):
+        points = points.get("points", points.get("data", points.get("values", [])))
+    if not isinstance(points, list):
+        points = []
+
+    observations = []
+    for point in points:
         if not isinstance(point, dict):
             continue
-        try:
-            stamp, value = float(point["t"]), float(point["v"])
-        except (KeyError, TypeError, ValueError):
+        stamp = next((point[k] for k in ("t", "timestamp", "time", "ts")
+                      if point.get(k) is not None), None)
+        value = next((point[k] for k in ("v", "value", "price")
+                      if point.get(k) is not None), None)
+        if stamp is None or value is None:
             continue
-        if np.isfinite(stamp) and stamp > 0 and np.isfinite(value) and 10000 < value < 1000000:
-            # La serie puede devolver epoch en segundos o milisegundos.
-            stamp = stamp / 1000 if stamp > 100_000_000_000 else stamp
-            timed_points.append((stamp, index, value))
-    if timed_points:
-        stamp, _, value = max(timed_points)
         try:
-            return _valid_live_observation(value, pd.to_datetime(stamp, unit="s", utc=True), "KALSHI LIVE")
+            price = float(value)
+            if not np.isfinite(price) or not 10000 < price < 1000000:
+                continue
+            if isinstance(stamp, (int, float)) or (isinstance(stamp, str) and stamp.isdecimal()):
+                numeric_stamp = float(stamp)
+                if numeric_stamp > 100_000_000_000:
+                    numeric_stamp /= 1000.0
+                when = pd.to_datetime(numeric_stamp, unit="s", utc=True, errors="coerce")
+            else:
+                when = pd.to_datetime(stamp, utc=True, errors="coerce")
+            if pd.notna(when):
+                observations.append((when, price))
+        except (TypeError, ValueError, OverflowError):
+            continue
+    for when, price in sorted(observations, key=lambda item: item[0], reverse=True):
+        try:
+            return _valid_live_observation(price, when, "KALSHI LIVE")
         except (ValueError, TypeError, OverflowError):
-            return None
-    # Un precio sin fecha verificable no se anuncia como live.
+            continue
     return None
 
 
@@ -1819,7 +1843,7 @@ def get_kalshi_live_btc(market):
     # Siempre se valida la fecha original, incluso al compartir una respuesta.
     price = extract_kalshi_btc_price(data)
     if price is None:
-        raise ValueError("Kalshi live respondió sin precio BTC válido.")
+        raise ValueError("Kalshi live no entregó una observación BTC reciente con fecha válida.")
     return float(price)
 
 
