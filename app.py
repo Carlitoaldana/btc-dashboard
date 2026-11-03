@@ -1619,7 +1619,7 @@ def get_btc_data():
     return _fetch_current_btc_candles()
 
 
-def get_coinbase_whale_flow():
+def get_coinbase_whale_flow(flow_state=None):
     """Lee presión agresiva de Coinbase en ventanas 10s/30s/60s y conserva alertas breves."""
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/trades",
@@ -1632,9 +1632,11 @@ def get_coinbase_whale_flow():
     if not isinstance(rows, list) or not rows:
         raise ValueError("Coinbase no devolvió operaciones recientes.")
 
+    if flow_state is None:
+        flow_state = st.session_state
     now = pd.Timestamp.now(tz="UTC").timestamp()
-    tape = st.session_state.setdefault("whale_flow_tape", [])
-    seen = st.session_state.setdefault("whale_seen_ids", {})
+    tape = flow_state.setdefault("whale_flow_tape", [])
+    seen = flow_state.setdefault("whale_seen_ids", {})
 
     for row in reversed(rows):
         try:
@@ -1682,17 +1684,17 @@ def get_coinbase_whale_flow():
     same_side = d10 is not None and d10 == d30
     qualifies = bool(same_side and (burst or sustained))
 
-    alert = st.session_state.get("whale_flow_alert")
+    alert = flow_state.get("whale_flow_alert")
     if qualifies:
         alert = {
             "direction": d10, "time": now,
             "buy": b30, "sell": s30, "total": t30,
             "imbalance": i30, "buy10": b10, "sell10": s10,
         }
-        st.session_state["whale_flow_alert"] = alert
+        flow_state["whale_flow_alert"] = alert
     elif alert and now - float(alert.get("time", 0)) > 12:
         alert = None
-        st.session_state["whale_flow_alert"] = None
+        flow_state["whale_flow_alert"] = None
 
     return {
         "detected": alert is not None, "alert": alert,
@@ -2380,11 +2382,14 @@ def _round_opening_crosscheck(state, candidate, signal, now):
 def _confirmation_without_trace(state, candidate, market, seconds_left, now, signal=None):
     """Confirmación compartida por la pantalla y el registrador de fondo.
 
-    La primera señal queda inmutable. Un cambio UP/DOWN posterior también
-    necesita confirmación. Una lectura neutral cancela la candidatura pendiente;
+    La primera señal se emite tras superar el control de fuerza reciente
+    y queda inmutable. Un cambio UP/DOWN posterior necesita dos lecturas.
+    Una lectura neutral cancela la candidatura pendiente;
     la activa se conserva solo si mantiene EMA, mom5 y distancia favorables.
     """
     candidate = _round_opening_crosscheck(state, candidate, signal, now)
+    opening_ready = (state.get("first_direction") is None
+                     and candidate in ("UP", "DOWN"))
     # Recalcular el cierre aquí: las consultas de red pueden agotar el contador.
     closed = seconds_left is not None and seconds_left <= 0
     close_time = (market or {}).get("close_time")
@@ -2464,15 +2469,18 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
         state["pending_count"] = 1
         state["pending_since"] = now.isoformat()
         state["pending_last_at"] = now.isoformat()
-        return
+        if not opening_ready:
+            return
+        last = since = now
 
     if last is None or (now - last).total_seconds() >= SIGNAL_CONFIRM_INTERVAL:
         state["pending_count"] = int(state.get("pending_count", 0)) + 1
         state["pending_last_at"] = now.isoformat()
 
     elapsed = (now - since).total_seconds() if since else 0
-    if (state["pending_count"] >= SIGNAL_CONFIRM_READINGS
-            and elapsed >= SIGNAL_CONFIRM_INTERVAL * (SIGNAL_CONFIRM_READINGS - 1)):
+    required_readings = 1 if opening_ready else SIGNAL_CONFIRM_READINGS
+    if (state["pending_count"] >= required_readings
+            and elapsed >= SIGNAL_CONFIRM_INTERVAL * (required_readings - 1)):
         state["active_direction"] = candidate
         state["active_since"] = now
         if state.get("first_direction") is None:
@@ -2620,7 +2628,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_sources_v2"
+BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_sources_v2_flow_opening_v3"
 _BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
@@ -2728,6 +2736,7 @@ def _background_history_loop(stop_event=None):
     started = time.monotonic()
     active_ticker = None
     active_state = None
+    whale_state = {}
     while not (stop_event and stop_event.is_set()):
         try:
             market = _background_get_market()
@@ -2749,8 +2758,12 @@ def _background_history_loop(stop_event=None):
             target = get_target_from_market(market)
             live_price = _background_get_live_price(market)
             btc_df = _background_get_btc_data()
+            try:
+                whale = get_coinbase_whale_flow(whale_state)
+            except Exception:
+                whale = None
             sig = build_signal(btc_df, target, seconds_left, live_price,
-                               getattr(_BACKGROUND_PRICE_SOURCE, "value", None))
+                               getattr(_BACKGROUND_PRICE_SOURCE, "value", None), whale=whale)
             if stop_event and stop_event.is_set():
                 break
             active_state = _background_update_state(active_state, sig, market, seconds_left)
