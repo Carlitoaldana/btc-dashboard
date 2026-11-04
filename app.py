@@ -21,7 +21,7 @@ from email.utils import parsedate_to_datetime
 st.set_page_config(
     page_title="BTC Signal v4.6.1",
     page_icon="⚡",
-    layout="wide",
+    layout="centered",
     initial_sidebar_state="collapsed",
 )
 
@@ -54,6 +54,12 @@ def _valid_live_observation(price, observed_at, source):
     return value
 
 
+UP_THRESHOLD = 4.0
+DOWN_THRESHOLD = -4.0
+
+FLIP_UP_THRESHOLD = 4.75
+FLIP_DOWN_THRESHOLD = -4.75
+FLIP_CONFIRMATIONS = 2
 
 # =========================================================
 # DISEÑO MOBILE — BASADO EN LA REFERENCIA APROBADA
@@ -545,7 +551,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .bigicon{font-size:31px;font-weight:900;line-height:1}.btcicon{color:#ff9d00}.targeticon{color:#8acfc3}
 .rlabel{font-size:8px;color:#b9c9dc;letter-spacing:.4px}.rvalue{font-size:19px;font-weight:900;line-height:1.05;margin-top:2px}.rdelta{font-size:9px;font-weight:900;margin-top:2px}
 .green{color:#00dfb5!important}.red{color:#e64b4b!important}
-.bars{display:flex;align-items:flex-end;gap:3px;width:31px;height:30px}.bars b{width:7px;background:var(--accent);border-radius:2px;transition:height .35s ease,background .35s ease}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
+.bars{display:flex;align-items:flex-end;gap:3px;width:31px;height:30px}.bars b{width:7px;background:var(--accent);border-radius:2px}.bars b:nth-child(1){height:11px}.bars b:nth-child(2){height:20px}.bars b:nth-child(3){height:28px}
 .clock{font-size:30px;color:#8acfc3}.timecontent{flex:1}.timebar{height:6px;background:#16324a;border-radius:5px;margin-top:5px;overflow:hidden}.timebar b{display:block;height:100%;background:var(--accent);border-radius:5px}
 .probs{margin-top:6px;padding:8px}.pbar{display:flex;gap:4px;margin-top:5px}.pup,.pdown{height:21px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;border-radius:4px}.pup{background:linear-gradient(90deg,#10d76d,#54ed91);color:#06331d}.pdown{background:linear-gradient(90deg,#ff3548,#ff6472);color:#3d0710}.pleg{display:flex;justify-content:space-between;font-size:10px;font-weight:900;margin-top:6px}
 .reader{margin-top:6px;border:1.5px solid var(--rb);background:var(--rbg);border-radius:9px;padding:9px 10px}
@@ -649,6 +655,18 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .reader{min-height:0!important}
 
 
+/* ===== PRESEÑAL — CAPA VISUAL, NO TOCA EL MOTOR ===== */
+.presignal{margin:0 0 6px;padding:9px 10px;border:1px solid var(--precolor);border-radius:10px;background:linear-gradient(135deg,var(--prebg),rgba(8,18,27,.88));box-shadow:0 0 18px var(--preglow)}
+.prehead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pretitle{font-size:8px;font-weight:950;letter-spacing:.55px;color:#b9c9db}
+.prebadge{font-size:6.5px;font-weight:900;color:var(--precolor);border:1px solid var(--precolor);border-radius:10px;padding:3px 7px}
+.premain{display:flex;justify-content:space-between;align-items:flex-end;margin-top:7px;gap:8px}
+.predirection{font-size:17px;font-weight:1000;color:var(--precolor);letter-spacing:-.3px}
+.prepercent{font-size:18px;font-weight:1000;color:var(--precolor)}
+.prebar{height:5px;background:#1b2938;border-radius:6px;overflow:hidden;margin-top:7px}
+.prebar b{display:block;height:100%;background:var(--precolor);border-radius:6px;box-shadow:0 0 9px var(--preglow)}
+.prenote{font-size:6.7px;color:#91a2b5;margin-top:5px;line-height:1.25}
+
 /* ===== PANEL FINAL DE CIERRE — EXACTO A LA REFERENCIA ===== */
 .finalclose{margin-top:7px;border:1px solid var(--rr);border-radius:9px;padding:7px;background:rgba(5,15,22,.45)}
 .finalgrid{display:grid;grid-template-columns:1.65fr .85fr .85fr;gap:4px}
@@ -695,30 +713,30 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .red{color:#e64b4b!important;text-shadow:0 0 5px #e64b4b88,0 0 14px #e64b4b55!important}
 .pup,.prob-up{background:#00dfb5!important;box-shadow:0 0 8px #00dfb588,0 0 22px #00dfb544!important}
 .pdown,.prob-down{background:#e64b4b!important;box-shadow:0 0 8px #e64b4b88,0 0 22px #e64b4b44!important}
-.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
-.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
+.prenote,.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
+.pretitle,.prebadge,.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
 .rhero{filter:drop-shadow(0 0 9px var(--accent))}
 .note,.footer,.sub,.card small,.metric small,.tooltip,.chartnav span,summary small{color:#cbd5e1!important;font-size:11px!important}
 .floatcounts div{border-color:#00dfb5;box-shadow:0 0 9px #00dfb544}.floatcounts div:last-child{border-color:#e64b4b;box-shadow:0 0 9px #e64b4b44}
 .canvas svg rect,.canvas svg line{shape-rendering:geometricPrecision}
-@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.finalanalysis{grid-template-columns:1fr 90px}}
+@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.prehead{flex-wrap:wrap;gap:6px}.prebadge{max-width:100%}.finalanalysis{grid-template-columns:1fr 90px}}
 
 
 /* Purple neon outlines, consistent across dashboard and chart cards. */
-.rcard,.mini,.section,.close-reader,.reader,.refapp>section[style],
+.rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
 .finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
 .panel,.card,.metric,details,.floatcounts div{
  border-color:#23685e!important;
  box-shadow:0 0 4px #00dfb51a,inset 0 0 4px #00dfb508!important;
 }
 .panel{border:1.5px solid #23685e!important;margin:8px 6px!important}
-.rcard,.mini,.reader,.card,.metric,details{border-width:1.5px!important}
+.rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
 .techrow,.rnav,.chartnav{border-color:#23685e!important}
 
 
 /* Uniform turquoise presentation. Signal values and timing are unchanged. */
 .stApp,[data-testid="stAppViewContainer"]{background:#06121a!important}
-.refapp .rcard,.refapp .reader,.refapp .finalclose,
+.refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp>section[style],
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div{
  background:linear-gradient(125deg,#0c2026,#0a151e)!important;
@@ -774,7 +792,7 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 
 /* JC ALPHA EDGE — champagne claro de referencia; solo CSS */
 :root{--jc-gold:#e1c99c;--jc-gold-soft:rgba(225,201,156,.92)}
-.refapp .rcard,.refapp .reader,.refapp .finalclose,
+.refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp .chartbox,
 .refapp>section[style],.refapp .tech,.refapp .rconf,
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div,
@@ -796,130 +814,6 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
 .refapp .rlive{color:#e7d5b8!important;border:1px solid var(--jc-gold-soft)!important;border-radius:18px!important;padding:3px 7px!important;bottom:-2px!important}
 .refapp .rlive i{background:var(--accent)!important;box-shadow:0 0 9px var(--glow)!important}
 /* Colores de señales, alertas, barras y números intactos. */
-
-/* ALPHA EDGE PREMIUM · EXCLUSIVAMENTE PRESENTACIÓN · 2026 */
-.stApp,[data-testid="stAppViewContainer"]{background:radial-gradient(ellipse at 55% 0%,#092b48 0%,#061222 38%,#020712 100%)!important}
-.block-container{max-width:430px!important;padding:5px 9px 24px!important}
-.refapp{position:relative;isolation:isolate;color:#f5f8ff!important}
-.refapp::before{content:"";position:absolute;inset:0 0 auto;height:265px;z-index:-1;pointer-events:none;background:linear-gradient(132deg,transparent 9%,rgba(0,159,255,.15) 10%,transparent 11%,transparent 28%,rgba(2,175,255,.20) 29%,transparent 30%),radial-gradient(ellipse at 60% 65%,rgba(0,224,167,.10),transparent 65%)}
-.refapp .rhead{height:82px!important;padding-top:10px!important}
-.refapp .rtitle{font-size:19px!important;letter-spacing:1.5px!important;font-weight:1000!important;color:#f4f8ff!important;font-style:italic;text-shadow:0 2px 0 #61758a,0 0 13px #2ca9ff66!important}
-.refapp .rver{font-size:10px!important;color:#d4deec!important}
-.refapp .gear{font-size:25px!important;color:#dbe9ff!important;text-shadow:0 0 12px #29aaff88!important}
-.refapp .rlive{bottom:0!important;border:1px solid #00d89c!important;background:#021916!important;color:#effffb!important;padding:5px 10px!important;border-radius:24px!important;box-shadow:0 0 12px #00e9a133!important}
-.refapp .rhero{min-height:135px!important;position:relative;padding:10px 0 15px!important;background-image:linear-gradient(90deg,transparent 62%,rgba(1,10,24,.10)),url("data:image/webp;base64,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");background-repeat:no-repeat;background-size:auto,110px 112px;background-position:center,right 0 top 0}
-.refapp .rsignal{font-size:78px!important;letter-spacing:-4px!important;filter:drop-shadow(0 0 10px var(--accent)) drop-shadow(0 0 18px var(--glow));-webkit-text-stroke:1px #d6fff066}
-.refapp .rhero.waiting .rsignal{font-size:31px!important;letter-spacing:-1px!important}
-.refapp .rconf{margin-top:13px!important;border:1.5px solid #ffd579!important;background:linear-gradient(100deg,#150f08,#3c2709 50%,#150f08)!important;border-radius:6px!important;padding:7px 17px!important;box-shadow:0 0 0 2px #6e4b1c,0 0 17px #ffb62d55!important;font-size:11px!important}
-.refapp .rgrid{gap:9px!important;margin-top:9px!important}
-.refapp .rcard,.refapp .reader,.refapp .finalcard,.refapp .finalclose,.refapp .analysisbox,.refapp .probbox,.refapp .tech{background:linear-gradient(145deg,#102e49 0%,#061626 45%,#030d1b 100%)!important;border:1px solid #b9954f!important;border-radius:17px!important;box-shadow:inset 0 1px 0 #b5ecff35,inset 0 -2px 12px #000b19,0 0 10px #00c6ff1e,0 2px 0 #062943!important}
-.refapp .keycard{height:83px!important;padding:11px!important;gap:9px!important}
-.refapp .rlabel{font-size:10px!important;font-weight:900!important;letter-spacing:.65px!important;color:#e1e8f6!important}
-.refapp .rvalue{font-size:23px!important;letter-spacing:-.5px!important;text-shadow:0 0 9px #fff3!important}
-.refapp .rdelta{font-size:11px!important}
-.refapp .bigicon,.refapp .clock{font-size:35px!important;color:#ffbf48!important;text-shadow:0 0 12px #ffbd4377!important}
-.refapp .bars b{box-shadow:0 0 7px var(--accent)!important}
-.refapp .timebar{height:8px!important;background:#183249!important}.refapp .timebar b{background:linear-gradient(90deg,#04d7ae,#5affbd)!important;box-shadow:0 0 9px #00ffb3!important}
-.refapp .probs{margin-top:11px!important;padding:13px 12px!important;border-color:#47caff!important}
-.refapp .pbar{gap:6px!important;margin-top:9px!important}.refapp .pup,.refapp .pdown{height:28px!important;border-radius:10px!important;font-size:12px!important;box-shadow:0 0 16px #00ffb944!important}
-.refapp .pdown{box-shadow:0 0 15px #ff526344!important}
-.refapp .pleg{font-size:11px!important}
-.refapp .reader{margin-top:12px!important;padding:15px 12px!important;border:1.5px solid #e3ad55!important;box-shadow:0 0 12px #ffc25d30,inset 0 0 15px #0098e011!important}
-.refapp .readerhead{font-size:13px!important;font-weight:1000!important;font-style:italic;color:#fff4df!important;text-shadow:0 0 8px #ffd36b55!important}
-.refapp .readerhead em{font-style:normal!important;border-color:#00eaa4!important;color:#0ff4b3!important;font-size:10px!important}
-.refapp .readerbody{grid-template-columns:1fr 108px!important;margin:12px 0!important;min-height:110px!important}
-.refapp .readerbody strong{font-size:23px!important;font-style:italic!important;text-shadow:0 0 12px var(--rr)!important}
-.refapp .rring{width:104px!important;height:104px!important;box-shadow:0 0 16px var(--rr),inset 0 0 12px #071a25!important}
-.refapp .rring:after{width:79px!important;height:79px!important;background:#03111e!important}
-.refapp .rring span{font-size:25px!important}
-.refapp .finalclose{border-color:#2f9fcb!important;padding:10px!important}
-.refapp .finalcard,.refapp .analysisbox,.refapp .probbox{border-color:#2d7596!important;border-radius:13px!important}
-.refapp .finalbig{font-size:22px!important;text-shadow:0 0 10px currentColor!important}
-.refapp .tech{margin-top:11px!important;border-color:#d6a957!important}
-.refapp .techrow,.refapp .techrow>div{border-color:#54718c!important}
-.refapp .techrow b{font-size:12px!important}
-.refapp .green{color:#00f2ae!important}.refapp .red{color:#ff5967!important}
-@media(max-width:380px){.refapp .rvalue{font-size:19px!important}.refapp .readerbody strong{font-size:19px!important}.refapp .rhero{background-size:auto,86px 88px}}
-
-
-/* PREMIUM REBUILD v2: responsive, integrated artwork, no change to decisions */
-.stApp,[data-testid="stAppViewContainer"]{background:radial-gradient(ellipse at 50% 0,#06375d 0%,#05162a 40%,#010710 100%)!important}
-.block-container{max-width:440px!important;padding:5px 9px 25px!important}
-.refapp{overflow:hidden;isolation:isolate;background:linear-gradient(148deg,rgba(1,23,44,.4),transparent 30%)!important}
-.refapp:before{height:320px!important;background:repeating-linear-gradient(134deg,transparent 0 73px,rgba(0,145,244,.14) 75px,transparent 77px),radial-gradient(ellipse at 70% 34%,rgba(0,220,204,.14),transparent 58%)!important}
-.refapp .rhead{height:75px!important;padding-top:8px!important}
-.refapp .rtitle{font-size:22px!important;font-style:italic!important;text-transform:uppercase!important;letter-spacing:1.4px!important;color:#f4f8ff!important;text-shadow:0 2px 1px #3b526c,0 0 12px #229cff77!important}
-.refapp .rver{font-size:11px!important}
-.refapp .rlive{bottom:0!important;right:6px!important;border-color:#00eea8!important;background:rgba(0,24,22,.88)!important}
-.refapp .rhero{height:166px!important;min-height:166px!important;padding:15px 0 10px!important;background-image:linear-gradient(120deg,rgba(0,159,250,.07),transparent 58%)!important;background-size:cover!important;background-position:center!important;overflow:visible!important}
-.refapp .rhero:before{content:"";position:absolute;right:-8px;top:-7px;width:38%;height:125px;background-image:url("data:image/webp;base64,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");background-size:contain;background-repeat:no-repeat;background-position:center;opacity:.92;mix-blend-mode:screen;pointer-events:none;filter:drop-shadow(0 0 8px #d9a12b66);-webkit-mask-image:radial-gradient(ellipse,#000 38%,transparent 78%);mask-image:radial-gradient(ellipse,#000 38%,transparent 78%)}
-.refapp .rhero:after{content:"";position:absolute;left:0;bottom:11px;width:44%;height:66px;opacity:.27;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0 12px,#00d9ff 13px 15px,transparent 16px 23px);-webkit-mask-image:linear-gradient(0deg,transparent,#000,transparent);mask-image:linear-gradient(0deg,transparent,#000,transparent)}
-.refapp .rsignal{position:relative;z-index:1;transform:translateX(-7px);font-size:82px!important;letter-spacing:-4px!important;font-style:italic!important;filter:drop-shadow(0 0 12px var(--accent));text-shadow:0 0 9px var(--glow),0 0 28px var(--glow),0 3px 1px #021f23!important}
-.refapp .rhero.waiting .rsignal{font-size:32px!important;letter-spacing:-1px!important;transform:none!important}
-.refapp .rconf{position:relative;z-index:2;margin-top:15px!important;background:linear-gradient(95deg,#030e19,#1d1b16,#030e19)!important;border:2px solid #e7b44e!important;border-radius:8px!important;padding:8px 15px!important;font-size:12px!important;box-shadow:0 0 16px #eab74a77,0 0 22px var(--soft)!important}
-.refapp .rgrid{gap:9px!important;margin-top:8px!important}
-.refapp .rcard,.refapp .reader{background:linear-gradient(138deg,#102c45 0%,#04111e 58%,#061c2c 100%)!important;border:1px solid #78b8e7!important;border-radius:16px!important;box-shadow:inset 0 1px 0 #c1e9ff4a,0 3px 15px #00101c99,0 0 6px #008cff38!important}
-.refapp .keycard{height:80px!important;padding:10px 11px!important;gap:10px!important;position:relative;overflow:hidden}
-.refapp .keycard:after{content:"";position:absolute;right:0;bottom:0;width:38px;height:18px;background:linear-gradient(135deg,transparent 45%,#ffd36b66 95%);pointer-events:none}
-.refapp .rlabel{font-size:10px!important;font-weight:800!important;letter-spacing:.35px!important;color:#e4eafa!important}
-.refapp .rvalue{font-size:23px!important;color:#f5faff;font-weight:900!important}
-.refapp .rdelta{font-size:11px!important}
-.refapp .bigicon,.refapp .clock{color:#f9b943!important;text-shadow:0 0 12px #e9a12955!important}
-.refapp .bars b{box-shadow:0 0 8px var(--accent)!important}
-.refapp .probs{padding:13px!important;margin-top:11px!important}
-.refapp .pup,.refapp .pdown{height:29px!important;border-radius:10px!important;font-size:14px!important;box-shadow:0 0 13px var(--glow)!important}
-.refapp .pleg{font-size:12px!important;margin-top:7px!important}
-.refapp .reader{margin-top:12px!important;padding:12px!important;border-color:#d7a54e!important;box-shadow:inset 0 1px 0 #f7d58e5c,0 0 15px #d7a54e44!important}
-.refapp .readerhead{font-size:16px!important;font-weight:900!important;font-style:italic!important;color:#f8faff!important}
-.refapp .readerhead em{font-size:10px!important;border-color:#00e9a6!important;color:#00e9a6!important;padding:5px 10px!important}
-.refapp .readerbody{grid-template-columns:minmax(0,1fr) 110px!important;min-height:95px!important;margin:4px 0 9px!important;gap:7px!important}
-.refapp .readerbody strong{font-size:21px!important;font-style:italic!important;line-height:1.05!important;text-shadow:0 0 13px var(--rr)!important}
-.refapp .rring{width:104px!important;height:104px!important;box-shadow:0 0 19px var(--rr)!important}
-.refapp .rring:after{width:79px!important;height:79px!important;background:#04121f!important}
-.refapp .rring span{font-size:27px!important}
-.refapp .finalpanel{margin-top:7px!important}
-.refapp .finalcard,.refapp .motionrow,.refapp .analysisrow>div{border-color:#4c9ac7!important;border-radius:12px!important}
-.refapp .tech{margin-top:12px!important;padding:11px!important}
-@media(max-width:380px){.refapp .rhero{height:147px!important;min-height:147px!important}.refapp .rsignal{font-size:67px!important}.refapp .rvalue{font-size:19px!important}.refapp .readerbody strong{font-size:18px!important}.refapp .readerbody{grid-template-columns:minmax(0,1fr) 92px!important}.refapp .rring{width:88px!important;height:88px!important}.refapp .rring:after{width:65px!important;height:65px!important}.refapp .rring span{font-size:23px!important}}
-
-/* iPad / tablet responsive layout: presentation only. */
-@media (min-width: 700px) {
-  .block-container,
-  [data-testid="stMainBlockContainer"] {
-    width: min(94vw, 1050px) !important;
-    max-width: 1050px !important;
-    padding: 12px 18px 35px !important;
-    margin-inline: auto !important;
-  }
-  .refapp { width:100% !important; max-width:none !important; }
-  .refapp .rhead { height:105px !important; padding:14px 20px 0 !important; }
-  .refapp .rtitle { font-size:clamp(25px,3vw,36px) !important; }
-  .refapp .rhero { height:205px !important; min-height:205px !important; }
-  .refapp .rhero:before { width:31% !important; height:178px !important; right:15px !important; }
-  .refapp .rsignal { font-size:clamp(92px,12vw,142px) !important; }
-  .refapp .rhero.waiting .rsignal { font-size:clamp(34px,5vw,57px) !important; }
-  .refapp .rconf { font-size:16px !important; padding:10px 25px !important; }
-  .refapp .rgrid { gap:14px !important; margin-top:15px !important; }
-  .refapp .keycard { height:112px !important; padding:18px 22px !important; }
-  .refapp .rlabel { font-size:13px !important; }
-  .refapp .rvalue { font-size:clamp(27px,3.7vw,38px) !important; }
-  .refapp .rdelta { font-size:14px !important; }
-  .refapp .probs { padding:19px 22px !important; }
-  .refapp .pup,.refapp .pdown { height:38px !important; font-size:17px !important; }
-  .refapp .reader { padding:20px 24px !important; }
-  .refapp .readerhead { font-size:20px !important; }
-  .refapp .readerbody { min-height:130px !important; grid-template-columns:minmax(0,1fr) 145px !important; }
-  .refapp .readerbody strong { font-size:clamp(27px,3.4vw,38px) !important; }
-  .refapp .rring { width:132px !important; height:132px !important; }
-  .refapp .rring:after { width:100px !important; height:100px !important; }
-  .refapp .rring span { font-size:34px !important; }
-  .refapp .tech { padding:16px !important; }
-  .refapp .techrow b { font-size:15px !important; }
-}
-@media (max-width: 699px) {
-  .block-container,[data-testid="stMainBlockContainer"] { width:100% !important; max-width:440px !important; margin-inline:auto !important; padding:5px 9px 25px !important; }
-}
-
 </style>
 """,
     unsafe_allow_html=True,
@@ -1725,7 +1619,7 @@ def get_btc_data():
     return _fetch_current_btc_candles()
 
 
-def get_coinbase_whale_flow(flow_state=None):
+def get_coinbase_whale_flow():
     """Lee presión agresiva de Coinbase en ventanas 10s/30s/60s y conserva alertas breves."""
     response = requests.get(
         "https://api.exchange.coinbase.com/products/BTC-USD/trades",
@@ -1738,11 +1632,9 @@ def get_coinbase_whale_flow(flow_state=None):
     if not isinstance(rows, list) or not rows:
         raise ValueError("Coinbase no devolvió operaciones recientes.")
 
-    if flow_state is None:
-        flow_state = st.session_state
     now = pd.Timestamp.now(tz="UTC").timestamp()
-    tape = flow_state.setdefault("whale_flow_tape", [])
-    seen = flow_state.setdefault("whale_seen_ids", {})
+    tape = st.session_state.setdefault("whale_flow_tape", [])
+    seen = st.session_state.setdefault("whale_seen_ids", {})
 
     for row in reversed(rows):
         try:
@@ -1790,17 +1682,17 @@ def get_coinbase_whale_flow(flow_state=None):
     same_side = d10 is not None and d10 == d30
     qualifies = bool(same_side and (burst or sustained))
 
-    alert = flow_state.get("whale_flow_alert")
+    alert = st.session_state.get("whale_flow_alert")
     if qualifies:
         alert = {
             "direction": d10, "time": now,
             "buy": b30, "sell": s30, "total": t30,
             "imbalance": i30, "buy10": b10, "sell10": s10,
         }
-        flow_state["whale_flow_alert"] = alert
+        st.session_state["whale_flow_alert"] = alert
     elif alert and now - float(alert.get("time", 0)) > 12:
         alert = None
-        flow_state["whale_flow_alert"] = None
+        st.session_state["whale_flow_alert"] = None
 
     return {
         "detected": alert is not None, "alert": alert,
@@ -2047,7 +1939,43 @@ def get_no_ask(market):
     return None
 
 
-# Probabilidades orientativas calculadas únicamente por el motor Gemini-Kalshi.
+# =========================================================
+# PROBABILIDAD ORIGINAL
+# =========================================================
+
+def estimated_probabilities(
+    final_score, distance, seconds_left, mom3, mom5
+):
+    score = float(np.clip(final_score, -10, 10))
+    up_prob = 50 + score * 4.2
+
+    if mom3 > 0.04:
+        up_prob += 3
+    elif mom3 < -0.04:
+        up_prob -= 3
+
+    if mom5 > 0.06:
+        up_prob += 2
+    elif mom5 < -0.06:
+        up_prob -= 2
+
+    if (
+        distance is not None
+        and seconds_left is not None
+        and seconds_left <= 180
+    ):
+        if distance > 0:
+            up_prob += 3
+        elif distance < 0:
+            up_prob -= 3
+
+    up_prob = float(np.clip(up_prob, 5, 95))
+    return round(up_prob), round(100 - up_prob)
+
+
+# =========================================================
+# MOTOR ORIGINAL v4.6.1
+# =========================================================
 
 def _internal_impulse_context(one, price, atr, mom3, mom5, mom15, rvol):
     """Directional persistence / exhaustion in comparable ATR units.
@@ -2086,161 +2014,231 @@ def _internal_impulse_context(one, price, atr, mom3, mom5, mom15, rvol):
 
 
 def _entry_route_checks(sig, seconds_left):
-    """Muestra únicamente los requisitos producidos por Gemini-Kalshi."""
-    decisions = sig.get("decision_checks")
-    if not isinstance(decisions, dict):
-        return {"valid": False, "sides": {}, "noise_ok": False}
+    """Evaluate both sides from the same evidence; shared by engine and UI."""
+    required = ("rsi", "rsi3", "rsi5", "adx", "vwap_atr", "macd1", "macd3",
+                "vol_ratio", "mom3", "mom5", "target_atr", "price_ema9_atr")
+    if sig.get("data_valid") is False or any(_plan_number(sig.get(k)) is None for k in required):
+        return {"valid":False, "sides":{}, "noise_ok":False}
+    r1,r3,r5,adx,vw,m1,m3,vol,mom,mom5,cushion,live_ema = (float(sig[k]) for k in required)
+    d3,d5 = sig.get("trend3"), sig.get("trend5")
+    impulse = sig.get("impulse_internal") or {}
+    noise_ok = not (abs(vw)<.18 and (sig.get("distance") is None or abs(cushion)<.22) and adx<20)
     sides = {}
-    for side in ("UP", "DOWN"):
-        checks = list(decisions.get(side, []))
-        sides[side] = [{"name": "ALPHA EDGE", "checks": checks,
-                        "met": sum(bool(ok) for _, ok in checks),
-                        "total": len(checks),
-                        "complete": bool(checks) and all(bool(ok) for _, ok in checks)}]
-    return {"valid": bool(sides["UP"][0]["total"]), "sides": sides,
-            "noise_ok": True}
+    for side,sign,other in (("UP",1,"DOWN"),("DOWN",-1,"UP")):
+        up = sign == 1
+        exhausted = bool(impulse.get("exhaust_up" if up else "exhaust_down"))
+        strength = float(impulse.get("up" if up else "down", 0))
+        reliable = bool(impulse.get("reliable"))
+        current = [
+            ("EMA de 1 minuto y precio actual a favor", sig.get("ema") == ("BULL" if up else "BEAR") and live_ema*sign>0),
+            ("RSI y momentum actuales a favor", (r1>=53 if up else r1<=47) and mom*sign>=.025),
+            ("MACD de 1 minuto y VWAP a favor", m1*sign>0 and vw*sign>=.03),
+            ("Impulso actual sin agotamiento detectado", not exhausted),
+        ]
+        early_five = d5 != other or (reliable and strength>=.75 and mom*sign>.04 and vol>=.9)
+        rsi_vwap = (r1>=52 and vw>=.05) if up else (r1<=48 and vw<=-.05)
+        routes = [
+            ("IMPULSO ACTUAL", current),
+            ("TENDENCIA ALINEADA", [
+                ("Tendencias de 3 y 5 minutos a favor", d3==side and d5==side),
+                ("Fuerza de tendencia o RSI suficientes", adx>=20 or ((r3>=52 and r5>=50) if up else (r3<=48 and r5<=50))),
+                ("VWAP y momentum actual respaldan la tendencia", (vw>-.15 if up else vw<.15) and mom*sign>=.012),
+                ("Sin agotamiento detectado", not exhausted),
+            ]),
+            ("TEMPRANA", [
+                ("MACD de 3 minutos a favor", m3*sign>0),
+                ("RSI de 1 minuto y VWAP a favor", rsi_vwap),
+                ("Momentum de 3 minutos a favor", mom*sign>.015),
+                ("Contexto de 5 minutos respaldado o superado por fuerza actual", early_five),
+                ("Sin agotamiento detectado", not exhausted),
+            ]),
+            ("TEMPRANA ACELERADA", [
+                ("MACD y momentum a favor", m3*sign>0 and mom*sign>.015),
+                ("Contexto de 5 minutos no contrario", d5!=other),
+                ("Impulso fuerte con volumen y ADX", reliable and strength>=.65 and adx>=20 and vol>=.8),
+                ("Sin agotamiento detectado", not exhausted),
+            ]),
+            ("GIRO TEMPRANO", [
+                ("MACD y momentum respaldan el giro", m3*sign>0 and mom*sign>.04),
+                ("RSI de 1 y 3 minutos respaldan el giro", (r1>=54 and r3>=50) if up else (r1<=46 and r3<=50)),
+                ("VWAP y distancia suficientes", vw*sign>=.08 and abs(cushion)>=.30),
+                ("Impulso y volumen suficientes", reliable and strength>=.70 and vol>=.9),
+                ("Sin agotamiento detectado", not exhausted),
+            ]),
+        ]
+        flow = sig.get("flow_context_internal") or {}
+        flow_ok = flow.get("direction")==side and flow.get("valid",False)
+        routes.append(("FLUJO + IMPULSO", [
+            ("Flujo agresor significativo a favor", flow_ok),
+            ("RSI, MACD y precio actuales a favor", (r1>=50 if up else r1<=50) and m1*sign>0 and live_ema*sign>0),
+            ("Momentum y VWAP a favor", mom*sign>=.012 and vw*sign>=-.04),
+            ("Contexto contrario corroborado por momentum", d5!=other or (mom5*sign>=.025 and abs(mom)>=.025)),
+            ("Impulso fiable sin agotamiento", reliable and not exhausted),
+        ]))
+        target_ok = True
+        if sig.get("distance") is not None and seconds_left is not None:
+            remaining = float(np.clip(seconds_left,0,900))
+            weight = .12+.88*(1-remaining/900)**1.6
+            tolerance = 1.8-1.4*weight
+            if -sign*cushion>tolerance:
+                target_ok = (reliable and strength>=.75 and mom*sign>.04 and not exhausted
+                             and (all(ok for _,ok in current) or d3==side or d5==side))
+        sides[side] = []
+        for name,checks in routes:
+            checks = checks+[("Fuera de la zona de ruido",noise_ok),
+                            ("Distancia al target y tiempo respaldan la dirección",target_ok)]
+            sides[side].append({"name":name,"checks":checks,"met":sum(bool(ok) for _,ok in checks),
+                                "total":len(checks),"complete":all(bool(ok) for _,ok in checks)})
+    return {"valid":True,"sides":sides,"noise_ok":noise_ok}
+
 
 def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whale=None):
-    """Motor experimental Gemini + contexto Kalshi. Solo propone UP/DOWN/espera.
-
-    No ejecuta operaciones. Los porcentajes son puntuaciones orientativas,
-    no probabilidades calibradas. Mantiene el contrato de salida del panel.
-    """
-    one = add_indicators(df)
-    three = _resample_indicators(df, 3)
-    five = _resample_indicators(df, 5)
-    l1, l3, l5 = one.iloc[-1], three.iloc[-1], five.iloc[-1]
-    candle_price = float(l1["close"])
-    price = float(live_price) if live_price is not None else candle_price
-    if not np.isfinite(price) or price <= 0:
-        price = candle_price
-
-    def number(value, default=0.0):
-        v = _plan_number(value)
-        return float(v) if v is not None else default
-
+    one=add_indicators(df); three=_resample_indicators(df,3); five=_resample_indicators(df,5)
+    l1,l3,l5=one.iloc[-1],three.iloc[-1],five.iloc[-1]
+    candle_price=float(l1["close"]); price=float(live_price) if live_price is not None else candle_price
     def direction(row):
-        if not np.isfinite(number(row["adx"])) or number(row["adx"]) <= 18:
-            return "NEUTRAL"
-        if row["ema9"] > row["ema21"] and row["macd_hist"] >= 0:
-            return "UP"
-        if row["ema9"] < row["ema21"] and row["macd_hist"] <= 0:
-            return "DOWN"
-        return "NEUTRAL"
-
-    d3, d5 = direction(l3), direction(l5)
-    atr = number(l1["atr"], max(price * .0005, 1.0))
-    if atr <= 0:
-        atr = max(price * .0005, 1.0)
-    target_value = _plan_number(target)
-    if target_value is not None and target_value <= 0:
-        target_value = None
-    distance = price - target_value if target_value is not None else None
-    distance_pct = distance / target_value * 100 if distance is not None else None
-    target_atr = distance / atr if distance is not None else 0.0
-    vwap = number(l1["vwap"], price)
-    if vwap <= 0:
-        vwap = price
-    vwap_atr = (price - vwap) / atr
-    rsi1, rsi3, rsi5 = (number(row["rsi"], 50.0) for row in (l1, l3, l5))
-    adx5 = number(l5["adx"])
-    rvol = number(l1["vol_ratio"], 1.0)
-    mom3, mom5, mom15 = (number(l1[k]) for k in ("mom3", "mom5", "mom15"))
+        bull=(row["ema9"]>row["ema21"] and row["macd_hist"]>=0 and row["plus_di"]>=row["minus_di"])
+        bear=(row["ema9"]<row["ema21"] and row["macd_hist"]<=0 and row["minus_di"]>=row["plus_di"])
+        return "UP" if bull else "DOWN" if bear else "NEUTRAL"
+    d3,d5=direction(l3),direction(l5); aligned=d3 if d3==d5 and d3!="NEUTRAL" else "NEUTRAL"
+    atr=float(l1["atr"]) if pd.notna(l1["atr"]) and l1["atr"]>0 else max(price*.0005,1)
+    distance=(price-target) if target is not None else None; distance_pct=(distance/target*100) if target else None
+    target_atr=(distance/atr) if distance is not None else 0.0
+    vwap=float(l1["vwap"]) if pd.notna(l1["vwap"]) else price; vwap_atr=(price-vwap)/atr
+    adx5=float(l5["adx"]) if pd.notna(l5["adx"]) else 0.0; rsi1=float(l1["rsi"]); rsi3=float(l3["rsi"]); rsi5=float(l5["rsi"])
+    rvol=float(l1["vol_ratio"]) if pd.notna(l1["vol_ratio"]) else 1.0
+    mom3=float(l1["mom3"]) if pd.notna(l1["mom3"]) else 0.0; mom5=float(l1["mom5"]) if pd.notna(l1["mom5"]) else 0.0; mom15=float(l1["mom15"]) if pd.notna(l1["mom15"]) else 0.0
+    trend_strong=adx5>=20; near_noise=abs(vwap_atr)<0.18 and (distance is None or abs(target_atr)<0.22)
     impulse = _internal_impulse_context(one, price, atr, mom3, mom5, mom15, rvol)
-    ema_side = "BULL" if l1["ema9"] > l1["ema21"] else "BEAR"
-    macd1 = number(l1["macd_hist"])
-    macd3 = number(l3["macd_hist"])
-    macd5 = number(l5["macd_hist"])
+    # Evaluate all routes for both directions before choosing any candidate.
+    flow_side = (whale or {}).get("flow_direction") if isinstance(whale,dict) else None
+    flow_context = {"direction":flow_side, "valid":False}
+    if isinstance(whale,dict):
+        flow_context["valid"] = (flow_side in ("UP","DOWN") and
+            float(whale.get("buy30") or 0)+float(whale.get("sell30") or 0)>=500_000 and
+            float(whale.get("flow_strength") or 0)>=.20)
+    route_input = {"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"adx":adx5,"vwap_atr":vwap_atr,
+        "macd1":float(l1["macd_hist"]),"macd3":float(l3["macd_hist"]),"vol_ratio":rvol,
+        "mom3":mom3,"mom5":mom5,"target_atr":target_atr,"distance":distance,
+        "price_ema9_atr":(price-float(l1["ema9"]))/atr,
+        "ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR",
+        "trend3":d3,"trend5":d5,"impulse_internal":impulse,"flow_context_internal":flow_context}
+    route_view = _entry_route_checks(route_input, seconds_left)
+    eligible = {side:[route for route in route_view["sides"].get(side,[]) if route["complete"]]
+                for side in ("UP","DOWN")}
+    choices = [side for side in ("UP","DOWN") if eligible[side]]
+    candidate = choices[0] if len(choices)==1 else None
+    quality = eligible[candidate][0]["name"] if candidate else "SIN CONFIRMACIÓN" if not choices else "EVIDENCIA CONTRADICTORIA"
+    flow_support = {"used":quality=="FLUJO + IMPULSO", "direction":flow_side if flow_context["valid"] else None,
+                    "reason":"FLUJO CORROBORADO" if quality=="FLUJO + IMPULSO" else "CONTEXTO"}
+    # Compatibility score: descriptive evidence for existing UI/closing reader; no longer gates entries at +/-4.
+    evidence=(1 if d3=="UP" else -1 if d3=="DOWN" else 0)+(1.5 if d5=="UP" else -1.5 if d5=="DOWN" else 0)+(0.75 if l3["macd_hist"]>0 else -0.75)+(0.75 if l5["plus_di"]>l5["minus_di"] else -0.75)+float(np.clip(target_atr,-2,2))
+    # Closing support adapts continuously; it is NOT a calibrated win probability.
+    if seconds_left is not None and 0 < seconds_left <= 180 and distance is not None:
+        weight = .35 + .35 * (180 - seconds_left) / 180
+        evidence = (1-weight)*evidence + weight*float(np.clip(target_atr, -2, 2))*3
+    up_probability=float(np.clip(50+evidence*7,5,95)); down_probability=100-up_probability
+    momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
+    return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr,"impulse_internal":impulse,"entry_route_internal":quality,"flow_support_internal":flow_support,"flow_context_internal":flow_context,"macd1":float(l1["macd_hist"]),"price_ema9_atr":(price-float(l1["ema9"]))/atr}
 
-    # Base de Gemini: EMA, MACD, VWAP, tendencia 3m y 5m.
-    score = (1.0 if ema_side == "BULL" else -1.0)
-    score += 1.0 if macd1 > 0 else -1.0
-    score += 1.0 if price > vwap else -1.0
-    score += 1.5 if d3 == "UP" else -1.5 if d3 == "DOWN" else 0.0
-    score += 2.0 if d5 == "UP" else -2.0 if d5 == "DOWN" else 0.0
 
-    # Volumen y agotamiento modulan la evidencia, sin exigirlos siempre.
-    # Un volumen bajo reduce la fuerza de la candidatura; volumen alto
-    # solo refuerza cuando el momentum reciente confirma el mismo lado.
-    if rvol < .65:
-        score *= .75
-    elif rvol >= 1.2 and mom3 != 0 and score * mom3 > 0:
-        score += .5 if score > 0 else -.5
-    if impulse.get("reliable"):
-        if impulse.get("exhaust_up") and score > 0:
-            score -= 1.5
-        if impulse.get("exhaust_down") and score < 0:
-            score += 1.5
+def build_presignal(sig, seconds_left):
+    """PRESEÑAL INDEPENDIENTE Y REACTIVA.
 
-    # ATR y distancia al strike: cuanto más cerca del cierre, más
-    # importante es la posición frente al precio objetivo de Kalshi.
-    # Sin strike válido no se inventa una ventaja para ninguno de los lados.
-    remaining = None if seconds_left is None else max(0.0, min(900.0, number(seconds_left)))
-    if distance is not None and remaining is not None:
-        time_weight = .25 + .75 * (1.0 - remaining / 900.0) ** 1.5
-        score += float(np.clip(target_atr, -2.0, 2.0)) * 1.5 * time_weight
+    No cambia la señal oficial. Usa la lectura ACTUAL y, a medida que se acerca
+    el cierre, reduce el peso de señales lentas (3M/5M) y aumenta el peso de la
+    posición actual frente al target. Así puede girar UP/DOWN sin quedarse
+    pegada a una tendencia vieja.
+    """
+    bull = 0.0
+    bear = 0.0
 
-    # Mantener neutralidad si el mercado está sin dirección definida.
-    candidate = None
-    if score >= 2.0 and rsi1 > 48:
-        candidate = "UP"
-    elif score <= -2.0 and rsi1 < 52:
-        candidate = "DOWN"
+    ema = sig.get("ema")
+    rsi1 = float(sig.get("rsi", 50) or 50)
+    rsi3 = float(sig.get("rsi3", 50) or 50)
+    rsi5 = float(sig.get("rsi5", 50) or 50)
+    mom3 = float(sig.get("mom3", 0) or 0)
+    mom5 = float(sig.get("mom5", 0) or 0)
+    trend3 = sig.get("trend3", "NEUTRAL")
+    trend5 = sig.get("trend5", "NEUTRAL")
+    macd3 = float(sig.get("macd3", 0) or 0)
+    macd5 = float(sig.get("macd5", 0) or 0)
+    plus_di = float(sig.get("plus_di", 0) or 0)
+    minus_di = float(sig.get("minus_di", 0) or 0)
+    vwap_atr = float(sig.get("vwap_atr", 0) or 0)
+    target_atr = float(sig.get("target_atr", 0) or 0)
 
-    noise = abs(vwap_atr) < .12 and adx5 < 17 and abs(mom3) < .015
-    checks_by_side = {}
-    for side, sign in (("UP", 1), ("DOWN", -1)):
-        exhaustion = bool(impulse.get("exhaust_up" if sign == 1 else "exhaust_down"))
-        checks = [
-            ("Puntuación y RSI a favor", score * sign >= 2 and (rsi1 > 48 if sign == 1 else rsi1 < 52)),
-            ("Movimiento fuera de ruido", not noise),
-            ("Sin agotamiento direccional", not exhaustion),
-            ("Volumen utilizable", rvol >= .45),
-        ]
-        # Evitar señalar el lado perdedor con poco margen de recuperación
-        # cuando el cierre está próximo. No impide giros tempranos fuertes.
-        if distance is not None and remaining is not None and remaining <= 180:
-            adverse_atr = -sign * target_atr
-            allowed = .20 + .80 * remaining / 180.0
-            checks.append(("Strike alcanzable antes del cierre",
-                           adverse_atr <= allowed or
-                           (score * sign >= 5.0 and mom3 * sign > .04 and
-                            not exhaustion)))
-        if remaining is not None:
-            checks.append(("Ronda abierta", remaining > 0))
-        checks_by_side[side] = checks
-    if candidate and not all(ok for _, ok in checks_by_side[candidate]):
-        candidate = None
+    secs = 900 if seconds_left is None else max(0, int(seconds_left))
+    # Los marcos lentos importan al principio; cerca del cierre mandan menos.
+    slow = 1.0 if secs > 300 else 0.70 if secs > 180 else 0.45 if secs > 90 else 0.25
 
-    diagnostics = {}
-    for side in ("UP", "DOWN"):
-        checks = checks_by_side[side]
-        diagnostics[side] = {"route": "ALPHA EDGE", "missing": [label for label, ok in checks if not ok],
-                             "met": sum(bool(ok) for _, ok in checks), "total": len(checks)}
-    quality = "ALPHA EDGE" if candidate else "SIN CONFIRMACIÓN"
-    up_probability = float(np.clip(50 + score * 7, 5, 95))
-    flow_side = (whale or {}).get("flow_direction") if isinstance(whale, dict) else None
-    flow_context = {"direction": flow_side, "valid": False}
-    return {
-        "price": price, "candle_price": candle_price, "rsi": rsi1,
-        "rsi3": rsi3, "rsi5": rsi5, "mom3": mom3, "mom5": mom5,
-        "mom15": mom15, "vol_ratio": rvol, "ema": ema_side,
-        "technical_score": score, "target_score": target_atr, "final_score": score,
-        "distance": distance, "distance_pct": distance_pct,
-        "momentum": "ALCISTA" if score > 0 else "BAJISTA" if score < 0 else "NEUTRAL",
-        "up_probability": round(up_probability), "down_probability": round(100-up_probability),
-        "candidate": candidate, "quality": quality, "route_diagnostics": diagnostics,
-        "trend3": d3, "trend5": d5, "adx": adx5,
-        "plus_di": number(l5["plus_di"]), "minus_di": number(l5["minus_di"]),
-        "macd3": macd3, "macd5": macd5, "atr": atr, "vwap": vwap,
-        "vwap_atr": vwap_atr, "target_atr": target_atr,
-        "impulse_internal": impulse, "entry_route_internal": quality,
-        "flow_support_internal": {"used": False, "direction": None, "reason": "CONTEXTO"},
-        "flow_context_internal": flow_context, "macd1": macd1,
-        "price_ema9_atr": (price-number(l1["ema9"], price))/atr,
-        "decision_checks": checks_by_side,
-    }
+    if ema == "BULL": bull += 0.85
+    elif ema == "BEAR": bear += 0.85
 
+    if trend3 == "UP": bull += 1.10 * slow
+    elif trend3 == "DOWN": bear += 1.10 * slow
+    if trend5 == "UP": bull += 0.90 * slow
+    elif trend5 == "DOWN": bear += 0.90 * slow
+
+    if rsi1 >= 52: bull += 0.90
+    elif rsi1 <= 48: bear += 0.90
+    if rsi3 >= 51: bull += 0.55 * slow
+    elif rsi3 <= 49: bear += 0.55 * slow
+    if rsi5 >= 52: bull += 0.30 * slow
+    elif rsi5 <= 48: bear += 0.30 * slow
+
+    if mom3 > 0.015: bull += 1.15
+    elif mom3 < -0.015: bear += 1.15
+    elif mom3 > 0: bull += 0.30
+    elif mom3 < 0: bear += 0.30
+    if mom5 > 0.025: bull += 0.55 * slow
+    elif mom5 < -0.025: bear += 0.55 * slow
+
+    if macd3 > 0: bull += 0.70 * slow
+    elif macd3 < 0: bear += 0.70 * slow
+    if macd5 > 0: bull += 0.35 * slow
+    elif macd5 < 0: bear += 0.35 * slow
+    if plus_di > minus_di: bull += 0.50 * slow
+    elif minus_di > plus_di: bear += 0.50 * slow
+
+    if vwap_atr >= 0.03: bull += 0.70
+    elif vwap_atr <= -0.03: bear += 0.70
+
+    # El target gana importancia progresivamente. No inventa dirección:
+    # usa únicamente dónde está BTC respecto al target en este instante.
+    if secs > 300:
+        tw = 0.65
+    elif secs > 180:
+        tw = 1.40
+    elif secs > 90:
+        tw = 2.40
+    elif secs > 30:
+        tw = 3.60
+    else:
+        tw = 5.00
+
+    # Magnitud: una separación mayor en ATR da más convicción, sin bloquear
+    # cambios cuando BTC cruza el target.
+    target_strength = min(1.75, 0.55 + abs(target_atr) * 2.25)
+    if target_atr > 0:
+        bull += tw * target_strength
+    elif target_atr < 0:
+        bear += tw * target_strength
+
+    total = bull + bear
+    edge = bull - bear
+    if total < 1.5 or abs(edge) < 0.35:
+        return {"direction":"NEUTRAL", "percent":50, "bull":bull, "bear":bear}
+
+    direction = "UP" if edge > 0 else "DOWN"
+    dominant = max(bull, bear)
+    share = dominant / total if total else 0.5
+
+    # Porcentaje propio de la preseñal. Puede llegar a 100 solo cuando la
+    # lectura actual es realmente dominante; no copia la probabilidad oficial.
+    percent = int(round(np.clip(50 + (share - 0.5) * 92 + min(abs(edge), 6.0) * 1.8, 52, 100)))
+
+    return {"direction":direction, "percent":percent, "bull":bull, "bear":bear}
 
 def entry_quality(price, seconds_left):
     if price is None:
@@ -2256,18 +2254,139 @@ def entry_quality(price, seconds_left):
 # CONTROL DE RONDA — EL CEREBRO MANDA
 # =========================================================
 
+def _retention_assessment(state, signal):
+    """Separate affirmative, opposite and unknown evidence for an active side."""
+    side = state.get("active_direction")
+    if side not in ("UP", "DOWN") or not signal or signal.get("data_valid") is False:
+        return 0, 0
+    sign = 1 if side == "UP" else -1
+    support = contrary = 0
+    ema = signal.get("ema")
+    if ema in ("BULL", "BEAR"):
+        if ema == ("BULL" if sign == 1 else "BEAR"):
+            support += 1
+        else:
+            contrary += 1
+    for name in ("mom5", "distance"):
+        value = _plan_number(signal.get(name))
+        if value is None:
+            continue
+        if value * sign > 0:
+            support += 1
+        elif value * sign < 0:
+            contrary += 1
+    return support, contrary
+
+
+def _retention_supported(state, signal, seconds_left):
+    """Partial weakening is not sufficient to withdraw an existing signal."""
+    if seconds_left is None or seconds_left <= 0:
+        return False
+    support, _ = _retention_assessment(state, signal)
+    return support >= 2
+
+
 def _reset_withdrawal(state):
-    """Compatibilidad de estado; sin reglas de retención del cerebro anterior."""
     state.update(withdraw_direction=None, withdraw_source=None, withdraw_count=0,
                  withdraw_since=None, withdraw_last_at=None, retention_warning=None)
 
 
-def _confirmation_without_trace(state, candidate, market, seconds_left, now, signal=None):
-    """Confirma solo el candidato Gemini-Kalshi; no recalcula su dirección.
+def _review_active_retention(state, signal, seconds_left, now):
+    """Withdraw only after two opposite conditions persist in spaced readings.
 
-    Una decisión por ronda: tras confirmar UP/DOWN no se cambia ni se
-    retira durante esa misma ronda. Una ronda nueva inicia esperando.
+    Neutral/missing evidence never counts as an opposite vote. This helper is
+    only for candidate=None; entry and reversal confirmation are unchanged.
     """
+    side = state.get("active_direction")
+    if side not in ("UP", "DOWN"):
+        _reset_withdrawal(state)
+        return
+    support, contrary = _retention_assessment(state, signal)
+    warning = side + " PERDIENDO FUERZA • REEVALUANDO RESPALDO" if support < 3 else None
+    if contrary < 2:
+        _reset_withdrawal(state)
+        state["retention_warning"] = warning
+        return
+    source = (signal or {}).get("price_source")
+    stamp = now.timestamp()
+    last = state.get("withdraw_last_at")
+    same = (state.get("withdraw_direction") == side and state.get("withdraw_source") == source
+            and last is not None and 0 <= stamp-last <= SIGNAL_CONFIRM_MAX_GAP)
+    if not same:
+        state.update(withdraw_direction=side, withdraw_source=source, withdraw_count=1,
+                     withdraw_since=stamp, withdraw_last_at=stamp)
+    elif stamp-last >= SIGNAL_CONFIRM_INTERVAL:
+        state["withdraw_count"] += 1
+        state["withdraw_last_at"] = stamp
+    state["retention_warning"] = warning
+    if (state["withdraw_count"] >= SIGNAL_CONFIRM_READINGS and
+            stamp-state["withdraw_since"] >= SIGNAL_CONFIRM_INTERVAL*(SIGNAL_CONFIRM_READINGS-1)):
+        state["active_direction"] = None
+        state["active_since"] = None
+        _reset_withdrawal(state)
+
+
+def _round_opening_crosscheck(state, candidate, signal, now):
+    """Require fresh directional evidence before the first entry of this ticker.
+
+    Old candles remain context, never sufficient evidence for an opening entry.
+    Each live feed has a separate short tape. Later reversals are unrestricted.
+    """
+    if state.get("first_direction") in ("UP", "DOWN"):
+        state["opening_conflict"] = None
+        return candidate
+    def wait(reason):
+        state["opening_conflict"] = reason
+        return None
+    if state.get("opening_gate_revision") != "fresh_first_entry_v1":
+        state.update(opening_gate_revision="fresh_first_entry_v1", opening_live_tapes={})
+    if not signal or signal.get("data_valid") is False:
+        return wait("Esperando datos actuales para la primera señal")
+    price = _plan_number(signal.get("price"))
+    atr = _plan_number(signal.get("atr"))
+    source = signal.get("price_source")
+    if (price is None or price <= 0 or atr is None or atr <= 0
+            or source not in ("COINBASE", "KALSHI LIVE")):
+        return wait("Esperando precio en vivo para la primera señal")
+    stamp = now.timestamp()
+    tapes = state.setdefault("opening_live_tapes", {})
+    tape = tapes.get(source, [])
+    if tape and (stamp < tape[-1][0] or stamp-tape[-1][0] > LIVE_PRICE_MAX_AGE):
+        tape = []
+    tape = [x for x in tape if 0 <= stamp-x[0] <= 30]
+    if not tape or stamp-tape[-1][0] >= SIGNAL_CONFIRM_INTERVAL:
+        tape.append([stamp, price])
+    tapes[source] = tape
+    if candidate not in ("UP", "DOWN"):
+        return wait("Analizando fuerza actual antes de la primera señal")
+    if len(tape) < 3 or tape[-1][0]-tape[0][0] < 6:
+        return wait("Observando movimiento actual antes de la primera señal")
+    prices = [float(x[1]) for x in tape]
+    sign = 1 if candidate == "UP" else -1
+    split = len(prices)//2
+    net = sign*(prices[-1]-prices[0])
+    recent = sign*(prices[-1]-prices[split])
+    travel = sum(abs(y-x) for x,y in zip(prices,prices[1:]))
+    efficiency = net/max(travel, 1e-8)
+    minimum = max(2.0, .10*atr)
+    latest = sign*(prices[-1]-prices[-2])
+    if (net < minimum or recent < .5*minimum or efficiency < .60
+            or latest < -.25*minimum):
+        return wait("Sin fuerza actual suficiente para " + candidate)
+    state["opening_conflict"] = None
+    return candidate
+
+
+def _confirmation_without_trace(state, candidate, market, seconds_left, now, signal=None):
+    """Confirmación compartida por la pantalla y el registrador de fondo.
+
+    La primera señal queda inmutable. Un cambio UP/DOWN posterior también
+    necesita confirmación. Una lectura neutral cancela la candidatura pendiente;
+    la activa se conserva solo si mantiene EMA, mom5 y distancia favorables.
+    """
+    candidate = _round_opening_crosscheck(state, candidate, signal, now)
+    # Recalcular el cierre aquí: las consultas de red pueden agotar el contador.
+    closed = seconds_left is not None and seconds_left <= 0
     close_time = (market or {}).get("close_time")
     if close_time:
         end = pd.to_datetime(close_time, utc=True, errors="coerce")
@@ -2276,53 +2395,97 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
         else:
             actual_left = (end - pd.Timestamp(now)).total_seconds()
             seconds_left = actual_left if seconds_left is None else min(seconds_left, actual_left)
-    if seconds_left is not None and seconds_left <= 0:
-        state["active_direction"] = None
-        state["active_since"] = None
-        state["pending_direction"] = None
+            closed = seconds_left <= 0
+    if closed:
+        _reset_withdrawal(state)
+        for key in ("pending_direction", "pending_since", "pending_last_at", "pending_price_source",
+                    "active_direction", "active_since"):
+            state[key] = None
         state["pending_count"] = 0
         return
-    if state.get("first_direction") in ("UP", "DOWN"):
-        state["active_direction"] = state["first_direction"]
-        state["pending_direction"] = None
-        state["pending_count"] = 0
-        return
-    if not signal or signal.get("data_valid") is False or candidate not in ("UP", "DOWN"):
+    if signal is not None and signal.get("data_valid") is False:
+        _reset_withdrawal(state)
+        # Una interrupción no demuestra neutralidad ni permite confirmar.
         state["pending_direction"] = None
         state["pending_count"] = 0
         state["pending_since"] = None
         state["pending_last_at"] = None
-        state["opening_conflict"] = None
+        if seconds_left is not None and seconds_left <= 0:
+            state["active_direction"] = None
+            state["active_since"] = None
         return
-    # Confirmación de lecturas independientes; no contiene filtros técnicos viejos.
+    source = signal.get("price_source") if signal else None
+    if source in ("KALSHI LIVE", "COINBASE", "COINBASE CANDLE"):
+        if state.get("pending_count", 0) and state.get("pending_price_source") != source:
+            # Tres lecturas deben pertenecer a una misma referencia de precio.
+            state["pending_direction"] = None
+            state["pending_count"] = 0
+            state["pending_since"] = None
+            state["pending_last_at"] = None
+        state["pending_price_source"] = source
+    if candidate not in ("UP", "DOWN"):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        _review_active_retention(state, signal, seconds_left, now)
+        return
+
+    _reset_withdrawal(state)
+    if candidate == state.get("active_direction"):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        return
+
     last = state.get("pending_last_at")
     if isinstance(last, str):
-        last = pd.to_datetime(last, utc=True, errors="coerce")
-        last = last.to_pydatetime() if pd.notna(last) else None
-    if (state.get("pending_direction") != candidate or last is None
-            or (now - last).total_seconds() < 0
-            or (now - last).total_seconds() > SIGNAL_CONFIRM_MAX_GAP):
+        try:
+            last = datetime.fromisoformat(last)
+        except ValueError:
+            last = None
+    since = state.get("pending_since")
+    if isinstance(since, str):
+        try:
+            since = datetime.fromisoformat(since)
+        except ValueError:
+            since = None
+
+    if (last is not None and ((now - last).total_seconds() > SIGNAL_CONFIRM_MAX_GAP
+                              or (now - last).total_seconds() < 0)):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        last = since = None
+    if state.get("pending_direction") != candidate:
         state["pending_direction"] = candidate
         state["pending_count"] = 1
         state["pending_since"] = now.isoformat()
         state["pending_last_at"] = now.isoformat()
         return
-    if (now - last).total_seconds() >= SIGNAL_CONFIRM_INTERVAL:
+
+    if last is None or (now - last).total_seconds() >= SIGNAL_CONFIRM_INTERVAL:
         state["pending_count"] = int(state.get("pending_count", 0)) + 1
         state["pending_last_at"] = now.isoformat()
-    if state.get("pending_count", 0) >= SIGNAL_CONFIRM_READINGS:
+
+    elapsed = (now - since).total_seconds() if since else 0
+    if (state["pending_count"] >= SIGNAL_CONFIRM_READINGS
+            and elapsed >= SIGNAL_CONFIRM_INTERVAL * (SIGNAL_CONFIRM_READINGS - 1)):
         state["active_direction"] = candidate
         state["active_since"] = now
-        state["first_direction"] = candidate
-        state["first_signal_time"] = now
-        state["first_signal_seconds"] = seconds_left
-        state["first_signal_price"] = (get_yes_ask(market) if candidate == "UP"
-                                       else get_no_ask(market))
+        if state.get("first_direction") is None:
+            state["first_direction"] = candidate
+            state["first_signal_time"] = now
+            state["first_signal_seconds"] = seconds_left
+            state["first_signal_price"] = (get_yes_ask(market) if candidate == "UP"
+                                           else get_no_ask(market))
         state["pending_direction"] = None
         state["pending_count"] = 0
         state["pending_since"] = None
         state["pending_last_at"] = None
-        state["opening_conflict"] = None
+
 
 def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
@@ -2383,7 +2546,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
     state["last_score"] = score
     score_change = score - previous_score
 
-    # Gemini-Kalshi propone; dos lecturas espaciadas confirman la señal.
+    # El cerebro propone; tres lecturas espaciadas confirman la señal.
     candidate = sig.get("candidate")
     if restored_from_disk and candidate not in ("UP", "DOWN"):
         # No se mantiene una señal antigua ante una lectura neutral actual.
@@ -2419,6 +2582,9 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
             reversal = True
             reversal_text = "DOWN PERDIENDO FUERZA • PRESIÓN CONTRARIA DETECTADA"
 
+    if active and state.get("retention_warning"):
+        reversal = True
+        reversal_text = state["retention_warning"]
     state["reversal_warning"] = reversal
     state["reversal_text"] = reversal_text
 
@@ -2454,7 +2620,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-BACKGROUND_DATA_REVISION = "continuous_history_active_market_discovery_recent_support_v1_candle_sources_v2_flow_opening_v3"
+BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_sources_v2"
 _BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
@@ -2485,6 +2651,63 @@ def _background_get_live_price(market):
     _BACKGROUND_PRICE_SOURCE.value = "COINBASE"
     return price
 
+# =========================================================
+# ALPHA AI SHADOW — observational only; NEVER alters UP/DOWN
+# Stores one immutable decision-time snapshot per ticker.
+# Training labels must come from official Kalshi settlement.
+# =========================================================
+SHADOW_AI_DB = "alpha_ai_shadow.db"
+SHADOW_FEATURES = ("rsi", "rsi3", "rsi5", "mom3", "mom5", "mom15", "vol_ratio",
+                   "technical_score", "target_score", "adx", "macd3", "macd5",
+                   "atr", "vwap_atr", "target_atr", "distance_pct")
+
+def _shadow_capture(ticker, sig, state, seconds_left):
+    """Read-only capture of existing engine output; no signal writes or model inference."""
+    if not ticker or not isinstance(sig, dict) or seconds_left is None:
+        return
+    try:
+        remaining = float(seconds_left)
+        if not 0 < remaining <= 900:
+            return
+        price = float(sig.get("price"))
+        target = float(state.get("last_target"))
+        if not np.isfinite(price) or not np.isfinite(target) or target <= 0:
+            return
+        def safe_float(value):
+            try:
+                number = float(value)
+                return number if np.isfinite(number) else None
+            except (TypeError, ValueError, OverflowError):
+                return None
+        features = {name: safe_float(sig.get(name)) for name in SHADOW_FEATURES}
+        # Store the engine's original proposal so the training label evaluates
+        # the proposal, not the AI-filtered display result.
+        signal = sig.get("candidate_raw", sig.get("candidate"))
+        if signal not in ("UP", "DOWN"):
+            # Wait for the first actual proposal; otherwise a neutral first poll
+            # would permanently occupy this ticker's one-snapshot slot.
+            return
+        with sqlite3.connect(SHADOW_AI_DB, timeout=3) as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS snapshots (
+                ticker TEXT PRIMARY KEY, observed_at TEXT NOT NULL,
+                seconds_left REAL NOT NULL, btc_price REAL NOT NULL,
+                target REAL NOT NULL, candidate TEXT, features_json TEXT NOT NULL)""")
+            conn.execute("""INSERT INTO snapshots
+                (ticker, observed_at, seconds_left, btc_price, target, candidate, features_json)
+                VALUES (?,?,?,?,?,?,?)
+                ON CONFLICT(ticker) DO UPDATE SET
+                    observed_at=excluded.observed_at,
+                    seconds_left=excluded.seconds_left,
+                    btc_price=excluded.btc_price,
+                    target=excluded.target,
+                    candidate=excluded.candidate,
+                    features_json=excluded.features_json
+                WHERE snapshots.candidate IS NULL AND excluded.candidate IS NOT NULL""",
+                (str(ticker), datetime.now(timezone.utc).isoformat(), remaining,
+                 price, target, signal, json.dumps(features, allow_nan=False)))
+    except (sqlite3.Error, TypeError, ValueError, OverflowError):
+        return
+
 def _background_update_state_without_coordinator(state, sig, market, seconds_left):
     now = datetime.now(timezone.utc)
     price = float(sig.get("price", 0.0))
@@ -2498,47 +2721,13 @@ def _background_update_state_without_coordinator(state, sig, market, seconds_lef
     state["last_score"] = float(sig.get("final_score", 0.0))
     confirm_round_candidate(state, sig.get("candidate"), market, seconds_left, now, sig)
     save_round_state(state)
+    _shadow_capture(state.get("ticker"), sig, state, seconds_left)
     return state
-
-# Cinta micro compartida entre sesiones Streamlit del MISMO proceso.
-# El trabajador autónomo la alimenta aun cuando el navegador se desconecta.
-_MICRO_SHARED_LOCK = threading.RLock()
-_MICRO_SHARED = {"ticker": None, "source": None, "prices": []}
-
-def _record_shared_micro(ticker, price, source, observed_ts=None):
-    if not ticker or ticker == "--" or not source:
-        return
-    try:
-        p = float(price)
-        t = float(observed_ts) if observed_ts is not None else time.time()
-    except (TypeError, ValueError):
-        return
-    if not math.isfinite(p) or p <= 0 or abs(time.time() - t) > LIVE_PRICE_MAX_AGE:
-        return
-    with _MICRO_SHARED_LOCK:
-        shared = _MICRO_SHARED
-        if shared["source"] != source:
-            shared.update(ticker=ticker, source=source, prices=[])
-        else:
-            shared["ticker"] = ticker
-        tape = shared["prices"]
-        if tape and (t - tape[-1]["t"] > SIGNAL_CONFIRM_MAX_GAP or t < tape[-1]["t"]):
-            tape.clear()
-        if not tape or t - tape[-1]["t"] >= 1.0:
-            tape.append({"t": t, "p": p})
-        shared["prices"] = [v for v in tape if v["t"] >= time.time() - 90]
-
-def _shared_micro_snapshot(ticker, source):
-    with _MICRO_SHARED_LOCK:
-        if _MICRO_SHARED["ticker"] != ticker or _MICRO_SHARED["source"] != source:
-            return []
-        return [dict(x) for x in _MICRO_SHARED["prices"]]
 
 def _background_history_loop(stop_event=None):
     started = time.monotonic()
     active_ticker = None
     active_state = None
-    whale_state = {}
     while not (stop_event and stop_event.is_set()):
         try:
             market = _background_get_market()
@@ -2559,19 +2748,13 @@ def _background_history_loop(stop_event=None):
             seconds_left = get_seconds_remaining(market)
             target = get_target_from_market(market)
             live_price = _background_get_live_price(market)
-            background_source = getattr(_BACKGROUND_PRICE_SOURCE, "value", None)
-            observed = getattr(_PRICE_OBSERVATIONS, "values", {}).get(background_source)
-            _record_shared_micro(ticker, live_price, background_source, observed)
             btc_df = _background_get_btc_data()
-            try:
-                whale = get_coinbase_whale_flow(whale_state)
-            except Exception:
-                whale = None
             sig = build_signal(btc_df, target, seconds_left, live_price,
-                               getattr(_BACKGROUND_PRICE_SOURCE, "value", None), whale=whale)
+                               getattr(_BACKGROUND_PRICE_SOURCE, "value", None))
             if stop_event and stop_event.is_set():
                 break
             active_state = _background_update_state(active_state, sig, market, seconds_left)
+            _shadow_capture(ticker, sig, active_state, seconds_left)
             if seconds_left is not None and seconds_left <= 0:
                 save_round_history(active_state)
         except Exception as exc:
@@ -2637,11 +2820,34 @@ def start_continuous_history_worker():
 def update_micro_tape(ticker, live_price, price_source=None):
     if not ticker or ticker == "--" or live_price is None:
         return
-    observed = getattr(_PRICE_OBSERVATIONS, "values", {}).get(price_source)
-    _record_shared_micro(ticker, live_price, price_source, observed)
-    st.session_state.micro_ticker = ticker
-    st.session_state.micro_price_source = price_source
-    st.session_state.micro_prices = _shared_micro_snapshot(ticker, price_source)
+
+    # Cada ronda empieza con su propia cinta.
+    if (st.session_state.micro_ticker != ticker
+            or st.session_state.get("micro_price_source") != price_source):
+        st.session_state.micro_ticker = ticker
+        st.session_state.micro_price_source = price_source
+        st.session_state.micro_prices = []
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    observed_ts = getattr(_PRICE_OBSERVATIONS, "values", {}).get(price_source)
+    if (observed_ts is None or not np.isfinite(float(live_price))
+            or not -5 <= now_ts - observed_ts <= LIVE_PRICE_MAX_AGE):
+        st.session_state.micro_prices = []
+        return
+    tape = st.session_state.micro_prices
+
+    # Una pausa rompe la ventana micro; volver a reunir datos continuos.
+    if tape and observed_ts - tape[-1]["t"] > SIGNAL_CONFIRM_MAX_GAP:
+        tape.clear()
+    # Evita duplicar muestras dentro del mismo refresco.
+    if not tape or observed_ts - tape[-1]["t"] >= 1.0:
+        tape.append({"t": observed_ts, "p": float(live_price)})
+
+    # Conserva aproximadamente los últimos 90 segundos.
+    cutoff = now_ts - 90
+    st.session_state.micro_prices = [
+        x for x in tape if x["t"] >= cutoff
+    ]
 
 
 def micro_reading():
@@ -2713,91 +2919,209 @@ def micro_reading():
     }
 
 
-# Suavizado de volatilidad compartido entre sesiones del mismo proceso.
-_CLOSING_SIGMA_LOCK = threading.RLock()
-_CLOSING_SIGMA_STATE = {"source": None, "sigma": None, "timestamp": 0.0}
-
-def closing_reader(sig, seconds_left, micro):
-    """Lector independiente basado en distancia, tiempo y volatilidad observada.
-
-    El porcentaje es un índice de apoyo NO calibrado, no una probabilidad.
-    No lee candidate, round_signal ni up_probability del cerebro principal.
+def closing_reader(sig, round_signal, seconds_left, micro):
     """
-    price = _plan_number(sig.get("price"))
-    distance = _plan_number(sig.get("distance"))
-    atr = _plan_number(sig.get("atr"))
-    remaining = _plan_number(seconds_left)
-    direction = None
-    percent = 50
-    headline = "REUNIENDO DATOS"
-    note = "Falta precio, target o tiempo para evaluar el cierre."
-    if remaining is not None and remaining <= 0:
-        headline = "RONDA TERMINADA · RESULTADO PENDIENTE"
-        note = "Esperando el resultado oficial de Kalshi."
-    elif price is not None and distance is not None and remaining is not None:
-        remaining = max(1.0, remaining)
-        # Estimar desplazamiento por segundo con diferencias de la cinta compartida.
-        # Usar datos frescos; saltos de sesión no cuentan como movimiento de mercado.
-        tape = list(st.session_state.get("micro_prices", []))
-        now = time.time()
-        tape = [v for v in tape if now - v["t"] <= 65]
-        increments = []
-        for prev, cur in zip(tape, tape[1:]):
-            dt = cur["t"] - prev["t"]
-            if 0.8 <= dt <= 6.0:
-                increments.append((cur["p"] - prev["p"]) / math.sqrt(dt))
-        observed_sigma = float(np.std(increments, ddof=1)) if len(increments) >= 8 else None
-        # Respaldo con ATR de 1m: evitar falsa certeza si faltan ticks o la
-        # volatilidad reciente parece artificialmente baja.
-        atr_sigma = (atr / math.sqrt(60.0)) if atr is not None and atr > 0 else price * 0.0005 / math.sqrt(60.0)
-        # Mezcla progresiva: evita el salto al alcanzar la muestra número 8.
-        # Mantiene una base conservadora mientras llegan suficientes observaciones.
-        if observed_sigma is None:
-            sigma = max(atr_sigma, 0.01)
+    Lector independiente de cierre.
+    - La señal principal v4.6.1 NO se modifica.
+    - En los últimos segundos, tiempo + distancia al target dominan sobre
+      una pequeña contradicción de momentum/microlectura.
+    - Nunca llama "confirmado" a un resultado antes del cierre.
+    """
+    state = round_signal.get("round_state")
+    active_direction = state.get("active_direction") if state else None
+
+    if seconds_left is not None and seconds_left <= 0:
+        distance = sig.get("distance")
+        if distance is None or abs(distance) < 1:
+            headline, color = "RONDA FINALIZADA", "#94a3b8"
+        elif distance > 0:
+            headline, color = "RONDA FINALIZADA • UP", "#00dfb5"
         else:
-            weight = float(np.clip((len(increments) - 3) / 24.0, 0.0, 1.0))
-            measured = max(observed_sigma, atr_sigma * 0.5, 0.01)
-            sigma = (1.0 - weight) * max(atr_sigma, 0.01) + weight * measured
-        # Suavizado compartido entre recargas de la página, sin tocar el cerebro.
-        global _CLOSING_SIGMA_STATE
-        with _CLOSING_SIGMA_LOCK:
-            state = _CLOSING_SIGMA_STATE
-            now_m = time.monotonic()
-            if state["source"] != st.session_state.get("micro_price_source"):
-                state.update(source=st.session_state.get("micro_price_source"),
-                             sigma=None, timestamp=now_m)
-            previous = state["sigma"]
-            if previous is not None:
-                dt = max(0.0, min(now_m - state["timestamp"], 30.0))
-                alpha = 1.0 - math.exp(-dt / 14.0)
-                sigma = previous + alpha * (sigma - previous)
-            state["sigma"] = sigma
-            state["timestamp"] = now_m
-        expected_move = max(sigma * math.sqrt(remaining), 1.0)
-        # El movimiento actual solo influye parcialmente y nunca garantiza el cierre.
-        drift = 0.0
-        if micro.get("ready"):
-            c10 = _plan_number(micro.get("change_10s"))
-            c30 = _plan_number(micro.get("change_30s"))
-            if c10 is not None and c30 is not None:
-                velocity = 0.65 * (c10 / 10.0) + 0.35 * (c30 / 30.0)
-                drift = float(np.clip(velocity * remaining * 0.25, -expected_move, expected_move))
-        adjusted = distance + drift
-        z = float(np.clip(adjusted / expected_move, -5.0, 5.0))
-        if abs(z) < 0.10:
-            headline = "CIERRE DISPUTADO"
-        else:
-            direction = "UP" if z > 0 else "DOWN"
-            # Escala orientativa: NO representa una probabilidad calibrada.
-            percent = int(round(50 + 49 * math.erf(abs(z) / math.sqrt(2.0))))
-            percent = max(51, min(99, percent))
-            headline = "SEÑAL DE CIERRE " + direction
-        note = ""
-    color = "#00dfb5" if direction == "UP" else "#e64b4b" if direction == "DOWN" else "#38bdf8"
-    return {"percent": percent, "headline": headline, "note": note,
-            "micro": "", "direction": direction, "color": color,
+            headline, color = "RONDA FINALIZADA • DOWN", "#e64b4b"
+        return {
+            "percent":100, "headline":headline,
+            "note":"La ronda terminó. Ya no se muestra una predicción de cierre.",
+            "micro":"RONDA CERRADA","color":color,
+            "border":"rgba(148,163,184,.45)",
+            "bg":"linear-gradient(135deg,rgba(30,41,59,.45),rgba(9,23,34,.72))",
+        }
+
+    if active_direction not in ("UP", "DOWN"):
+        first_direction = state.get("first_direction") if state else None
+        withdrawn = first_direction in ("UP", "DOWN")
+        return {
+            "percent": 50,
+            "headline": "SIN SEÑAL ACTIVA" if withdrawn else "ESPERANDO SEÑAL",
+            "note": (f"La señal activa fue retirada. Primera señal de la ronda: {first_direction}. "
+                     "Esperando nueva confirmación." if withdrawn else
+                     "El motor todavía no confirmó una dirección."),
+            "micro": "MICROLECTURA PREPARÁNDOSE",
+            "color": "#38bdf8",
             "border": "rgba(56,189,248,.45)",
-            "bg": "linear-gradient(135deg,rgba(11,64,91,.30),rgba(9,23,34,.72))"}
+            "bg": "linear-gradient(135deg,rgba(11,64,91,.30),rgba(9,23,34,.72))",
+        }
+
+    distance = sig.get("distance")
+    close_direction = active_direction
+    terminal_override = False
+    terminal_too_close = False
+
+    # En cierre extremo, la posición REAL respecto al target manda.
+    # Umbrales deliberadamente conservadores para no llamar un flip por $2-$10.
+    if seconds_left is not None and distance is not None:
+        abs_d = abs(distance)
+        market_side = "UP" if distance > 0 else "DOWN"
+
+        if seconds_left <= 15:
+            strong_distance = abs_d >= 30
+            too_close = not strong_distance
+        elif seconds_left <= 30:
+            strong_distance = abs_d >= 45
+            too_close = not strong_distance
+        elif seconds_left <= 60:
+            strong_distance = abs_d >= 70
+            too_close = abs_d < 25
+        else:
+            strong_distance = False
+            too_close = False
+
+        if strong_distance:
+            close_direction = market_side
+            terminal_override = True
+        elif too_close and seconds_left <= 30:
+            terminal_too_close = True
+
+    direction = close_direction
+    base = sig["up_probability"] if direction == "UP" else sig["down_probability"]
+    confidence = float(base)
+
+    if distance is not None:
+        aligned = distance > 0 if direction == "UP" else distance < 0
+        confidence += 6 if aligned else -9
+
+    aligned_momentum = sig["mom3"] > 0 if direction == "UP" else sig["mom3"] < 0
+    confidence += 3 if aligned_momentum else -5
+
+    if round_signal.get("reversal") and not terminal_override:
+        confidence -= 12
+
+    micro_text = "MICROLECTURA REUNIENDO DATOS"
+    strong_contradiction = False
+
+    if micro.get("ready"):
+        wanted = 1 if direction == "UP" else -1
+        c10 = micro["change_10s"] * wanted
+        c30 = micro["change_30s"] * wanted
+        slope = micro["slope"] * wanted
+        ratio = micro["up_ratio"] if direction == "UP" else 1 - micro["up_ratio"]
+
+        micro_score = 0
+        micro_score += 6 if c10 > 8 else (3 if c10 > 2 else (-7 if c10 < -8 else (-4 if c10 < -2 else 0)))
+        micro_score += 7 if c30 > 15 else (4 if c30 > 5 else (-9 if c30 < -15 else (-5 if c30 < -5 else 0)))
+        micro_score += 4 if slope > 0.45 else (-5 if slope < -0.45 else 0)
+        micro_score += 4 if ratio >= 0.62 else (-5 if ratio <= 0.38 else 0)
+
+        # La microlectura pesa menos cuando quedan segundos y la distancia es amplia.
+        weight = 1.0
+        if seconds_left is not None:
+            if seconds_left <= 30:
+                weight = 0.45 if terminal_override else 1.20
+            elif seconds_left <= 60:
+                weight = 0.70 if terminal_override else 1.35
+            elif seconds_left <= 120:
+                weight = 1.35
+            elif seconds_left <= 180:
+                weight = 1.20
+
+        confidence += float(np.clip(micro_score * weight, -28, 20))
+        strong_contradiction = (c10 < -5 and c30 < -10)
+
+        # Solo limitar por contradicción si tiempo/distancia NO hacen el cierre dominante.
+        if strong_contradiction and not terminal_override:
+            confidence = min(confidence, 69)
+
+        micro_text = (
+            f"MICRO {micro['pressure']} • "
+            f"10s {micro['change_10s']:+.1f} • "
+            f"30s {micro['change_30s']:+.1f}"
+        )
+
+    if seconds_left is not None and seconds_left <= 180:
+        confidence += 2
+
+    # Refuerzo específico de tiempo + distancia.
+    if terminal_override and distance is not None:
+        abs_d = abs(distance)
+        if seconds_left <= 15:
+            confidence = max(confidence, 90 if abs_d >= 75 else 82)
+        elif seconds_left <= 30:
+            confidence = max(confidence, 86 if abs_d >= 100 else 78)
+        elif seconds_left <= 60:
+            confidence = max(confidence, 80 if abs_d >= 120 else 74)
+
+    confidence = int(round(np.clip(confidence, 5, 95)))
+
+    if terminal_too_close:
+        # En los últimos segundos NO lo llama simplemente "disputado":
+        # muestra qué lado del target está ganando AHORA y la distancia exacta.
+        # La confianza se mantiene moderada porque una diferencia pequeña aún puede cruzarse.
+        if distance == 0:
+            confidence = 50
+            headline = "PRECIO EN EL TARGET"
+            note = f"Quedan {seconds_left}s y el precio está en el target, sin margen a favor de una dirección."
+        else:
+            market_side = "UP" if distance > 0 else "DOWN"
+            confidence = int(np.clip(confidence, 52, 64))
+            headline = f"POSICIÓN ACTUAL {market_side}"
+            note = (
+                f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
+                f"{'arriba' if distance > 0 else 'abajo'} del target. "
+                "El margen es pequeño; no se muestra un apoyo direccional."
+            )
+    elif terminal_override:
+        headline = f"CIERRE MUY FAVORECIDO PARA {direction}"
+        note = (
+            f"Quedan {seconds_left}s y BTC está ${abs(distance):,.0f} "
+            f"{'arriba' if distance > 0 else 'abajo'} del target."
+        )
+    elif round_signal.get("reversal"):
+        headline = "SEÑAL PERDIENDO FUERZA"
+        note = round_signal.get("reversal_text") or "Posible cambio de dirección."
+    elif strong_contradiction:
+        headline = f"{direction} PERDIENDO FUERZA"
+        note = "La presión live de 10s y 30s va contra la señal activa."
+    elif confidence >= 75:
+        headline = ("APOYO FUERTE AL CIERRE UP" if direction == "UP"
+                    else "APOYO FUERTE AL CIERRE DOWN")
+        note = "Índice de apoyo basado en momentum, volatilidad, presión y distancia. No es una probabilidad de acierto."
+    elif confidence >= 60:
+        headline = f"VENTAJA MODERADA PARA {direction}"
+        note = "La dirección sigue activa, pero la presión inmediata aún puede cambiar."
+    else:
+        headline = f"CIERRE {direction} SIN VENTAJA CLARA"
+        note = "La microlectura no confirma con fuerza la dirección."
+
+    if direction == "UP":
+        color = "#00dfb5"
+        border = "rgba(0,223,181,.48)"
+        bg = "linear-gradient(135deg,rgba(4,86,43,.46),rgba(7,36,25,.78))"
+    else:
+        color = "#e64b4b"
+        border = "rgba(230,75,75,.48)"
+        bg = "linear-gradient(135deg,rgba(102,20,31,.48),rgba(43,10,17,.80))"
+
+    return {
+        "percent": 0 if terminal_too_close else confidence,
+        "direction": None if terminal_too_close else direction,
+        "headline": headline,
+        "note": note,
+        "micro": micro_text,
+        "color": color,
+        "border": border,
+        "bg": bg,
+    }
+
+
 
 
 def render_live_candles(df, live_price, target, active, timeframe="1m"):
@@ -2944,30 +3268,30 @@ def render_history_page():
 .red{color:#e64b4b!important;text-shadow:0 0 5px #e64b4b88,0 0 14px #e64b4b55!important}
 .pup,.prob-up{background:#00dfb5!important;box-shadow:0 0 8px #00dfb588,0 0 22px #00dfb544!important}
 .pdown,.prob-down{background:#e64b4b!important;box-shadow:0 0 8px #e64b4b88,0 0 22px #e64b4b44!important}
-.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
-.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
+.prenote,.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
+.pretitle,.prebadge,.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
 .rhero{filter:drop-shadow(0 0 9px var(--accent))}
 .note,.footer,.sub,.card small,.metric small,.tooltip,.chartnav span,summary small{color:#cbd5e1!important;font-size:11px!important}
 .floatcounts div{border-color:#00dfb5;box-shadow:0 0 9px #00dfb544}.floatcounts div:last-child{border-color:#e64b4b;box-shadow:0 0 9px #e64b4b44}
 .canvas svg rect,.canvas svg line{shape-rendering:geometricPrecision}
-@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.finalanalysis{grid-template-columns:1fr 90px}}
+@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.prehead{flex-wrap:wrap;gap:6px}.prebadge{max-width:100%}.finalanalysis{grid-template-columns:1fr 90px}}
 
 
 /* Purple neon outlines, consistent across dashboard and chart cards. */
-.rcard,.mini,.section,.close-reader,.reader,.refapp>section[style],
+.rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
 .finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
 .panel,.card,.metric,details,.floatcounts div{
  border-color:#23685e!important;
  box-shadow:0 0 4px #00dfb51a,inset 0 0 4px #00dfb508!important;
 }
 .panel{border:1.5px solid #23685e!important;margin:8px 6px!important}
-.rcard,.mini,.reader,.card,.metric,details{border-width:1.5px!important}
+.rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
 .techrow,.rnav,.chartnav{border-color:#23685e!important}
 
 
 /* Uniform turquoise presentation. Signal values and timing are unchanged. */
 .stApp,[data-testid="stAppViewContainer"]{background:#06121a!important}
-.refapp .rcard,.refapp .reader,.refapp .finalclose,
+.refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp>section[style],
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div{
  background:linear-gradient(125deg,#0c2026,#0a151e)!important;
@@ -3076,6 +3400,80 @@ def render_intelligent_market_panel(book, flow, active):
 # Independiente: NO modifica build_signal, preseñal, ni señales oficiales.
 # =========================================================
 
+def detect_early_reversal(ticker, micro, whale, price):
+    """Detector observacional autónomo: no consulta señal ni estado del cerebro.
+
+    Busca un cambio de dirección entre el movimiento previo y los últimos
+    10 segundos. El flujo Coinbase aporta contexto, no impide la lectura.
+    """
+    empty = {"status": "OBSERVANDO", "direction": None,
+             "detail": "Reuniendo movimiento del precio.", "checks": 0}
+    if ticker in (None, "--") or price is None:
+        return empty
+    tape = st.session_state.get("micro_prices", [])
+    if len(tape) < 4 or not micro.get("ready"):
+        return empty
+
+    now = datetime.now(timezone.utc).timestamp()
+    if now - float(tape[-1]["t"]) > 6:
+        return {**empty, "detail": "Esperando precio actualizado."}
+
+    last_t = float(tape[-1]["t"])
+    current = float(tape[-1]["p"])
+    def at_or_before(age):
+        cutoff = last_t - age
+        earlier = [x for x in tape if float(x["t"]) <= cutoff]
+        return (float(earlier[-1]["p"])
+                if earlier and cutoff - float(earlier[-1]["t"]) <= SIGNAL_CONFIRM_INTERVAL else None)
+
+    p10 = at_or_before(10)
+    p30 = at_or_before(30)
+    if p10 is None or p30 is None:
+        return {**empty, "detail": "Reuniendo 30 segundos de precio para comparar tendencias."}
+
+    recent = current - p10
+    previous = p10 - p30
+    direction = None
+    if previous < 0 and recent > 0:
+        direction = "UP"
+    elif previous > 0 and recent < 0:
+        direction = "DOWN"
+
+    buy = float((whale or {}).get("live_buy", 0) or 0)
+    sell = float((whale or {}).get("live_sell", 0) or 0)
+    total = buy + sell
+    flow_direction = "UP" if buy > sell else "DOWN" if sell > buy else None
+    flow_share = max(buy, sell) / total * 100 if total else 0
+    detail = f"Tramo previo {previous:+.0f} USD · últimos 10s {recent:+.0f} USD"
+    if total:
+        detail += f" · flujo Coinbase {flow_direction} {flow_share:.0f}%"
+    else:
+        detail += " · flujo Coinbase no disponible"
+
+    if direction:
+        return {"status": "POSIBLE REVERSIÓN", "direction": direction,
+                "detail": detail + " · cambio de dirección observado, no confirmado",
+                "checks": 1}
+    return {"status": "SIN REVERSIÓN OBSERVADA", "direction": None,
+            "detail": detail, "checks": 0}
+
+
+def render_early_reversal_panel(result):
+    direction = result.get("direction")
+    color = "#e64b4b" if direction == "DOWN" else "#00dfb5" if direction == "UP" else "#8fa3b8"
+    title = result.get("status", "OBSERVANDO")
+    detail = result.get("detail", "")
+    return f'''<section style="margin:12px 0;padding:18px;min-height:300px;display:flex;flex-direction:column;justify-content:center;border:1px solid {color};border-radius:18px;background:#0b1520">
+      <div style="font-size:13px;font-weight:900;color:#dce7f3">DETECTOR DE REVERSIÓN · EXPERIMENTAL</div>
+      <div style="margin-top:14px;font-size:24px;line-height:1.3;font-weight:950;color:{color}">{title}{' → ' + direction if direction else ''}</div>
+      <div style="margin-top:14px;font-size:14px;line-height:1.5;color:#cbd5e1">{detail}</div>
+      <div style="margin-top:18px;font-size:12px;line-height:1.5;color:#94a3b8">Alerta informativa, no orden de compra ni predicción garantizada. No cambia la señal oficial.</div>
+    </section>'''
+
+# Panel visual independiente del motor. Sin envío de órdenes.
+import html as _nh
+
+@st.cache_data(ttl=10, show_spinner=False)
 def _neon_chart_history(timeframe):
     granularity = {"15m": 900, "1h": 3600, "4h": 3600, "1D": 86400}[timeframe]
     response = requests.get(
@@ -3175,30 +3573,30 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 .red{color:#e64b4b!important;text-shadow:0 0 5px #e64b4b88,0 0 14px #e64b4b55!important}
 .pup,.prob-up{background:#00dfb5!important;box-shadow:0 0 8px #00dfb588,0 0 22px #00dfb544!important}
 .pdown,.prob-down{background:#e64b4b!important;box-shadow:0 0 8px #e64b4b88,0 0 22px #e64b4b44!important}
-.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
-.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
+.prenote,.readerbody small,.finalnote,.analysistext span,.features span,.chartfoot{font-size:11px!important;color:#cbd5e1!important;line-height:1.5!important}
+.pretitle,.prebadge,.readerhead,.finaltitle,.motionrow small,.analysistext small,.probbox small,.features strong{font-size:10px!important}
 .rhero{filter:drop-shadow(0 0 9px var(--accent))}
 .note,.footer,.sub,.card small,.metric small,.tooltip,.chartnav span,summary small{color:#cbd5e1!important;font-size:11px!important}
 .floatcounts div{border-color:#00dfb5;box-shadow:0 0 9px #00dfb544}.floatcounts div:last-child{border-color:#e64b4b;box-shadow:0 0 9px #e64b4b44}
 .canvas svg rect,.canvas svg line{shape-rendering:geometricPrecision}
-@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.finalanalysis{grid-template-columns:1fr 90px}}
+@media(max-width:460px){.finalgrid{grid-template-columns:1fr 1fr}.finalcard.motion{grid-column:1 / -1}.features{grid-template-columns:1fr}.prehead{flex-wrap:wrap;gap:6px}.prebadge{max-width:100%}.finalanalysis{grid-template-columns:1fr 90px}}
 
 
 /* Purple neon outlines, consistent across dashboard and chart cards. */
-.rcard,.mini,.section,.close-reader,.reader,.refapp>section[style],
+.rcard,.mini,.section,.close-reader,.reader,.presignal,.refapp>section[style],
 .finalclose,.finalcard,.analysisbox,.probbox,.chartbox,
 .panel,.card,.metric,details,.floatcounts div{
  border-color:#23685e!important;
  box-shadow:0 0 4px #00dfb51a,inset 0 0 4px #00dfb508!important;
 }
 .panel{border:1.5px solid #23685e!important;margin:8px 6px!important}
-.rcard,.mini,.reader,.card,.metric,details{border-width:1.5px!important}
+.rcard,.mini,.reader,.presignal,.card,.metric,details{border-width:1.5px!important}
 .techrow,.rnav,.chartnav{border-color:#23685e!important}
 
 
 /* Uniform turquoise presentation. Signal values and timing are unchanged. */
 .stApp,[data-testid="stAppViewContainer"]{background:#06121a!important}
-.refapp .rcard,.refapp .reader,.refapp .finalclose,
+.refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp>section[style],
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div{
  background:linear-gradient(125deg,#0c2026,#0a151e)!important;
@@ -3215,7 +3613,7 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 
 /* JC ALPHA EDGE — champagne claro de referencia; solo CSS */
 :root{--jc-gold:#e1c99c;--jc-gold-soft:rgba(225,201,156,.92)}
-.refapp .rcard,.refapp .reader,.refapp .finalclose,
+.refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp .chartbox,
 .refapp>section[style],.refapp .tech,.refapp .rconf,
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div,
@@ -3525,15 +3923,16 @@ def live_dashboard():
     # Cinta live de segundos para el Lector de Cierre.
     update_micro_tape(ticker, live_btc_price, source)
     micro = micro_reading()
-    reader = closing_reader(sig, seconds_left, micro)
+    reader = closing_reader(sig, round_signal, seconds_left, micro)
     if not btc_ok:
-        reader = {**reader, "percent":0, "direction":None,
-                  "headline":"SIN DATOS ACTUALES",
-                  "note":"No se puede evaluar el cierre hasta recuperar las velas."}
+        reader = {**reader, "percent":0, "headline":"SIN DATOS ACTUALES",
+                  "note":"No se puede validar la señal hasta recuperar las velas."}
     reader_percent_label = f"{reader['percent']}%" if reader.get("direction") else "—"
+    if round_signal.get("decision") not in ("UP", "DOWN"):
+        reader_percent_label = "—"
     if seconds_left is not None and seconds_left <= 0:
         # El reloj y el precio instantáneo no prueban la liquidación oficial.
-        reader = {**reader, "percent": 0, "direction":None,
+        reader = {**reader, "percent": 0,
                   "headline": "RONDA TERMINADA · RESULTADO PENDIENTE",
                   "note": "Esperando verificación del resultado oficial de Kalshi."}
         reader_percent_label = "—"
@@ -3592,14 +3991,6 @@ def live_dashboard():
         distance_text = f"${abs(distance):,.0f}"
         distance_sub = f"{abs(distance_pct):.2f}%"
         distance_color = "#00dfb5" if distance > 0 else "#e64b4b" if distance < 0 else "#94a3b8"
-    # Indicador visual independiente: altura de las tres barras según
-    # la distancia ABSOLUTA al target, con escala de referencia de $150.
-    # No modifica señales, lector de cierre ni porcentajes.
-    bar_level = min(1.0, max(0.0, abs(distance) / 150.0)) if distance is not None else 0.0
-    bar_heights = [round(10 + bar_level * extra) for extra in (12, 26, 44)]
-    # El diseño usa una altura máxima de 30px; se escalan proporcionalmente.
-    bar_heights = [round(h * 28 / 54, 1) for h in bar_heights]
-    bars_html = ''.join(f'<b style="height:{h}px"></b>' for h in bar_heights)
     first_signal = (state.get("first_direction") if state else None) or "--"
     first_time = "--"
     if state and state.get("first_signal_time"):
@@ -3610,6 +4001,35 @@ def live_dashboard():
 
     # Etiqueta visual en español; el motor conserva internamente BULL/BEAR.
     ema_display = "ALCISTA" if sig.get("ema") == "BULL" else "BAJISTA" if sig.get("ema") == "BEAR" else sig.get("ema", "N/A")
+
+    # PRESEÑAL independiente: permanece visible toda la ronda y NO copia
+    # las probabilidades oficiales.
+    pre = build_presignal(sig, seconds_left)
+    pre_direction = pre["direction"]
+    pre_percent = pre["percent"]
+
+    if pre_direction == "UP":
+        pre_color, pre_bg, pre_glow = "#00dfb5", "rgba(18,91,57,.26)", "rgba(0,223,181,.20)"
+        pre_note = "Presión alcista temprana detectada. Esperando evolución del mercado."
+        pre_label = "POSIBLE UP"
+    elif pre_direction == "DOWN":
+        pre_color, pre_bg, pre_glow = "#e64b4b", "rgba(104,25,37,.28)", "rgba(230,75,75,.20)"
+        pre_note = "Presión bajista temprana detectada. Esperando evolución del mercado."
+        pre_label = "POSIBLE DOWN"
+    else:
+        pre_color, pre_bg, pre_glow = "#38bdf8", "rgba(24,73,101,.24)", "rgba(56,189,248,.18)"
+        pre_note = "Sin inclinación temprana suficiente. La preseñal sigue observando."
+        pre_label = "NEUTRAL"
+
+    pre_note += " Porcentaje de apoyo, no probabilidad de acierto."
+    pre_badge = "COINCIDE CON LA SEÑAL" if active in ("UP", "DOWN") and pre_direction == active else "DIFIERE DE LA SEÑAL" if active in ("UP", "DOWN") and pre_direction in ("UP", "DOWN") else "OBSERVANDO"
+
+    pre_html = f'''<section class="presignal" style="--precolor:{pre_color};--prebg:{pre_bg};--preglow:{pre_glow}">
+      <div class="prehead"><span class="pretitle">PRESEÑAL · PRESIÓN ACTUAL</span><span class="prebadge">{pre_badge}</span></div>
+      <div class="premain"><span class="predirection">{pre_label}</span><span class="prepercent">{pre_percent}%</span></div>
+      <div class="prebar"><b style="width:{pre_percent}%"></b></div>
+      <div class="prenote">{pre_note}</div>
+    </section>'''
 
     if active == "UP":
         hero_arrow, hero_word = "", "UP"
@@ -3645,17 +4065,39 @@ def live_dashboard():
     market_side = "UP" if (distance or 0) > 0 else "DOWN" if (distance or 0) < 0 else "NEUTRAL"
     abs_final_distance = abs(distance or 0)
 
-    # Estado factual independiente del motor de señales.
+    # En el tramo final, tiempo + posición REAL frente al target mandan en este cuadro.
+    # Así no muestra "CIERRE MUY DISPUTADO" solo porque la señal vieja o la velocidad
+    # contradigan el lado que realmente está ganando a segundos del cierre.
+    if seconds_left is not None and seconds_left <= 60 and market_side != "NEUTRAL":
+        if active in ("UP", "DOWN") and market_side != active:
+            final_status = f"GIRO FINAL HACIA {market_side}"
+        else:
+            final_status = f"VENTAJA FINAL {market_side}"
+        final_note = (
+            f"Quedan {seconds_left}s · BTC está ${abs_final_distance:,.0f} "
+            f"{'arriba' if distance > 0 else 'abajo'} del target · "
+            f"ahora favorece {market_side}."
+        )
+    elif active in ("UP", "DOWN"):
+        if market_side == active and ((active == "UP" and speed10 >= -0.15) or (active == "DOWN" and speed10 <= 0.15)):
+            final_status = f"AÚN FAVORABLE A {active}"
+            final_note = f"El precio se mantiene {'sobre' if active == 'UP' else 'bajo'} el target, con presión inmediata controlada."
+        elif market_side != "NEUTRAL" and market_side != active and abs_final_distance >= 5:
+            final_status = f"GIRO HACIA {market_side}"
+            final_note = f"BTC está al otro lado del target y la lectura actual favorece {market_side}."
+        else:
+            final_status = f"AÚN FAVORABLE A {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA CLARA"
+            final_note = "La lectura sigue el lado actual del target y el movimiento reciente."
+    else:
+        final_status = f"VENTAJA FINAL {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA FINAL"
+        final_note = "Lectura independiente basada en distancia, tiempo restante y movimiento de los últimos segundos."
+    if seconds_left is None or seconds_left > 60:
+        # Fuera del tramo final, esto describe posición, no pronostica cierre.
+        final_status = f"POSICIÓN ACTUAL {market_side}" if market_side != "NEUTRAL" else "SIN VENTAJA ACTUAL"
+        final_note = "Posición actual frente al target; todavía no es una lectura del cierre final."
     if seconds_left is not None and seconds_left <= 0:
         final_status = "RESULTADO OFICIAL PENDIENTE"
-        final_note = "Esperando la liquidación oficial de Kalshi."
-    elif distance is None:
-        final_status = "SIN POSICIÓN DISPONIBLE"
-        final_note = "Esperando precio y target actualizados."
-    else:
-        final_status = f"POSICIÓN ACTUAL {market_side}" if market_side != "NEUTRAL" else "PRECIO EN EL TARGET"
-        final_note = "Posición del precio frente al target; no determina el cierre definitivo."
-    final_status_color = "#00dfb5" if market_side == "UP" else "#e64b4b" if market_side == "DOWN" else "#94a3b8"
+        final_note = "El precio mostrado al terminar no confirma la liquidación del contrato."
     final_distance_label = f"${abs(distance):,.0f}" if distance is not None else "—"
     final_dist_pct_label = f"{abs(distance_pct):.2f}%" if distance_pct is not None else "SIN TARGET"
     final_panel = f'''<div class="finalclose">
@@ -3669,7 +4111,7 @@ def live_dashboard():
         <div class="finalcard speed"><div class="finaltitle">VELOCIDAD</div><div class="finalbig" style="color:{speed_color}">{speed_arrow} {speed_word}</div><div class="finalsub" style="color:{speed_color}">{speed_value}</div><div class="finalnote">En los últimos 10 s.</div></div>
       </div>
       <div class="finalanalysis">
-        <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>{'ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)' if seconds_left is not None and 0 < seconds_left <= 60 else 'POSICIÓN ACTUAL FRENTE AL TARGET'}</small><b style="color:{final_status_color}">{final_status}</b><span>{final_note}</span></div></div>
+        <div class="analysisbox"><div class="analysisicon">◎</div><div class="analysistext"><small>{'ANÁLISIS DE CIERRE (ÚLTIMOS 60 s)' if seconds_left is not None and 0 < seconds_left <= 60 else 'POSICIÓN ACTUAL FRENTE AL TARGET'}</small><b>{final_status}</b><span>{final_note}</span></div></div>
         <div class="probbox"><small>{'APOYO A ' + reader['direction'] if reader.get('direction') else 'SIN APOYO DIRECCIONAL'}</small><b>{reader_percent_label if reader.get('direction') else '—'}</b></div>
       </div>
     </div>'''
@@ -3699,6 +4141,7 @@ def live_dashboard():
 
   {weakness_html}
 
+  {pre_html}
 
   <div class="rgrid">
     <div class="rcard keycard">
@@ -3711,7 +4154,7 @@ def live_dashboard():
       <div><div class="rlabel">TARGET</div><div class="rvalue">{target_text}</div></div>
     </div>
     <div class="rcard keycard">
-      <div class="bars" style="--accent:{distance_color}">{bars_html}</div>
+      <div class="bars" style="--accent:{distance_color}"><b></b><b></b><b></b></div>
       <div><div class="rlabel">DISTANCIA AL TARGET</div><div class="rvalue" style="color:{distance_color}">{distance_text}</div>
       <div class="rdelta" style="color:{distance_color}">{distance_sub}</div></div>
     </div>
@@ -3730,7 +4173,7 @@ def live_dashboard():
 
   <section class="reader" style="--rb:{reader['border']};--rbg:{reader['bg']};--rr:{reader['color']}">
     <div class="readerhead"><span class="pulse">⌁</span><span>LECTOR DE CIERRE</span><em>ACTIVO</em></div>
-    <div class="readerbody"><div><strong style="color:{reader['color']}">{reader['headline']}</strong></div>
+    <div class="readerbody"><div><strong>{reader['headline']}</strong><small>{reader['note']}</small></div>
     <div class="rring" style="--p:{reader['percent']}"><span>{reader_percent_label}</span></div></div>
     {final_panel}
   </section>
@@ -3858,6 +4301,170 @@ def _trace_event(kind, payload, ticker=None):
 
 
 
+# =========================================================
+# ALPHA AI GATE — supervised, conservative signal filter
+# Learns only from official Kalshi settlements. It can BLOCK a
+# weak UP/DOWN proposal, but it never invents or reverses a signal.
+# =========================================================
+AI_GATE_MIN_ROWS = 80
+AI_GATE_MIN_HOLDOUT = 15
+AI_GATE_MIN_BRIER_GAIN = 0.02
+AI_GATE_BLOCK_BELOW = 0.45
+_AI_GATE_CACHE = {"at": 0.0, "model": None, "status": "sin datos oficiales"}
+
+def _ai_sigmoid(z):
+    z = np.clip(np.asarray(z, dtype=float), -30.0, 30.0)
+    return 1.0 / (1.0 + np.exp(-z))
+
+def _ai_feature_vector(features, candidate=None):
+    values = []
+    for name in SHADOW_FEATURES:
+        try:
+            value = float(features.get(name))
+            if not np.isfinite(value):
+                value = np.nan
+        except (TypeError, ValueError, OverflowError):
+            value = np.nan
+        values.append(value)
+    # Direction matters: the same indicator values can mean different odds
+    # for a proposed UP versus DOWN signal.
+    values.append(1.0 if candidate == "UP" else 0.0 if candidate == "DOWN" else np.nan)
+    return np.asarray(values, dtype=float)
+
+def _ai_fit_logistic(X, y, epochs=900, lr=0.035):
+    means = np.nanmean(X, axis=0)
+    means = np.where(np.isfinite(means), means, 0.0)
+    X = np.where(np.isfinite(X), X, means)
+    scales = np.std(X, axis=0)
+    scales = np.where(scales < 1e-8, 1.0, scales)
+    Z = np.clip((X - means) / scales, -8, 8)
+    Z = np.column_stack([np.ones(len(Z)), Z])
+    weights = np.zeros(Z.shape[1], dtype=float)
+    # Full-batch gradient descent with mild L2 regularization.
+    for _ in range(epochs):
+        p = _ai_sigmoid(Z @ weights)
+        grad = (Z.T @ (p - y)) / len(y)
+        grad[1:] += 0.01 * weights[1:]
+        weights -= lr * grad
+    return {"means": means, "scales": scales, "weights": weights}
+
+def _ai_predict_model(model, X):
+    X = np.asarray(X, dtype=float)
+    means, scales = model["means"], model["scales"]
+    X = np.where(np.isfinite(X), X, means)
+    Z = np.clip((X - means) / scales, -8, 8)
+    Z = np.column_stack([np.ones(len(Z)), Z])
+    return _ai_sigmoid(Z @ model["weights"])
+
+def _ai_official_training_rows():
+    """Return only snapshots whose round has an official yes/no settlement."""
+    try:
+        with sqlite3.connect(SHADOW_AI_DB, timeout=2) as shadow:
+            shadow.row_factory = sqlite3.Row
+            shadow.execute("""CREATE TABLE IF NOT EXISTS snapshots (
+                ticker TEXT PRIMARY KEY, observed_at TEXT NOT NULL,
+                seconds_left REAL NOT NULL, btc_price REAL NOT NULL,
+                target REAL NOT NULL, candidate TEXT, features_json TEXT NOT NULL)""")
+            snapshots = shadow.execute(
+                "SELECT ticker, observed_at, candidate, features_json "
+                "FROM snapshots WHERE candidate IN ('UP','DOWN') ORDER BY observed_at"
+            ).fetchall()
+        if not snapshots:
+            return []
+        with _history_db() as history:
+            history.row_factory = sqlite3.Row
+            try:
+                settled = {r["ticker"]: r["official_result"] for r in history.execute(
+                    "SELECT ticker, official_result FROM round_history "
+                    "WHERE verification_status='official' AND lower(official_result) IN ('yes','no')"
+                ).fetchall()}
+            except sqlite3.Error:
+                return []
+        rows = []
+        for row in snapshots:
+            outcome = settled.get(row["ticker"])
+            if outcome not in ("yes", "no"):
+                continue
+            candidate = row["candidate"]
+            won = (candidate == "UP" and outcome == "yes") or (candidate == "DOWN" and outcome == "no")
+            try:
+                features = json.loads(row["features_json"])
+            except (TypeError, ValueError):
+                continue
+            rows.append((_ai_feature_vector(features, candidate), 1.0 if won else 0.0, row["observed_at"]))
+        return rows
+    except (sqlite3.Error, OSError, TypeError, ValueError):
+        return []
+
+def _ai_gate_model(force=False):
+    now = time.monotonic()
+    if not force and now - _AI_GATE_CACHE["at"] < 60:
+        return _AI_GATE_CACHE["model"], _AI_GATE_CACHE["status"]
+    _AI_GATE_CACHE["at"] = now
+    _AI_GATE_CACHE["model"] = None
+    rows = _ai_official_training_rows()
+    if len(rows) < AI_GATE_MIN_ROWS:
+        status = f"IA en aprendizaje: {len(rows)}/{AI_GATE_MIN_ROWS} rondas con resultado oficial"
+        _AI_GATE_CACHE.update(model=None, status=status)
+        return None, status
+    X = np.vstack([r[0] for r in rows])
+    y = np.asarray([r[1] for r in rows], dtype=float)
+    split = max(int(len(rows) * 0.8), len(rows) - AI_GATE_MIN_HOLDOUT)
+    split = min(split, len(rows) - AI_GATE_MIN_HOLDOUT)
+    if split < 30 or len(np.unique(y[:split])) < 2 or len(np.unique(y[split:])) < 2:
+        status = "IA sin filtro: faltan resultados variados para validar"
+        _AI_GATE_CACHE.update(model=None, status=status)
+        return None, status
+    try:
+        validation_model = _ai_fit_logistic(X[:split], y[:split])
+        predictions = _ai_predict_model(validation_model, X[split:])
+        baseline = float(np.mean(y[:split]))
+        model_brier = float(np.mean((predictions - y[split:]) ** 2))
+        baseline_brier = float(np.mean((baseline - y[split:]) ** 2))
+        gain = baseline_brier - model_brier
+        if gain < AI_GATE_MIN_BRIER_GAIN:
+            status = f"IA en evaluación: no mejora el modelo base (ganancia Brier {gain:.3f}); no bloquea señales"
+            _AI_GATE_CACHE.update(model=None, status=status)
+            return None, status
+        model = _ai_fit_logistic(X, y)
+        status = f"Filtro IA validado en historial: {len(rows)} rondas oficiales; mejora Brier {gain:.3f}"
+        _AI_GATE_CACHE.update(model=model, status=status)
+        return model, status
+    except (ValueError, FloatingPointError, np.linalg.LinAlgError) as exc:
+        status = f"IA sin filtro por validación: {type(exc).__name__}"
+        _AI_GATE_CACHE.update(model=None, status=status)
+        return None, status
+
+def _apply_ai_signal_gate(sig):
+    """Only block a proposed signal when a validated model estimates weak odds."""
+    if not isinstance(sig, dict):
+        return sig
+    candidate = sig.get("candidate")
+    sig["candidate_raw"] = candidate
+    sig["ai_gate_active"] = False
+    sig["ai_win_probability"] = None
+    model, status = _ai_gate_model()
+    sig["ai_gate_status"] = status
+    if candidate not in ("UP", "DOWN") or model is None:
+        return sig
+    features = {name: sig.get(name) for name in SHADOW_FEATURES}
+    vector = _ai_feature_vector(features, candidate).reshape(1, -1)
+    try:
+        p_win = float(_ai_predict_model(model, vector)[0])
+    except (ValueError, TypeError, FloatingPointError):
+        return sig
+    sig["ai_win_probability"] = round(p_win * 100, 1)
+    if p_win < AI_GATE_BLOCK_BELOW:
+        sig["candidate"] = None
+        sig["quality"] = "NO TRADE · FILTRO IA"
+        sig["ai_gate_active"] = True
+        sig["ai_gate_reason"] = f"Probabilidad estimada de acierto {p_win:.1%}, bajo el umbral {AI_GATE_BLOCK_BELOW:.0%}"
+    else:
+        sig["ai_gate_active"] = True
+        sig["ai_gate_reason"] = f"Señal permitida; probabilidad estimada de acierto {p_win:.1%}"
+    return sig
+
+
 def build_signal(df, target, seconds_left, live_price=None, price_source=None, whale=None):
     _TRACE_CONTEXT.build_id = None
     _TRACE_CONTEXT.build_payload = None
@@ -3883,7 +4490,7 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=
     _capture_recent_alert(state, signal, market, now)
 
     try:
-        payload = {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "engine_variant":"gemini_kalshi_clean_v1", "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}
+        payload = {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "engine_variant":"limited_retention_exit_plan_v1", "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}
         payload["data_revision"] = BACKGROUND_DATA_REVISION
         payload["price_source"] = signal.get("price_source") if signal else None
         if signal is not None and signal.get("data_valid") is False:
@@ -3921,7 +4528,7 @@ def export_round_diagnostics(ticker, limit=4000):
     with sqlite3.connect(SIGNAL_TRACE_DB, timeout=1) as conn:
         total, last_id = conn.execute("SELECT COUNT(*),MAX(id) FROM decisions WHERE kind='confirmation' AND ticker=?", (ticker,)).fetchone()
         rows = conn.execute("SELECT id,observed_at,thread_key,ticker,build_id,payload FROM decisions WHERE kind='confirmation' AND ticker=? AND id<=? ORDER BY id LIMIT ?", (ticker, last_id or 0, int(limit))).fetchall()
-        header = dict(schema_version=1,ticker=ticker,engine_variant="gemini_kalshi_clean_v1",
+        header = dict(schema_version=1,ticker=ticker,engine_variant="limited_retention_v1",
                       exported_at=datetime.now(timezone.utc).isoformat(),
                       available_confirmations=total,exported_confirmations=len(rows),
                       truncated=total > len(rows),history=history)
@@ -4253,7 +4860,7 @@ _RECENT_ALERTS_HOST = r'''
 
 /* JC ALPHA EDGE — champagne claro de referencia; solo CSS */
 :root{--jc-gold:#e1c99c;--jc-gold-soft:rgba(225,201,156,.92)}
-.refapp .rcard,.refapp .reader,.refapp .finalclose,
+.refapp .rcard,.refapp .reader,.refapp .presignal,.refapp .finalclose,
 .refapp .finalcard,.refapp .analysisbox,.refapp .probbox,.refapp .chartbox,
 .refapp>section[style],.refapp .tech,.refapp .rconf,
 .panel,.panel .card,.panel .metric,.panel details,.panel .floatcounts div,
