@@ -920,51 +920,6 @@ div[data-testid="stVerticalBlock"] {gap:.55rem;}
   .block-container,[data-testid="stMainBlockContainer"] { width:100% !important; max-width:440px !important; margin-inline:auto !important; padding:5px 9px 25px !important; }
 }
 
-
-/* ALPHA EDGE · refinamiento responsive de app 22(1) · SOLO CSS */
-/* Señal nítida: reducir halo que ocultaba la flecha y las letras. */
-.refapp .rhero{filter:none!important}
-.refapp .rsignal{
-  filter:drop-shadow(0 0 3px var(--accent))!important;
-  text-shadow:0 1px 0 #05261f,0 0 5px var(--glow)!important;
-  -webkit-text-stroke:1px rgba(225,255,245,.55)!important;
-}
-.refapp .cssarrow{
-  box-shadow:0 0 5px var(--glow),inset 0 0 2px rgba(255,255,255,.42)!important;
-}
-.refapp .cssarrow:before{filter:drop-shadow(0 0 3px var(--glow))!important}
-/* Toro: disolver los límites de la ilustración sobre el fondo, sin moverla. */
-.refapp .rhero:before{
-  -webkit-mask-image:radial-gradient(ellipse 83% 82% at 55% 49%,#000 46%,transparent 100%)!important;
-  mask-image:radial-gradient(ellipse 83% 82% at 55% 49%,#000 46%,transparent 100%)!important;
-}
-/* Lector: conservar círculo y dirección, sin bloque vertical vacío. */
-.refapp .readerbody{
-  min-height:0!important;
-  margin:2px 0 6px!important;
-  align-items:center!important;
-}
-.refapp .readerbody strong{line-height:1.08!important}
-.refapp .reader{padding-bottom:11px!important}
-.refapp .finalclose{margin-top:4px!important}
-/* La tablet conserva ancho completo; el teléfono mantiene sus dos columnas. */
-@media(max-width:699px){
-  .refapp .rhero{height:156px!important;min-height:156px!important}
-  .refapp .rsignal{font-size:clamp(62px,11vw,80px)!important}
-  .refapp .readerbody{grid-template-columns:minmax(0,1fr) 100px!important}
-  .refapp .rring{width:96px!important;height:96px!important}
-  .refapp .rring:after{width:73px!important;height:73px!important}
-  .refapp .rring span{font-size:23px!important}
-  .refapp .finalgrid{grid-template-columns:1fr 1fr!important;gap:6px!important}
-  .refapp .finalcard.motion{grid-column:1 / -1!important}
-  .refapp .finalanalysis{grid-template-columns:minmax(0,1fr) 92px!important}
-}
-@media(min-width:700px){
-  .refapp .readerbody{grid-template-columns:minmax(0,1fr) 130px!important}
-  .refapp .rring{width:122px!important;height:122px!important}
-  .refapp .rring:after{width:92px!important;height:92px!important}
-}
-
 </style>
 """,
     unsafe_allow_html=True,
@@ -2310,8 +2265,8 @@ def _reset_withdrawal(state):
 def _confirmation_without_trace(state, candidate, market, seconds_left, now, signal=None):
     """Confirma solo el candidato Gemini-Kalshi; no recalcula su dirección.
 
-    La primera señal se conserva para historial; la señal activa puede
-    cambiar tras dos lecturas contrarias confirmadas. Nueva ronda espera.
+    Una decisión por ronda: tras confirmar UP/DOWN no se cambia ni se
+    retira durante esa misma ronda. Una ronda nueva inicia esperando.
     """
     close_time = (market or {}).get("close_time")
     if close_time:
@@ -2327,14 +2282,10 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
         state["pending_direction"] = None
         state["pending_count"] = 0
         return
-    # La primera señal queda registrada como historial, NO como candado.
-    # Una dirección contraria debe superar la misma confirmación de lecturas.
-    # Mientras se confirma, se mantiene la última señal validada.
-    if state.get("active_direction") == candidate and candidate in ("UP", "DOWN"):
+    if state.get("first_direction") in ("UP", "DOWN"):
+        state["active_direction"] = state["first_direction"]
         state["pending_direction"] = None
         state["pending_count"] = 0
-        state["pending_since"] = None
-        state["pending_last_at"] = None
         return
     if not signal or signal.get("data_valid") is False or candidate not in ("UP", "DOWN"):
         state["pending_direction"] = None
@@ -2362,14 +2313,11 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
     if state.get("pending_count", 0) >= SIGNAL_CONFIRM_READINGS:
         state["active_direction"] = candidate
         state["active_since"] = now
-        # Conservar la primera señal para historial y límite de una entrada.
-        # Los cambios confirmados posteriores actualizan solo active_direction.
-        if state.get("first_direction") not in ("UP", "DOWN"):
-            state["first_direction"] = candidate
-            state["first_signal_time"] = now
-            state["first_signal_seconds"] = seconds_left
-            state["first_signal_price"] = (get_yes_ask(market) if candidate == "UP"
-                                           else get_no_ask(market))
+        state["first_direction"] = candidate
+        state["first_signal_time"] = now
+        state["first_signal_seconds"] = seconds_left
+        state["first_signal_price"] = (get_yes_ask(market) if candidate == "UP"
+                                       else get_no_ask(market))
         state["pending_direction"] = None
         state["pending_count"] = 0
         state["pending_since"] = None
@@ -2836,14 +2784,14 @@ def closing_reader(sig, seconds_left, micro):
                 drift = float(np.clip(velocity * remaining * 0.25, -expected_move, expected_move))
         adjusted = distance + drift
         z = float(np.clip(adjusted / expected_move, -5.0, 5.0))
-        # Mostrar siempre la inclinación actual cuando hay datos válidos,
-        # incluso cerca del target. Un apoyo cercano a 50% indica incertidumbre.
-        # Esto afecta SOLO al lector de cierre, no a la señal principal.
-        direction = "UP" if z >= 0 else "DOWN"
-        # Índice orientativo, NO probabilidad calibrada.
-        percent = int(round(50 + 49 * math.erf(abs(z) / math.sqrt(2.0))))
-        percent = max(50, min(99, percent))
-        headline = "SEÑAL DE CIERRE " + direction
+        if abs(z) < 0.10:
+            headline = "CIERRE DISPUTADO"
+        else:
+            direction = "UP" if z > 0 else "DOWN"
+            # Escala orientativa: NO representa una probabilidad calibrada.
+            percent = int(round(50 + 49 * math.erf(abs(z) / math.sqrt(2.0))))
+            percent = max(51, min(99, percent))
+            headline = "SEÑAL DE CIERRE " + direction
         note = ""
     color = "#00dfb5" if direction == "UP" else "#e64b4b" if direction == "DOWN" else "#38bdf8"
     return {"percent": percent, "headline": headline, "note": note,
@@ -3292,6 +3240,7 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 </style>
 <section class="panel">
 <header class="header"><div><h2>BTC / USD</h2><div class="sub" id="subtitle"></div></div><div><div class="price" id="price"></div><div class="live" id="live"></div></div></header>
+<div class="cards"><div class="card signal"><div class="label">SEÑAL OFICIAL DEL BOT</div><strong id="signal"></strong><small>Motor BTC Signal v4.6.1</small></div><div class="card"><div class="label">APOYO DEL MODELO</div><strong class="cyan" id="model"></strong><small>Apoyo calculado · no probabilidad de acierto</small></div><div class="card"><div class="label">ESTADO DE LA GRÁFICA</div><strong class="status" id="status"></strong><small id="updated"></small></div></div>
 <details id="whale"><summary>🐋 WHALE FLOW <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>🐋 WHALE FLOW — LIVE</h3><div class="note">Operaciones observadas de Coinbase · últimos 30 s</div><div class="watch" id="watch"></div><div class="metrics"><div class="metric"><small>BUY FLOW</small><b class="green" id="buy"></b></div><div class="metric"><small>SELL FLOW</small><b class="red" id="sell"></b></div><div class="metric"><small>DIFERENCIA</small><b id="diff"></b></div><div class="metric"><small>ACTIVIDAD</small><b id="activity"></b></div><div class="metric"><small>FUERZA DEL DESEQUILIBRIO</small><b id="strength"></b></div></div><div class="bars"><div class="bar">BUY<div class="track"><i id="buybar" style="background:#00dfb5"></i></div><b id="buytotal"></b></div><div class="bar">SELL<div class="track"><i id="sellbar" style="background:#e64b4b"></i></div><b id="selltotal"></b></div></div><div class="count"><div class="metric"><small>🐋 BUY WHALES</small><b class="green" id="buys"></b></div><div class="metric"><small>🐋 SELL WHALES</small><b class="red" id="sells"></b></div></div><div class="metric difference"><small>DIFERENCIA DE OPERACIONES</small><b id="countdiff"></b></div><p class="note">«Whales»: operaciones individuales de al menos $10,000, no personas identificadas. Muestra recibida por la API; puede omitir operaciones entre consultas. Actividad: ritmo de los últimos 10 s frente a los 20 s anteriores. En el laboratorio, el flujo puede apoyar una candidatura solo con confirmación técnica; no decide por sí solo.</p></div></details>
 <details id="momentum"><summary>⚡ SHORT-TERM MOMENTUM <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>MOVIMIENTO RECIENTE DE BTC</h3><div class="metrics" id="momrows"></div><p class="note">Cambio porcentual calculado por el motor en 3, 5 y 15 minutos. La temporalidad de la gráfica no cambia estos valores.</p></div></details>
 <div class="tools"><h3>INDICADORES</h3><div class="toggles" id="toggles"></div><div class="legend" id="legend"></div></div>
@@ -3306,7 +3255,7 @@ let toggles=Object.assign({ema9:true,ema21:true,vwap:true,volume:true,rsi:true,}
 function persist(){try{localStorage.setItem('btc-neon-panel-v1',JSON.stringify({toggles,visible,offset,pricePan,whale:$('whale').open,momentum:$('momentum').open}))}catch(e){}}
 for(const name of ['whale','momentum']){$(name).open=!!saved[name];$(name).addEventListener('toggle',persist)}
 function refreshLabels(){
-$('subtitle').textContent=D.timeframe.toUpperCase()+' · '+(D.candle_source||'COINBASE')+' · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('viewtf').textContent=D.timeframe+' · VELAS REALES';
+$('subtitle').textContent=D.timeframe.toUpperCase()+' · '+(D.candle_source||'COINBASE')+' · BTC SIGNAL';$('price').textContent=usd(D.price);$('live').textContent=D.price==null?'● SIN COTIZACIÓN':'● PRECIO RECIBIDO';$('signal').textContent=(D.signal==='UP'?'▲ ':D.signal==='DOWN'?'▼ ':'')+D.signal;$('signal').className=D.signal==='UP'?'green':D.signal==='DOWN'?'red':'cyan';$('model').textContent=fmt(D.signal==='UP'?D.up:D.signal==='DOWN'?D.down:Math.max(D.up,D.down),1)+'%';$('status').textContent=D.rows.length?'DATOS RECIBIDOS':'SIN VELAS';$('updated').textContent='Actualizado '+D.updated;$('viewtf').textContent=D.timeframe+' · VELAS REALES';
 const F=D.flow,total=F.buy+F.sell,known=F.ok;
 $('watch').textContent=!known?'SIN DATOS DE FLUJO':total===0?'ESPERANDO OPERACIONES':F.direction==='NEUTRAL'?'FLUJO EQUILIBRADO':'WATCH '+F.direction;
 for(const [id,value] of [['buy',F.buy],['sell',F.sell],['buytotal',F.buy],['selltotal',F.sell]])$(id).textContent=known?compact(value):'—';
