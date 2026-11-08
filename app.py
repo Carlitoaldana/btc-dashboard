@@ -2177,188 +2177,6 @@ def _entry_route_checks(sig, seconds_left):
     return {"valid":True,"sides":sides,"noise_ok":noise_ok}
 
 
-def _ut_bot_events(df, minutes, now):
-    """UT Bot sobre cierres OHLC, sensibilidad 1 y ATR Wilder de 10 velas."""
-    interval = pd.Timedelta(minutes=minutes)
-    received = pd.to_datetime(df.attrs.get("received_at"), utc=True, errors="coerce")
-    if pd.isna(received):
-        received = now
-    current = now.floor(f"{minutes}min")
-    bars = (df.loc[df["time"] <= now.floor("min")].set_index("time")
-            .resample(f"{minutes}min").agg(high=("high", "max"), low=("low", "min"),
-                                           close=("close", "last"), count=("close", "size")))
-    bars = bars.loc[(bars["count"] == minutes) | ((bars.index == current) & (bars["count"] > 0))]
-    provisional = confirmed = confirmed_at = prior_side = closed_move = None
-    atr = stop = previous = previous_stamp = None
-    seed = []
-    for stamp, bar in bars.iterrows():
-        end = stamp + interval
-        if stamp != current and end > received:
-            continue
-        if stamp == current and previous_stamp != stamp - interval:
-            break
-        close = float(bar.close)
-        true_range = float(bar.high - bar.low)
-        if previous is not None:
-            true_range = max(true_range, abs(bar.high - previous), abs(bar.low - previous))
-        if atr is None:
-            seed.append(true_range)
-            if len(seed) < 10:
-                previous = close
-                previous_stamp = stamp
-                continue
-            atr = sum(seed) / 10
-        else:
-            atr = (9 * atr + true_range) / 10
-        if stop is None:
-            stop = close - atr
-        else:
-            if close > stop and previous > stop:
-                next_stop = max(stop, close - atr)
-            elif close < stop and previous < stop:
-                next_stop = min(stop, close + atr)
-            else:
-                next_stop = close - atr if close > stop else close + atr
-            side = ("UP" if previous <= stop and close > next_stop else
-                    "DOWN" if previous >= stop and close < next_stop else None)
-            if stamp == current:
-                provisional = side
-            else:
-                if previous_stamp == stamp - interval:
-                    closed_move = close - previous
-                else:
-                    closed_move = None
-                if side is not None and side != confirmed:
-                    prior_side, confirmed = confirmed, side
-                    confirmed_at = end
-            stop = next_stop
-        previous = close
-        previous_stamp = stamp
-    return provisional, confirmed, confirmed_at, prior_side, closed_move
-
-
-def _market_window_evidence(a):
-    """Measure activity without requiring a directional trend.
-
-    Only explicit compression of both price travel and candle ranges counts as
-    slow evidence. Direction changes and volume alone never close the gate.
-    Thresholds are relative to the observed volatility, not a fixed BTC distance.
-    """
-    if not np.all(np.isfinite(a)):
-        return None
-    atr = float(np.median(a[-6:-1, 5]))
-    if atr <= 0:
-        return None
-    moves = np.diff(a[:, 3])
-    recent = moves[-3:]
-    net = float(recent.sum())
-    ranges = a[:, 1] - a[:, 2]
-    # A price-relative floor prevents hours of tiny candles from becoming
-    # "active" merely because the rolling ATR has also shrunk to nearly zero.
-    reference = max(atr, float(np.median(ranges[:-6])),
-                    float(np.median(a[:, 3])) * .00005, 1e-12)
-    # Six completed minutes describe the regime; single candles do not toggle it.
-    travel = float(np.abs(moves[-6:]).sum()) / reference
-    mean_range = float(np.mean(ranges[-6:])) / reference
-    span = float(np.max(a[-6:, 1]) - np.min(a[-6:, 2])) / reference
-    slow = travel <= .90 and mean_range <= .40 and span <= .85
-    active = travel >= 1.80 and mean_range >= .55 and span >= 1.10
-    efficiency3 = abs(net) / max(float(np.abs(recent).sum()), 1e-12)
-    efficiency5 = abs(float(moves[-5:].sum())) / max(float(np.abs(moves[-5:]).sum()), 1e-12)
-    base_volume = float(np.mean(a[:-6, 4]))
-    volume = float(np.mean(a[-6:, 4])) / base_volume if base_volume > 0 else 0.0
-    return {"strong_entry": bool(active), "continuing": bool(not slow),
-            "slow_evidence": bool(slow),
-            "direction": "UP" if net >= 0 else "DOWN", "net": net,
-            "atr": atr, "strength_atr": abs(net)/atr,
-            "efficiency3": efficiency3, "efficiency5": efficiency5,
-            "pace": travel/6, "volume_ratio": volume,
-            "body_ratio": float(np.mean(np.abs(a[-6:, 3]-a[-6:, 0]) /
-                                         np.maximum(ranges[-6:], 1e-12))),
-            "activity_travel": travel, "activity_range": mean_range,
-            "activity_span": span}
-
-
-def _strong_market_context(one, live_price, now=None):
-    """Replay observed closed candles, independent of refreshes and round changes.
-
-    Sustained activity activates the gate. Three consecutive completed one-minute
-    evaluations with explicit slow compression deactivate. Repeated ticks never count as
-    additional weak candles. Re-entry always needs strong evidence again.
-    This is a market-regime heuristic, not a calibrated forecast.
-    """
-    blocked = {"allowed": False, "direction": None, "reason": "SIN DATOS ACTUALES"}
-    try:
-        now = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
-        now = now.tz_localize("UTC") if now.tzinfo is None else now.tz_convert("UTC")
-        x = one.copy()
-        x["time"] = pd.to_datetime(x["time"], utc=True, errors="coerce")
-        x = x.sort_values("time")
-        x = x[x["time"] + pd.Timedelta(minutes=1) <= now]
-        if len(x) < 26:
-            return blocked
-        latest = x.tail(26)
-        if (not latest["time"].diff().iloc[1:].eq(pd.Timedelta(minutes=1)).all() or
-                (now-(x["time"].iloc[-1]+pd.Timedelta(minutes=1))).total_seconds() > 90):
-            return blocked
-        a = x[["open", "high", "low", "close", "volume", "atr"]].astype(float).to_numpy()
-        valid = (np.all(np.isfinite(a), axis=1) & np.all(a[:, :4] > 0, axis=1) &
-                 (a[:, 4] >= 0) & (a[:, 1] >= a[:, 2]) &
-                 (a[:, 1] >= np.maximum(a[:, 0], a[:, 3])) &
-                 (a[:, 2] <= np.minimum(a[:, 0], a[:, 3])))
-        price = float(live_price)
-        if not valid[-26:].all() or not np.isfinite(price) or price <= 0:
-            return blocked
-        active = False; weak = 0; side = None; evidence = None
-        stamps = x["time"].reset_index(drop=True)
-        for end in range(26, len(a)+1):
-            start = end-26
-            contiguous = stamps.iloc[start:end].diff().iloc[1:].eq(pd.Timedelta(minutes=1)).all()
-            evidence = _market_window_evidence(a[start:end]) if valid[start:end].all() and contiguous else None
-            if evidence is None:
-                active = False; weak = 0; side = None
-                continue
-            if evidence["strong_entry"]:
-                active = True; weak = 0
-            elif active:
-                weak = weak+1 if evidence["slow_evidence"] else 0
-                if weak >= 3:
-                    active = False; side = None
-            if active and evidence["net"] != 0:
-                side = evidence["direction"]
-        if evidence is None:
-            return blocked
-        allowed = bool(active)
-        # Live retracements can defer a specific entry, but never blink the
-        # market-regime banner between closed-candle evaluations.
-        live_ok = bool(side and (1 if side == "UP" else -1)*(price-a[-1, 3]) >= -.15*evidence["atr"])
-        return {**evidence, "allowed": allowed, "direction": side if allowed else None,
-                "reason": ("IMPULSO FUERTE" if evidence["strong_entry"] else "MERCADO ACTIVO")
-                          if allowed else "MERCADO LENTO",
-                "evaluated_at": now.timestamp(), "live_entry_ok": live_ok,
-                "weak_closed_evaluations": weak, "last_closed_price": float(a[-1, 3]),
-                "last_closed_at": stamps.iloc[-1].isoformat()}
-    except (KeyError, TypeError, ValueError, IndexError, OverflowError):
-        return blocked
-
-
-def _market_entry_allowed(signal, side, now=None):
-    """Activity gate only; UT decides direction. Absent/stale evidence blocks entries."""
-    signal = signal or {}
-    gate = signal.get("market_entry_gate") or {}
-    stamp = _plan_number(gate.get("evaluated_at"))
-    current = pd.Timestamp.now(tz="UTC").timestamp() if now is None else pd.Timestamp(now).timestamp()
-    return (signal.get("data_valid") is not False and side in ("UP", "DOWN") and
-            gate.get("allowed") is True and
-            stamp is not None and 0 <= current-stamp <= SIGNAL_CONFIRM_MAX_GAP)
-
-
-def _pause_market_signal(state, reason):
-    # Preserve the first real signal and its outcome; pause only the live arrow.
-    state.update(active_direction=None, active_since=None, pending_direction=None,
-                 pending_count=0, pending_since=None, pending_last_at=None,
-                 pending_price_source=None, opening_market_samples=[],
-                 market_wait_reason=reason, opening_conflict=reason)
 
 
 def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whale=None):
@@ -2379,7 +2197,6 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whal
     mom3=float(l1["mom3"]) if pd.notna(l1["mom3"]) else 0.0; mom5=float(l1["mom5"]) if pd.notna(l1["mom5"]) else 0.0; mom15=float(l1["mom15"]) if pd.notna(l1["mom15"]) else 0.0
     trend_strong=adx5>=20; near_noise=abs(vwap_atr)<0.18 and (distance is None or abs(target_atr)<0.22)
     impulse = _internal_impulse_context(one, price, atr, mom3, mom5, mom15, rvol)
-    market_gate = _strong_market_context(one, price)
     # Evaluate all routes for both directions before choosing any candidate.
     flow_side = (whale or {}).get("flow_direction") if isinstance(whale,dict) else None
     flow_context = {"direction":flow_side, "valid":False}
@@ -2387,15 +2204,18 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whal
         flow_context["valid"] = (flow_side in ("UP","DOWN") and
             float(whale.get("buy30") or 0)+float(whale.get("sell30") or 0)>=500_000 and
             float(whale.get("flow_strength") or 0)>=.20)
-    now = pd.Timestamp.now(tz="UTC")
-    ut_open, ut_closed, ut_closed_at, prior_side, closed_move = _ut_bot_events(df, 2, now)
-    ut_short, _, _, _, _ = _ut_bot_events(df, 1, now)
-    ut = {"direction": ut_closed, "ut_short": ut_short, "prior_side": prior_side,
-          "open_side": ut_open, "received_at": df.attrs.get("received_at"),
-          "closed_move": closed_move,
-          "closed_at": ut_closed_at.isoformat() if ut_closed_at is not None else None}
-    candidate = None
-    quality = "SIN CONFIRMACIÓN"
+    route_input = {"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"adx":adx5,"vwap_atr":vwap_atr,
+        "macd1":float(l1["macd_hist"]),"macd3":float(l3["macd_hist"]),"vol_ratio":rvol,
+        "mom3":mom3,"mom5":mom5,"target_atr":target_atr,"distance":distance,
+        "price_ema9_atr":(price-float(l1["ema9"]))/atr,
+        "ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR",
+        "trend3":d3,"trend5":d5,"impulse_internal":impulse,"flow_context_internal":flow_context}
+    route_view = _entry_route_checks(route_input, seconds_left)
+    eligible = {side:[route for route in route_view["sides"].get(side,[]) if route["complete"]]
+                for side in ("UP","DOWN")}
+    choices = [side for side in ("UP","DOWN") if eligible[side]]
+    candidate = choices[0] if len(choices)==1 else None
+    quality = eligible[candidate][0]["name"] if candidate else "SIN CONFIRMACIÓN" if not choices else "EVIDENCIA CONTRADICTORIA"
     flow_support = {"used":quality=="FLUJO + IMPULSO", "direction":flow_side if flow_context["valid"] else None,
                     "reason":"FLUJO CORROBORADO" if quality=="FLUJO + IMPULSO" else "CONTEXTO"}
     # Compatibility score: descriptive evidence for existing UI/closing reader; no longer gates entries at +/-4.
@@ -2406,7 +2226,7 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whal
         evidence = (1-weight)*evidence + weight*float(np.clip(target_atr, -2, 2))*3
     up_probability=float(np.clip(50+evidence*7,5,95)); down_probability=100-up_probability
     momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
-    return {"market_entry_gate":market_gate,"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr,"impulse_internal":impulse,"entry_route_internal":quality,"flow_support_internal":flow_support,"flow_context_internal":flow_context,"ut_signal":ut,"macd1":float(l1["macd_hist"]),"price_ema9_atr":(price-float(l1["ema9"]))/atr}
+    return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr,"impulse_internal":impulse,"entry_route_internal":quality,"flow_support_internal":flow_support,"flow_context_internal":flow_context,"macd1":float(l1["macd_hist"]),"price_ema9_atr":(price-float(l1["ema9"]))/atr}
 
 
 def build_presignal(sig, seconds_left):
@@ -2522,37 +2342,13 @@ def entry_quality(price, seconds_left):
 # =========================================================
 
 def _retention_assessment(state, signal):
-    """Separate affirmative, opposite and unknown evidence for an active side."""
+    """Use the same evidence families as entry/reversal decisions."""
     side = state.get("active_direction")
-    micro = (signal or {}).get("microstructure_internal") or {}
-    if micro and side in ("UP", "DOWN"):
-        current = micro.get("candidate") or micro.get("closing_side")
-        if current == side:
-            return 2, 0
-        if current in ("UP", "DOWN") and current != side:
-            return 0, 2
+    if side not in ("UP", "DOWN"):
         return 0, 0
-    if side not in ("UP", "DOWN") or not signal or signal.get("data_valid") is False:
-        return 0, 0
-    sign = 1 if side == "UP" else -1
-    support = contrary = 0
-    ema = signal.get("ema")
-    if ema in ("BULL", "BEAR"):
-        if ema == ("BULL" if sign == 1 else "BEAR"):
-            support += 1
-        else:
-            contrary += 1
-    # La EMA y la distancia al target determinan la permanencia.
-    # El mom5, que es una lectura más lenta, ya participa en el cálculo
-    # de la candidatura; se excluye solo de la votación de retirada para
-    # evitar que una señal desfasada fuerce un retiro prematuro.
-    value = _plan_number(signal.get("distance"))
-    if value is not None:
-        if value * sign > 0:
-            support += 1
-        elif value * sign < 0:
-            contrary += 1
-    return support, contrary
+    families = _direction_evidence(signal)
+    return (sum(v == side for v in families.values()),
+            sum(v != side for v in families.values()))
 
 
 def _retention_supported(state, signal, seconds_left):
@@ -2569,204 +2365,223 @@ def _reset_withdrawal(state):
 
 
 def _review_active_retention(state, signal, seconds_left, now):
-    """Withdraw only after two opposite conditions persist in spaced readings.
+    """Report weakening without silently withdrawing a confirmed direction.
 
-    Neutral/missing evidence never counts as an opposite vote. This helper is
-    only for candidate=None; entry and reversal confirmation are unchanged.
+    Direction changes are handled by the same confirmation path as entries.
     """
     side = state.get("active_direction")
     if side not in ("UP", "DOWN"):
         _reset_withdrawal(state)
         return
     support, contrary = _retention_assessment(state, signal)
-    warning = side + " PERDIENDO FUERZA • REEVALUANDO RESPALDO" if contrary > 0 and support < 2 else None
-    if contrary < 2:
-        _reset_withdrawal(state)
-        state["retention_warning"] = warning
-        return
-    source = (signal or {}).get("price_source")
-    stamp = now.timestamp()
-    last = state.get("withdraw_last_at")
-    same = (state.get("withdraw_direction") == side and state.get("withdraw_source") == source
-            and last is not None and 0 <= stamp-last <= SIGNAL_CONFIRM_MAX_GAP)
-    if not same:
-        state.update(withdraw_direction=side, withdraw_source=source, withdraw_count=1,
-                     withdraw_since=stamp, withdraw_last_at=stamp)
-    elif stamp-last >= SIGNAL_CONFIRM_INTERVAL:
-        state["withdraw_count"] += 1
-        state["withdraw_last_at"] = stamp
-    state["retention_warning"] = warning
-    if (state["withdraw_count"] >= SIGNAL_CONFIRM_READINGS and
-            stamp-state["withdraw_since"] >= SIGNAL_CONFIRM_INTERVAL*(SIGNAL_CONFIRM_READINGS-1)):
-        state["active_direction"] = None
-        state["active_since"] = None
-        _reset_withdrawal(state)
+    _reset_withdrawal(state)
+    if contrary > support and contrary >= 2:
+        state["retention_warning"] = side + " PERDIENDO FUERZA • REEVALUANDO RESPALDO"
 
 
-def _round_opening_crosscheck(state, candidate, signal, now, market):
-    """Confirm the first signal with distinct live observations of this round.
+def _direction_evidence(signal):
+    """Independent evidence families; price relative to target is NOT a trend vote."""
+    if not isinstance(signal, dict) or signal.get("data_valid") is False:
+        return {}
+    families = {}
+    ema = signal.get("ema")
+    if ema in ("BULL", "BEAR"):
+        families["trend"] = "UP" if ema == "BULL" else "DOWN"
+    # Short and medium trend belong to one family; disagreement abstains.
+    trends = [signal.get(k) for k in ("trend3", "trend5")]
+    trends = [v for v in trends if v in ("UP", "DOWN")]
+    if trends and len(set(trends)) == 1:
+        families["structure"] = trends[0]
+    rsi = _plan_number(signal.get("rsi"))
+    if rsi is not None and abs(rsi - 50) >= 3:
+        families["oscillator"] = "UP" if rsi > 50 else "DOWN"
+    momentum = [_plan_number(signal.get(k)) for k in ("mom3", "mom5")]
+    momentum = [v for v in momentum if v is not None and v != 0]
+    if momentum and all(v > 0 for v in momentum):
+        families["momentum"] = "UP"
+    elif momentum and all(v < 0 for v in momentum):
+        families["momentum"] = "DOWN"
+    return families
 
-    The rolling window is evidence, not a timer that automatically releases a
-    signal. Source timestamps prevent cached prices from counting twice.
+
+def _direction_consistent(candidate, signal, active=None):
+    """Single policy for entry and reversal, using nonduplicated families.
+
+    Reversal requires stronger consensus than first entry; a transient
+    oscillation cannot override a previously confirmed signal.
     """
+    if candidate not in ("UP", "DOWN"):
+        return False
+    families = _direction_evidence(signal)
+    if len(families) < 3:
+        return False
+    agree = sum(v == candidate for v in families.values())
+    oppose = len(families) - agree
+    if active in ("UP", "DOWN") and active != candidate:
+        return agree >= 3 and oppose == 0
+    return agree >= 3 and agree > oppose
+
+
+def _round_opening_crosscheck(state, candidate, signal, now):
+    """Require fresh directional evidence before the first entry of this ticker.
+
+    Old candles remain context, never sufficient evidence for an opening entry.
+    Each live feed has a separate short tape. Later reversals are unrestricted.
+    """
+    if state.get("first_direction") in ("UP", "DOWN"):
+        state["opening_conflict"] = None
+        return candidate
     def wait(reason):
         state["opening_conflict"] = reason
         return None
-    start = pd.to_datetime(market.get("open_time"), utc=True, errors="coerce")
-    end = pd.to_datetime(market.get("close_time"), utc=True, errors="coerce")
-    if pd.isna(start) and not pd.isna(end):
-        start = end - pd.Timedelta(minutes=15)
-    source = signal.get("price_source")
-    target = _plan_number(get_target_from_market(market))
-    key = [str(start), str(end), source, target, candidate]
-    if state.get("opening_market_key") != key:
-        state.update(opening_market_key=key, opening_market_samples=[])
+    if state.get("opening_gate_revision") != "fresh_first_entry_v1":
+        state.update(opening_gate_revision="fresh_first_entry_v1", opening_live_tapes={})
+    if not signal or signal.get("data_valid") is False:
+        return wait("Esperando datos actuales para la primera señal")
     price = _plan_number(signal.get("price"))
-    observed = getattr(_PRICE_OBSERVATIONS, "values", {}).get(source)
-    stamp = pd.Timestamp(now).timestamp()
-    if (pd.isna(start) or pd.isna(end) or target is None or price is None
-            or price <= 0 or candidate not in ("UP", "DOWN")
-            or signal.get("data_valid") is False or observed is None):
-        state["opening_market_samples"] = []
-        return wait("Esperando lecturas nuevas del mercado")
-    observed = float(observed)
-    if not np.isfinite(observed) or not start.timestamp() <= observed <= stamp:
-        state["opening_market_samples"] = []
-        return wait("Esperando precio de esta ronda")
-    if stamp-observed > SIGNAL_CONFIRM_MAX_GAP:
-        state["opening_market_samples"] = []
-        return wait("Esperando precio actualizado")
-    tape = state.get("opening_market_samples") or []
-    if tape and (observed < tape[-1][0] or observed-tape[-1][0] > SIGNAL_CONFIRM_MAX_GAP):
+    atr = _plan_number(signal.get("atr"))
+    source = signal.get("price_source")
+    if (price is None or price <= 0 or atr is None or atr <= 0
+            or source not in ("COINBASE", "KALSHI LIVE")):
+        return wait("Esperando precio en vivo para la primera señal")
+    stamp = now.timestamp()
+    tapes = state.setdefault("opening_live_tapes", {})
+    tape = tapes.get(source, [])
+    if tape and (stamp < tape[-1][0] or stamp-tape[-1][0] > LIVE_PRICE_MAX_AGE):
         tape = []
-    tape = [x for x in tape if 0 <= stamp-x[0] <= 16]
-    if not tape or observed-tape[-1][0] >= SIGNAL_CONFIRM_INTERVAL:
-        tape = tape + [[observed, price]]
-    state["opening_market_samples"] = tape
-    if len(tape) < 4 or tape[-1][0]-tape[0][0] < 6:
-        return wait("Analizando lecturas nuevas de esta ronda")
-    prices = [x[1] for x in tape]
+    tape = [x for x in tape if 0 <= stamp-x[0] <= 30]
+    if not tape or stamp-tape[-1][0] >= SIGNAL_CONFIRM_INTERVAL:
+        tape.append([stamp, price])
+    tapes[source] = tape
+    if candidate not in ("UP", "DOWN"):
+        return wait("Analizando fuerza actual antes de la primera señal")
+    if len(tape) < 3 or tape[-1][0]-tape[0][0] < 6:
+        return wait("Observando movimiento actual antes de la primera señal")
+    prices = [float(x[1]) for x in tape]
     sign = 1 if candidate == "UP" else -1
-    steps = [sign*(b-a) for a,b in zip(prices, prices[1:])]
-    travel = sum(abs(x) for x in steps)
-    net = sum(steps)
-    split = len(tape)//2
+    split = len(prices)//2
+    net = sign*(prices[-1]-prices[0])
     recent = sign*(prices[-1]-prices[split])
-    if (travel <= 0 or net/travel < .60 or recent <= 0
-            or sum(x > 0 for x in steps)/len(steps) < .60 or steps[-1] < 0):
-        return wait("Movimiento sin respaldo suficiente para " + candidate)
-    # Repeated target crossings indicate indecision rather than confirmation.
-    sides = [1 if p > target else -1 for p in prices if p != target]
-    if sum(a != b for a,b in zip(sides, sides[1:])) > 1:
-        return wait("Precio indeciso alrededor del target")
-    gap = sign*(target-price)
-    velocity = min(net/(tape[-1][0]-tape[0][0]),
-                   recent/(tape[-1][0]-tape[split][0]))
-    remaining = end.timestamp()-stamp
-    if gap > 0 and velocity*remaining < gap:
-        return wait("Movimiento insuficiente frente al target")
+    travel = sum(abs(y-x) for x,y in zip(prices,prices[1:]))
+    efficiency = net/max(travel, 1e-8)
+    minimum = max(2.0, .10*atr)
+    latest = sign*(prices[-1]-prices[-2])
+    if (net < minimum or recent < .5*minimum or efficiency < .60
+            or latest < -.25*minimum):
+        return wait("Sin fuerza actual suficiente para " + candidate)
     state["opening_conflict"] = None
     return candidate
 
 
 def _confirmation_without_trace(state, candidate, market, seconds_left, now, signal=None):
-    """Publica la dirección vigente del indicador en una ronda válida."""
-    state["opening_conflict"] = None
-    market = market or {}
-    now_ts = pd.Timestamp(now)
-    end = pd.to_datetime(market.get("close_time"), utc=True, errors="coerce")
-    round_open = pd.to_datetime(market.get("open_time"), utc=True, errors="coerce")
-    if pd.isna(round_open) and not pd.isna(end):
-        round_open = end - pd.Timedelta(minutes=15)
-
-    _reset_withdrawal(state)
-    state.update(pending_direction=None, pending_count=0, pending_since=None,
-                 pending_last_at=None, pending_price_source=None)
-    if not pd.isna(round_open):
-        if state.get("ut_round_policy") != 1:
-            state.update(active_direction=None, active_since=None, exit_plan=None, ut_round_policy=1)
-
-    signal = signal or {}
-    gate = signal.get("market_entry_gate") or {}
-    gate_side = gate.get("direction")
-    if not _market_entry_allowed(signal, gate_side, now):
-        _pause_market_signal(state, gate.get("reason") or "SIN DATOS ACTUALES")
+    """One confirmation path for foreground and background. Neutral readings
+    cancel pending candidates, never erase a confirmed active direction.
+    """
+    # A candidate is not a confirmation when the available directional
+    # evidence contradicts it. Keep the active signal while reassessing.
+    if candidate in ("UP", "DOWN") and not _direction_consistent(candidate, signal, state.get("active_direction")):
+        candidate = None
+    candidate = _round_opening_crosscheck(state, candidate, signal, now)
+    # Recalcular el cierre aquí: las consultas de red pueden agotar el contador.
+    closed = seconds_left is not None and seconds_left <= 0
+    close_time = (market or {}).get("close_time")
+    if close_time:
+        end = pd.to_datetime(close_time, utc=True, errors="coerce")
+        if pd.isna(end):
+            candidate = None
+        else:
+            actual_left = (end - pd.Timestamp(now)).total_seconds()
+            seconds_left = actual_left if seconds_left is None else min(seconds_left, actual_left)
+            closed = seconds_left <= 0
+    if closed:
+        _reset_withdrawal(state)
+        for key in ("pending_direction", "pending_since", "pending_last_at", "pending_price_source",
+                    "active_direction", "active_since"):
+            state[key] = None
+        state["pending_count"] = 0
         return
-    observed = getattr(_PRICE_OBSERVATIONS, "values", {}).get(signal.get("price_source"))
-    if (signal.get("price_source") not in ("COINBASE", "KALSHI LIVE") or observed is None or
-            not np.isfinite(observed) or not 0 <= now_ts.timestamp()-observed <= SIGNAL_CONFIRM_MAX_GAP):
-        _pause_market_signal(state, "SIN PRECIO EN VIVO ACTUAL")
+    if signal is not None and signal.get("data_valid") is False:
+        _reset_withdrawal(state)
+        # Una interrupción no demuestra neutralidad ni permite confirmar.
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        if seconds_left is not None and seconds_left <= 0:
+            state["active_direction"] = None
+            state["active_since"] = None
         return
-    state["market_wait_reason"] = None
-    if (pd.isna(round_open) or pd.isna(end) or not round_open <= now_ts < end
-            or signal.get("data_valid") is False):
-        _pause_market_signal(state, "SIN RONDA O DATOS ACTUALES")
+    source = signal.get("price_source") if signal else None
+    if source in ("KALSHI LIVE", "COINBASE", "COINBASE CANDLE"):
+        if state.get("pending_count", 0) and state.get("pending_price_source") != source:
+            # Tres lecturas deben pertenecer a una misma referencia de precio.
+            state["pending_direction"] = None
+            state["pending_count"] = 0
+            state["pending_since"] = None
+            state["pending_last_at"] = None
+        state["pending_price_source"] = source
+    if candidate not in ("UP", "DOWN"):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        _review_active_retention(state, signal, seconds_left, now)
         return
-    seconds_left = (end - now_ts).total_seconds()
 
-    # Keep the last confirmed UT flip separate from the displayed Kalshi side.
-    ut = signal.get("ut_signal") or {}
-    event_at = pd.to_datetime(ut.get("closed_at"), utc=True, errors="coerce")
-    saved_at = pd.to_datetime(state.get("ut_flip_at"), utc=True, errors="coerce")
-    if (candidate in ("UP", "DOWN") and not pd.isna(event_at) and event_at <= now_ts
-            and (pd.isna(saved_at) or event_at > saved_at)):
-        state.update(ut_flip_at=event_at.isoformat(), ut_side=candidate,
-                     ut_prior_side=ut.get("prior_side") or state.get("ut_side"),
-                     ut_flip_fallback=state.get("active_direction"))
-        saved_at = event_at
-    side = state.get("ut_side")
-    if side not in ("UP", "DOWN") or pd.isna(saved_at) or saved_at > now_ts:
-        _pause_market_signal(state, "SIN DIRECCIÓN CONFIRMADA")
+    _review_active_retention(state, signal, seconds_left, now)
+    if candidate == state.get("active_direction"):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
         return
 
-    active = state.get("active_direction")
-    if state.get("first_direction") is None:
-        confirmed = _round_opening_crosscheck(state, candidate, signal, now, market)
-        if confirmed != side:
-            state.update(active_direction=None, active_since=None)
-            return
-        received_at = pd.to_datetime(ut.get("received_at"), utc=True, errors="coerce")
-        if (now_ts < round_open + pd.Timedelta(seconds=NEW_ROUND_WAIT)
-                or pd.isna(received_at) or not round_open <= received_at <= now_ts
-                or candidate != side or event_at != saved_at):
-            return
-        # An opposite open candle pauses the first signal until the UT resolves it.
-        if ut.get("open_side") in ("UP", "DOWN") and ut["open_side"] != side:
-            return
-        active = side
-    elif saved_at <= round_open:
-        active = side
-    else:
-        fallback = state.get("ut_flip_fallback") or state.get("ut_prior_side")
-        price = _plan_number(signal.get("price"))
-        target = _plan_number(get_target_from_market(market))
-        if price is not None and target is not None:
-            sign = 1 if side == "UP" else -1
-            gap = sign * (target - price)
-            # Use the latest closed two-minute move, scaled to the remaining time.
-            move = _plan_number(ut.get("closed_move"))
-            if gap <= 0 or (move is not None and sign * move * seconds_left / 120 >= gap):
-                active = side
-            elif fallback in ("UP", "DOWN"):
-                active = fallback
-        elif active is None:
-            active = fallback
+    last = state.get("pending_last_at")
+    if isinstance(last, str):
+        try:
+            last = datetime.fromisoformat(last)
+        except ValueError:
+            last = None
+    since = state.get("pending_since")
+    if isinstance(since, str):
+        try:
+            since = datetime.fromisoformat(since)
+        except ValueError:
+            since = None
 
-    if not _market_entry_allowed(signal, active, now):
-        _pause_market_signal(state, "DIRECCIÓN SIN IMPULSO FUERTE")
+    if (last is not None and ((now - last).total_seconds() > SIGNAL_CONFIRM_MAX_GAP
+                              or (now - last).total_seconds() < 0)):
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
+        last = since = None
+    if state.get("pending_direction") != candidate:
+        state["pending_direction"] = candidate
+        state["pending_count"] = 1
+        state["pending_since"] = now.isoformat()
+        state["pending_last_at"] = now.isoformat()
         return
-    if state.get("active_direction") != active:
-        # Fresh observations are mandatory for re-entry and reversal as well.
-        if _round_opening_crosscheck(state, active, signal, now, market) != active:
-            # A prospective reversal must not erase the confirmed live signal.
-            # A blocked regime or invalid data still pauses it above.
-            return
-    if state.get("active_direction") != active:
-        state.update(active_direction=active, active_since=now)
-    if state.get("first_direction") is None:
-        state.update(first_direction=active, first_signal_time=now,
-                     first_signal_seconds=seconds_left,
-                     first_signal_price=get_yes_ask(market) if active == "UP" else get_no_ask(market))
+
+    if last is None or (now - last).total_seconds() >= SIGNAL_CONFIRM_INTERVAL:
+        state["pending_count"] = int(state.get("pending_count", 0)) + 1
+        state["pending_last_at"] = now.isoformat()
+
+    elapsed = (now - since).total_seconds() if since else 0
+    if (state["pending_count"] >= SIGNAL_CONFIRM_READINGS
+            and elapsed >= SIGNAL_CONFIRM_INTERVAL * (SIGNAL_CONFIRM_READINGS - 1)):
+        state["active_direction"] = candidate
+        state["active_since"] = now
+        if state.get("first_direction") is None:
+            state["first_direction"] = candidate
+            state["first_signal_time"] = now
+            state["first_signal_seconds"] = seconds_left
+            state["first_signal_price"] = (get_yes_ask(market) if candidate == "UP"
+                                           else get_no_ask(market))
+        state["pending_direction"] = None
+        state["pending_count"] = 0
+        state["pending_since"] = None
+        state["pending_last_at"] = None
 
 
 def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left):
@@ -2902,7 +2717,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_sources_v2_early_signal_v2_ut_direction_v2_opening_market_v2_strong_market_gate_v4_sustained_compression"
+BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_sources_v2_early_signal_v2_multi_indicator49_v1"
 _BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
@@ -3224,12 +3039,6 @@ def closing_reader(sig, round_signal, seconds_left, micro):
         except (TypeError, ValueError, OverflowError):
             return None
 
-    if not (sig.get("market_entry_gate") or {}).get("allowed", False):
-        return {"percent": 0, "direction": None, "headline": "ESPERANDO",
-                "note": "Sin impulso fuerte y sostenido; señales bloqueadas.",
-                "micro": "ESPERANDO IMPULSO", "color": "#94a3b8",
-                "border": "rgba(148,163,184,.45)",
-                "bg": "linear-gradient(135deg,rgba(30,41,59,.45),rgba(9,23,34,.72))"}
     seconds = finite(seconds_left)
     distance = finite(sig.get("distance"))
     price = finite(sig.get("price"))
@@ -3857,60 +3666,11 @@ for(const [key,label] of Object.entries({ema9:'EMA9',ema21:'EMA21',vwap:'VWAP',v
 // The surrounding cards, signals, toolbars, Python payload and market calculations remain unchanged.
 let lwChart=null, candleSeries=null, volumeSeries=null, overlays={}, levelLines=[], rsiChart=null, rsiSeries=null;
 let applyingData=false, syncing=false;
-let scrollFrame=0, resumeLive=true;
-const seriesCache=new WeakMap();
-function syncRsiRange(){
- if(!lwChart||!rsiChart||syncing||!toggles.rsi)return;
- const range=lwChart.timeScale().getVisibleLogicalRange();
- if(!range)return;
- syncing=true;
- try{rsiChart.timeScale().setVisibleLogicalRange(range)}finally{syncing=false;}
-}
-function requestLatestChart(){
- if(document.hidden)return;
- resumeLive=true;
- window.parent.postMessage({kind:'alpha-chart-ready'},'*');
- redrawData(true);
-}
-function stopSmoothScroll(){
- if(scrollFrame)cancelAnimationFrame(scrollFrame);
- scrollFrame=0;
-}
-function smoothRange(target,duration=420){
- stopSmoothScroll();
- const scale=lwChart.timeScale(),start=scale.getVisibleLogicalRange();
- if(!start){scale.setVisibleLogicalRange(target);return;}
- const began=performance.now();
- function frame(now){
-  const progress=Math.min(1,(now-began)/duration);
-  const eased=progress*progress*(3-2*progress);
-  applyingData=true;
-  try{scale.setVisibleLogicalRange({from:start.from+(target.from-start.from)*eased,to:start.to+(target.to-start.to)*eased});syncRsiRange()}
-  finally{applyingData=false;}
-  if(progress<1)scrollFrame=requestAnimationFrame(frame);
-  else{scrollFrame=0;persistView();}
- }
- scrollFrame=requestAnimationFrame(frame);
-}
-function syncSeries(series,rows,reset=false){
- const previous=seriesCache.get(series);
- // Update the live candle in place; reload only when historical data changed.
- const compatible=!reset&&previous&&previous.length&&rows.length>=previous.length&&
-  previous.slice(0,-1).every((row,i)=>JSON.stringify(row)===JSON.stringify(rows[i]))&&
-  rows[previous.length-1]?.time===previous[previous.length-1].time;
- if(compatible){
-  for(let i=previous.length-1;i<rows.length;i++){
-   if(JSON.stringify(previous[i])!==JSON.stringify(rows[i]))series.update(rows[i]);
-  }
- }else series.setData(rows);
- seriesCache.set(series,rows);
-}
 const candleOptions={upColor:'#00dfb5',downColor:'#e64b4b',borderUpColor:'#00dfb5',borderDownColor:'#e64b4b',wickUpColor:'#00dfb5',wickDownColor:'#e64b4b'};
 function chartRows(data){return (data.rows||[]).filter(r=>Number.isFinite(r.t)&&[r.open,r.high,r.low,r.close].every(Number.isFinite))
  .map(r=>({time:r.t,open:r.open,high:r.high,low:r.low,close:r.close}));}
-function seriesRows(key){return (D.rows||[]).filter(r=>Number.isFinite(r.t))
- .map(r=>Number.isFinite(r[key])?{time:r.t,value:r[key]}:{time:r.t});}
-
+function seriesRows(key){return (D.rows||[]).filter(r=>Number.isFinite(r.t)&&Number.isFinite(r[key]))
+ .map(r=>({time:r.t,value:r[key]}));}
 function refreshToggles(){
  for(const b of $('toggles').children){const k=b.dataset.key;b.className='toggle'+(toggles[k]?'':' off');b.setAttribute('aria-pressed',String(!!toggles[k]));b.innerHTML=b.dataset.label+'<span>'+(toggles[k]?'ON':'OFF')+'</span>'}
  const last=D.rows?.[D.rows.length-1];
@@ -3924,8 +3684,8 @@ function initChart(){
   width:$('canvas').clientWidth,height:$('canvas').clientHeight,
   layout:{background:{type:L.ColorType.Solid,color:'#06121a'},textColor:'#b9c8d9',fontFamily:'Inter,system-ui,sans-serif',fontSize:11},
   grid:{vertLines:{color:'#142b3a'},horzLines:{color:'#142b3a'}},
-  rightPriceScale:{borderColor:'#34546c',minimumWidth:88,scaleMargins:{top:.12,bottom:.17}},
-  timeScale:{borderColor:'#34546c',rightOffset:2,barSpacing:11,minBarSpacing:3,timeVisible:true,secondsVisible:false,fixLeftEdge:false,fixRightEdge:false,shiftVisibleRangeOnNewBar:false},
+  rightPriceScale:{borderColor:'#34546c',scaleMargins:{top:.12,bottom:.17}},
+  timeScale:{borderColor:'#34546c',rightOffset:2,barSpacing:11,minBarSpacing:3,timeVisible:true,secondsVisible:false,fixLeftEdge:false,fixRightEdge:false},
   crosshair:{mode:L.CrosshairMode.Normal,vertLine:{color:'#849cb7',style:L.LineStyle.Dashed,labelBackgroundColor:'#20354c'},horzLine:{color:'#849cb7',style:L.LineStyle.Dashed,labelBackgroundColor:'#20354c'}},
   kineticScroll:{touch:true,mouse:true},
   handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:true},
@@ -3939,17 +3699,15 @@ function initChart(){
   width:$('rsi-pane').clientWidth,height:110,
   layout:{background:{type:L.ColorType.Solid,color:'#06121a'},textColor:'#b9c8d9',fontSize:10},
   grid:{vertLines:{color:'#142b3a'},horzLines:{color:'#142b3a'}},
-  rightPriceScale:{borderColor:'#34546c',minimumWidth:88},timeScale:{visible:false,borderColor:'#34546c',shiftVisibleRangeOnNewBar:false},
+  rightPriceScale:{borderColor:'#34546c'},timeScale:{visible:false,borderColor:'#34546c'},
   handleScroll:false,handleScale:false,crosshair:{mode:L.CrosshairMode.Normal}
  });
  rsiSeries=rsiChart.addLineSeries({color:colors.rsi,lineWidth:2,priceLineVisible:false,lastValueVisible:true});
- // A drag or wheel gesture immediately takes control from auto-scrolling.
- for(const event of ['pointerdown','touchstart','wheel'])$('canvas').addEventListener(event,stopSmoothScroll,{passive:true});
  // Keep RSI time aligned with the BTC chart when panning/zooming.
  lwChart.timeScale().subscribeVisibleLogicalRangeChange(range=>{
   if(!range||syncing)return;
-  syncRsiRange();
-  if(!applyingData&&!scrollFrame)persistView();
+  syncing=true;try{rsiChart.timeScale().setVisibleLogicalRange(range)}catch(_){}syncing=false;
+  if(!applyingData)persistView();
  });
  lwChart.subscribeCrosshairMove(param=>{
   if(!param||!param.time||!param.seriesData){return;}
@@ -3957,7 +3715,7 @@ function initChart(){
   const date=new Date(Number(param.time)*1000).toLocaleString('en-US',{timeZone:'America/New_York'});
   $('tooltip').textContent=date+' · O '+fmt(r.open)+' H '+fmt(r.high)+' L '+fmt(r.low)+' C '+fmt(r.close);
  });
- const resize=()=>{if(!lwChart)return;lwChart.applyOptions({width:$('canvas').clientWidth,height:$('canvas').clientHeight});if(toggles.rsi)rsiChart.applyOptions({width:$('canvas').clientWidth,height:110});syncRsiRange()};
+ const resize=()=>{if(!lwChart)return;lwChart.applyOptions({width:$('canvas').clientWidth,height:$('canvas').clientHeight});rsiChart.applyOptions({width:$('rsi-pane').clientWidth,height:110})};
  if(window.ResizeObserver){new ResizeObserver(resize).observe($('canvas'));new ResizeObserver(resize).observe($('rsi-pane'))}else window.addEventListener('resize',resize);
  return true;
 }
@@ -3968,40 +3726,26 @@ function persistView(){
  const n=D.rows.length;visible=Math.max(12,Math.round(range.to-range.from));offset=Math.max(0,Math.round((n-1)-range.to));persist();
 }
 function redrawData(preserve=true){
- refreshToggles();$('rsi-pane').style.display=toggles.rsi?'block':'none';if(!initChart())return;
- stopSmoothScroll();
+ refreshToggles();if(!initChart())return;
  applyingData=true;
  let oldRange=preserve?lwChart.timeScale().getVisibleLogicalRange():null;
  const newC=chartRows(D),newN=newC.length;
  if(!newN){applyingData=false;return;}
- const previous=seriesCache.get(candleSeries)||[];
- const oldN=previous.length,oldLast=oldN?previous[oldN-1].time:null;
- const anchorIndex=oldLast==null?-1:newC.findIndex(row=>row.time===oldLast);
- const anchorShift=anchorIndex<0?0:anchorIndex-(oldN-1);
- const appended=anchorIndex<0?0:newN-1-anchorIndex;
- const following=oldRange&&oldN&&oldRange.to>=oldN-1-.5;
- syncSeries(candleSeries,newC,!preserve);
- for(const k of ['ema9','ema21','vwap']){syncSeries(overlays[k],seriesRows(k),!preserve);overlays[k].applyOptions({visible:!!toggles[k]});}
- syncSeries(volumeSeries,(D.rows||[]).filter(r=>Number.isFinite(r.t)&&Number.isFinite(r.volume)).map(r=>({time:r.t,value:r.volume,color:r.close>=r.open?'#00dfb573':'#e64b4b73'})),!preserve);
+ candleSeries.setData(newC);
+ for(const k of ['ema9','ema21','vwap']){overlays[k].setData(seriesRows(k));overlays[k].applyOptions({visible:!!toggles[k]});}
+ volumeSeries.setData((D.rows||[]).filter(r=>Number.isFinite(r.t)&&Number.isFinite(r.volume)).map(r=>({time:r.t,value:r.volume,color:r.close>=r.open?'#00dfb573':'#e64b4b73'})));
  volumeSeries.applyOptions({visible:!!toggles.volume});
- syncSeries(rsiSeries,seriesRows('rsi'),!preserve);
- if(toggles.rsi)rsiChart.applyOptions({width:$('canvas').clientWidth,height:110});
+ rsiSeries.setData(seriesRows('rsi'));
+ $('rsi-pane').style.display=toggles.rsi?'block':'none';
  for(const l of levelLines)candleSeries.removePriceLine(l);levelLines=[];
  for(const [value,label,color] of [[D.target,'TARGET','#f1c46b'],[D.support,'SUPPORT','#00dfb5'],[D.resistance,'RESISTANCE','#e64b4b']]){
   if(Number.isFinite(value))levelLines.push(candleSeries.createPriceLine({price:value,color,lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,axisLabelVisible:true,title:label}));
  }
  try{
-  if(resumeLive){
-   const width=oldRange?oldRange.to-oldRange.from:(saved.visible||Math.min(35,newN));
-   const end=newN+1.5;
-   resumeLive=false;
-   if(oldRange)smoothRange({from:end-width,to:end});
-   else lwChart.timeScale().setVisibleLogicalRange({from:end-width,to:end});
-  }else if(oldRange&&preserve){
-   // Remap the camera if the provider removed old candles from its window.
-   const mapped={from:oldRange.from+anchorShift,to:oldRange.to+anchorShift};
-   lwChart.timeScale().setVisibleLogicalRange(mapped);
-   if(following&&appended>0)smoothRange({from:mapped.from+appended,to:mapped.to+appended});
+  if(oldRange&&preserve){
+   // Preserve the user's camera even when a new candle arrives.
+   // Move one logical bar if old range was already anchored to the live edge.
+   lwChart.timeScale().setVisibleLogicalRange(oldRange);
   }else if(saved.visible){
    lwChart.timeScale().setVisibleLogicalRange({from:Math.max(0,newN-saved.visible-saved.offset),to:newN-1-saved.offset});
   }else{
@@ -4010,15 +3754,14 @@ function redrawData(preserve=true){
    lwChart.timeScale().setVisibleLogicalRange({from:newN-count-0.5,to:newN+1.5});
   }
  }catch(_) {lwChart.timeScale().fitContent()}
- syncRsiRange();
  applyingData=false;
 }
 function draw(){redrawData(true)}
-$('zoomin').onclick=()=>{if(!lwChart)return;const t=lwChart.timeScale(),r=t.getVisibleLogicalRange();if(r){const m=(r.from+r.to)/2,w=(r.to-r.from)*.72;smoothRange({from:m-w/2,to:m+w/2})}};
-$('zoomout').onclick=()=>{if(!lwChart)return;const t=lwChart.timeScale(),r=t.getVisibleLogicalRange();if(r){const m=(r.from+r.to)/2,w=(r.to-r.from)*1.35;smoothRange({from:m-w/2,to:m+w/2})}};
-$('older').onclick=()=>{if(!lwChart)return;const r=lwChart.timeScale().getVisibleLogicalRange();if(r)smoothRange({from:r.from-10,to:r.to-10})};
-$('newer').onclick=()=>{if(!lwChart)return;const r=lwChart.timeScale().getVisibleLogicalRange();if(r)smoothRange({from:r.from+10,to:r.to+10})};
-$('reset').onclick=()=>{if(!lwChart)return;const r=lwChart.timeScale().getVisibleLogicalRange(),n=chartRows(D).length;if(r&&n){const end=n+1.5;smoothRange({from:end-(r.to-r.from),to:end})}};
+$('zoomin').onclick=()=>{if(!lwChart)return;const t=lwChart.timeScale(),r=t.getVisibleLogicalRange();if(r){const m=(r.from+r.to)/2,w=(r.to-r.from)*.72;t.setVisibleLogicalRange({from:m-w/2,to:m+w/2})}};
+$('zoomout').onclick=()=>{if(!lwChart)return;const t=lwChart.timeScale(),r=t.getVisibleLogicalRange();if(r){const m=(r.from+r.to)/2,w=(r.to-r.from)*1.35;t.setVisibleLogicalRange({from:m-w/2,to:m+w/2})}};
+$('older').onclick=()=>{if(!lwChart)return;lwChart.timeScale().scrollToPosition(lwChart.timeScale().scrollPosition()+10,false)};
+$('newer').onclick=()=>{if(!lwChart)return;lwChart.timeScale().scrollToPosition(lwChart.timeScale().scrollPosition()-10,false)};
+$('reset').onclick=()=>{if(!lwChart)return;lwChart.timeScale().scrollToRealTime();persistView()};
 // Controls call draw(), so toggles update the native series without a new chart element.
 window.addEventListener('message',function(event){
  if(!event.data||event.data.kind!=='alpha-chart-update')return;
@@ -4032,13 +3775,7 @@ window.addEventListener('message',function(event){
  // Native data update never rebuilds the canvas; gestures and scroll are preserved.
  redrawData(true);
 });
-document.addEventListener('visibilitychange',()=>{if(document.hidden)stopSmoothScroll();else requestLatestChart()});
-window.addEventListener('pageshow',requestLatestChart);
-window.addEventListener('message',event=>{
- if(event.data?.kind==='alpha-chart-resume')requestLatestChart();
-});
 draw();
-window.parent.postMessage({kind:'alpha-chart-ready'},'*');
 </script></html>'''
 
 
@@ -4200,8 +3937,7 @@ def live_dashboard():
     micro = micro_reading()
     # El panel permanece visible; solo la predicción se activa en los últimos 90 segundos.
     # La cinta de precios y las métricas continúan actualizándose durante toda la ronda.
-    reader_active = (seconds_left is not None and 0 < seconds_left <= 90
-                     and (sig.get("market_entry_gate") or {}).get("allowed", False))
+    reader_active = seconds_left is not None and 0 < seconds_left <= 90
     reader = closing_reader(sig, round_signal, seconds_left, micro)
     if not btc_ok:
         reader = {**reader, "percent":0, "headline":"SIN DATOS ACTUALES",
@@ -4420,17 +4156,6 @@ def live_dashboard():
 
 '''
 
-    gate = sig.get("market_entry_gate") or {}
-    market_blocked = not gate.get("allowed", False)
-    market_alert = ""
-    if market_blocked:
-        label = ("DATOS INSUFICIENTES · SIN SEÑAL" if gate.get("reason") == "SIN DATOS ACTUALES"
-                 else "MERCADO LENTO O INDECISO · SIN SEÑAL")
-        market_alert = ('<div class="market-pause-alert" role="status" aria-live="polite" '
-                        'style="margin:8px 0 12px;padding:11px 10px;border:1px solid #f1c46b;'
-                        'border-radius:12px;background:#392c10;color:#ffe29a;text-align:center;'
-                        'font-size:12px;font-weight:800;line-height:1.5">⚠ ' + label +
-                        '<br><span style="font-weight:500">Esperando impulso fuerte y sostenido</span></div>')
     panel_html = f"""
 <style>
 /* app 31: conserve el encabezado dibujado en el fondo; solo un logo y titulo. */
@@ -4481,7 +4206,6 @@ def live_dashboard():
     <div class="rconf">{'APOYO DEL MOTOR ' + str(confidence) + '%' if active in ('UP','DOWN') else round_signal["signal"]}</div>
   </section>
 
-  {market_alert}
   {weakness_html}
 
   {pre_html}
@@ -4807,18 +4531,6 @@ def build_signal(df, target, seconds_left, live_price=None, price_source=None, w
     _TRACE_CONTEXT.build_payload = None
     sig = _signal_engine_without_trace(df, target, seconds_left, live_price, whale=whale)
     sig["price_source"] = price_source
-    pre = build_presignal(sig, seconds_left)
-    sig["presignal"] = pre
-    direction = sig["ut_signal"]["direction"]
-    if (seconds_left is not None and 0 < seconds_left <= 900 and target is not None
-            and _market_entry_allowed(sig, direction)):
-        sig["candidate"] = direction
-        sig["quality"] = sig["entry_route_internal"] = "SEÑAL DIRECTA"
-
-    if not _market_entry_allowed(sig, direction):
-        sig["candidate"] = None
-        sig["quality"] = sig["entry_route_internal"] = "ESPERANDO · " + sig["market_entry_gate"]["reason"]
-
     try:
         candles = [[row.time.isoformat(), float(row.open), float(row.high), float(row.low), float(row.close), float(row.volume)] for row in df.itertuples()]
         payload = {"candles":candles, "candle_metadata":dict(df.attrs), "target":target, "seconds_left":seconds_left, "live_price":live_price, "signal":sig}
@@ -4831,10 +4543,15 @@ def build_signal(df, target, seconds_left, live_price=None, price_source=None, w
 
 def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=None):
     before = dict(state)
+    if state.get("signal_engine_revision") != "unified_evidence_v6":
+        # Migrate state without deleting the already confirmed direction.
+        state["signal_engine_revision"] = "unified_evidence_v6"
+        state.update(pending_direction=None, pending_count=0,
+                     pending_since=None, pending_last_at=None,
+                     pending_price_source=None)
+        state.setdefault("opening_live_tapes", {})
+        _reset_withdrawal(state)
     result = _confirmation_without_trace(state, candidate, market, seconds_left, now, signal)
-    if not _market_entry_allowed(signal, state.get("active_direction"), now):
-        gate = (signal or {}).get("market_entry_gate") or {}
-        _pause_market_signal(state, state.get("market_wait_reason") or gate.get("reason") or "SIN IMPULSO FUERTE")
     # Solo seguimiento: el resultado de confirmación y su primera señal no cambian.
     if not isinstance(state.get("exit_plan"), dict) and state.get("first_direction") in ("UP", "DOWN"):
         state["exit_plan"] = make_exit_plan(state, signal, seconds_left, now)
@@ -4842,7 +4559,7 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=
     _capture_recent_alert(state, signal, market, now)
 
     try:
-        payload = {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "engine_variant":"retention_ema_target_without_mom5_v1", "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}
+        payload = {"candidate":candidate, "seconds_left":seconds_left, "now":now, "before":before, "after":dict(state), "engine_variant":"limited_retention_exit_plan_v1", "quotes":{"yes":get_yes_ask(market), "no":get_no_ask(market)}}
         payload["data_revision"] = BACKGROUND_DATA_REVISION
         payload["price_source"] = signal.get("price_source") if signal else None
         if signal is not None and signal.get("data_valid") is False:
@@ -5283,22 +5000,6 @@ else:
             'window.__alphaNextChart=payload;'
             'if(frame.contentWindow)frame.contentWindow.postMessage({kind:"alpha-chart-update",payload:payload},"*");'
             '};'
-            'if(window.__alphaChartResumeCleanup)window.__alphaChartResumeCleanup();'
-            'const replayChart=function(event){'
-            'if(event&&event.type==="message"&&(event.source!==frame.contentWindow||event.data?.kind!=="alpha-chart-ready"))return;'
-            'if(document.hidden)return;'
-            'if(window.__alphaNextChart)window.__alphaPushChart(window.__alphaNextChart);'
-            '};'
-            'const resumeChart=function(){if(document.hidden)return;'
-            'if(frame.contentWindow)frame.contentWindow.postMessage({kind:"alpha-chart-resume"},"*");'
-            'replayChart();};'
-            'window.addEventListener("message",replayChart);'
-            'document.addEventListener("visibilitychange",resumeChart);'
-            'window.addEventListener("pageshow",resumeChart);'
-            'window.__alphaChartResumeCleanup=function(){'
-            'window.removeEventListener("message",replayChart);'
-            'document.removeEventListener("visibilitychange",resumeChart);'
-            'window.removeEventListener("pageshow",resumeChart);};'
             'function fitChartHeight(){try{'
             'const panel=frame.contentDocument&&frame.contentDocument.querySelector(".panel");'
             'if(!panel)return;const pixels=Math.max(360,Math.ceil(panel.getBoundingClientRect().bottom+8));'
