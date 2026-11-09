@@ -936,6 +936,26 @@ section.main .block-container > * {
   position:relative;
   z-index:1;
 }
+
+/* SOLO TABLETS (601–1199px): usar el ancho de pantalla disponible.
+   No cambia estilos del teléfono ni lógica del motor. */
+@media screen and (min-width: 601px) and (max-width: 1199px) {
+  [data-testid="stMain"] .block-container,
+  section.main .block-container,
+  .stApp .block-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    box-sizing: border-box !important;
+  }
+  [data-testid="stMain"] .block-container::before,
+  section.main .block-container::before {
+    width: 100% !important;
+    left: 0 !important;
+    transform: none !important;
+  }
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -2241,6 +2261,176 @@ def _entry_route_checks(sig, seconds_left):
 
 
 
+def _structure_context(df, price, atr, rvol):
+    """Same previous-20-candle levels used by the chart; no look-ahead.
+
+    Distinguish confirmed breaks from rejection, rather than treating every
+    touch of a level as a reversal. ATR scales the comparison to volatility.
+    """
+    candles = df.tail(22)
+    if len(candles) < 21:
+        return {"available": False, "support": None, "resistance": None,
+                "up_blocked": False, "down_blocked": False, "event": "INSUFFICIENT_DATA"}
+    prior = candles.iloc[-21:-1]
+    last = candles.iloc[-1]
+    support = float(prior["low"].min())
+    resistance = float(prior["high"].max())
+    op, hi, lo, close = (float(last[k]) for k in ("open", "high", "low", "close"))
+    span = max(hi-lo, 1e-9)
+    body = abs(close-op)
+    upper_wick = hi-max(op, close)
+    lower_wick = min(op, close)-lo
+    # Rejection requires a level test and a meaningful counter-direction candle.
+    rejection_up = (hi >= resistance and close < resistance and close < op
+                    and upper_wick >= body * 0.7 and upper_wick/span >= .25)
+    rejection_down = (lo <= support and close > support and close > op
+                      and lower_wick >= body * 0.7 and lower_wick/span >= .25)
+    # Confirmed continuation requires closing beyond the level with a body
+    # in the breakout direction and volume or a meaningful ATR-sized body.
+    break_up = (close > resistance and close > op and
+                (rvol >= 1.15 or body >= atr*.45))
+    break_down = (close < support and close < op and
+                  (rvol >= 1.15 or body >= atr*.45))
+    # Near a boundary without breakout confirmation, do not chase into it
+    # when the last candle is already turning against the proposed entry.
+    near_resistance = 0 <= resistance-price <= atr*.45
+    near_support = 0 <= price-support <= atr*.45
+    up_blocked = bool(rejection_up or (near_resistance and close < op and not break_up))
+    down_blocked = bool(rejection_down or (near_support and close > op and not break_down))
+    event = ("RESISTANCE_REJECTION" if rejection_up else
+             "SUPPORT_REJECTION" if rejection_down else
+             "BREAKOUT_UP" if break_up else "BREAKOUT_DOWN" if break_down else
+             "NEAR_RESISTANCE" if near_resistance else
+             "NEAR_SUPPORT" if near_support else "NONE")
+    return {"available": True, "support": support, "resistance": resistance,
+            "up_blocked": up_blocked, "down_blocked": down_blocked,
+            "break_up": bool(break_up), "break_down": bool(break_down),
+            "event": event}
+
+
+
+def _level_decision_context(df, price, atr, seconds_left, target, mom3, rsi, rvol, whale):
+    """Unified price-structure decision for the OFFICIAL signal only.
+
+    Look for repeatedly tested zones, current rejection/continuation, and the
+    remaining time relative to target distance. No fixed BTC dollar limits.
+    """
+    ctx = {"event":"NONE", "veto":None, "reversal":None,
+           "support":None, "resistance":None, "breakout":None}
+    if len(df) < 26 or not np.isfinite(atr) or atr <= 0:
+        return ctx
+    past = df.iloc[-65:-3]
+    recent = df.iloc[-3:]
+    if len(past) < 20:
+        return ctx
+    support = float(past["low"].min())
+    resistance = float(past["high"].max())
+    tol = float(atr) * .40
+    upper_tests = int((past["high"] >= resistance-tol).sum())
+    lower_tests = int((past["low"] <= support+tol).sum())
+    latest = recent.iloc[-1]
+    previous = recent.iloc[-2]
+    close = float(latest["close"])
+    prev_close = float(previous["close"])
+    op = float(latest["open"])
+    hi = float(latest["high"])
+    lo = float(latest["low"])
+    volume_ok = bool(rvol >= 1.05)
+    whale = whale if isinstance(whale,dict) else {}
+    buy = float(whale.get("buy30") or 0)
+    sell = float(whale.get("sell30") or 0)
+    bearish_pressure = mom3 < 0 and (rsi < 52 or sell > buy)
+    bullish_pressure = mom3 > 0 and (rsi > 48 or buy > sell)
+    # Breakout confirmation uses direction, continuation and volume/impulse.
+    breakout_up = (close > resistance+tol and prev_close > resistance
+                   and close >= prev_close and (volume_ok or mom3 > .04))
+    breakout_down = (close < support-tol and prev_close < support
+                     and close <= prev_close and (volume_ok or mom3 < -.04))
+    ctx.update(support=support,resistance=resistance,
+               resistance_tests=upper_tests,support_tests=lower_tests)
+    if breakout_up:
+        ctx.update(event="BREAKOUT_UP",breakout="UP")
+        return ctx
+    if breakout_down:
+        ctx.update(event="BREAKOUT_DOWN",breakout="DOWN")
+        return ctx
+    # A rejection may begin with a wick, but requires a counter-move.
+    rejected_resistance = (upper_tests >= 2
+        and float(recent["high"].max()) >= resistance-tol
+        and close < resistance and close < prev_close and bearish_pressure)
+    rejected_support = (lower_tests >= 2
+        and float(recent["low"].min()) <= support+tol
+        and close > support and close > prev_close and bullish_pressure)
+    if rejected_resistance:
+        ctx.update(event="RESISTANCE_REJECTION",veto="UP",reversal="DOWN")
+    elif rejected_support:
+        ctx.update(event="SUPPORT_REJECTION",veto="DOWN",reversal="UP")
+    else:
+        # At an established boundary, don't chase an old trend into a new
+        # counter-direction candle; no automatic opposite signal.
+        if upper_tests >= 2 and resistance-tol <= price <= resistance+tol and close < op:
+            ctx.update(event="RESISTANCE_WARNING",veto="UP")
+        elif lower_tests >= 2 and support-tol <= price <= support+tol and close > op:
+            ctx.update(event="SUPPORT_WARNING",veto="DOWN")
+    # Close to settlement, countertrend calls need plausible target crossing.
+    # Use observed recent volatility, not a fixed dollar or seconds cutoff.
+    if ctx["reversal"] and seconds_left is not None and target is not None:
+        seconds = max(0.,float(seconds_left))
+        recent_speed = float(recent["close"].diff().abs().dropna().mean()) / 60.
+        travel = max(recent_speed, float(atr)/60.*.35) * seconds
+        distance = float(price)-float(target)
+        required = max(0.,distance) if ctx["reversal"]=="DOWN" else max(0.,-distance)
+        if seconds <= 0 or required > travel:
+            ctx["reversal"] = None
+            ctx["event"] += "_TARGET_UNREACHABLE"
+    return ctx
+
+
+def _opening_level_gate(df, price, atr, rvol):
+    """Hard gate for fresh official signals near historical support/resistance.
+
+    Uses only candles preceding the latest two observations to avoid treating
+    the current test as an already confirmed breakout. ATR sets zone width.
+    """
+    result = {"blocked": [], "reason": "NONE", "support": None,
+              "resistance": None, "break_up": False, "break_down": False}
+    if len(df) < 24 or not np.isfinite(atr) or atr <= 0:
+        result.update(blocked=["UP", "DOWN"], reason="LEVEL_DATA_INSUFFICIENT")
+        return result
+    history = df.iloc[-62:-2]
+    if len(history) < 20:
+        result.update(blocked=["UP", "DOWN"], reason="LEVEL_DATA_INSUFFICIENT")
+        return result
+    support = float(history["low"].min())
+    resistance = float(history["high"].max())
+    last = df.iloc[-1]
+    prev = df.iloc[-2]
+    close, previous = float(last["close"]), float(prev["close"])
+    op = float(last["open"])
+    width = max(float(atr) * .65, abs(close - previous) * .5)
+    # A single wick or one unconfirmed candle is not a breakout.
+    break_up = (close > resistance + width * .25 and
+                previous > resistance and close > op and
+                (rvol >= 1.05 or close > previous))
+    break_down = (close < support - width * .25 and
+                  previous < support and close < op and
+                  (rvol >= 1.05 or close < previous))
+    # Near either boundary, do not issue an official direction before a
+    # confirmed break. The opposite direction may still be evaluated normally.
+    near_resistance = abs(float(price) - resistance) <= width
+    near_support = abs(float(price) - support) <= width
+    blocked = []
+    if near_resistance and not break_up:
+        blocked.append("UP")
+    if near_support and not break_down:
+        blocked.append("DOWN")
+    result.update(blocked=blocked, support=support, resistance=resistance,
+                  break_up=bool(break_up), break_down=bool(break_down),
+                  reason="NEAR_RESISTANCE" if "UP" in blocked else
+                         "NEAR_SUPPORT" if "DOWN" in blocked else "NONE")
+    return result
+
+
 def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whale=None):
     one=add_indicators(df); three=_resample_indicators(df,3); five=_resample_indicators(df,5)
     l1,l3,l5=one.iloc[-1],three.iloc[-1],five.iloc[-1]
@@ -2275,6 +2465,35 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whal
     route_view = _entry_route_checks(route_input, seconds_left)
     eligible = {side:[route for route in route_view["sides"].get(side,[]) if route["complete"]]
                 for side in ("UP","DOWN")}
+    # One coherent structure evaluation, shared by all official entry routes.
+    # PRESEÑAL is computed separately and is not modified.
+    structure = _structure_context(df, price, atr, rvol)
+    levels = _level_decision_context(
+        df, price, atr, seconds_left, target, mom3, rsi1, rvol, whale)
+    structure["level_decision"] = levels
+    if levels["veto"] in ("UP", "DOWN"):
+        eligible[levels["veto"]] = []
+    if levels["reversal"] in ("UP", "DOWN"):
+        side = levels["reversal"]
+        opposite = "DOWN" if side == "UP" else "UP"
+        if not eligible[opposite]:
+            eligible[side].append({
+                "name": "RECHAZO ESTRUCTURAL CONFIRMADO",
+                "checks": [("Nivel probado previamente", True),
+                           ("Rechazo y presión actual", True),
+                           ("Tiempo y distancia al target compatibles", True)],
+                "met": 3, "total": 3, "complete": True})
+    # Preserve chart-level protection; confirmed breakouts may pass it.
+    if structure["up_blocked"] and levels["breakout"] != "UP":
+        eligible["UP"] = []
+    if structure["down_blocked"] and levels["breakout"] != "DOWN":
+        eligible["DOWN"] = []
+    # Mandatory boundary gate on the OFFICIAL entry candidate, independent
+    # of route scoring or EMA momentum. Presignal is untouched.
+    opening_levels = _opening_level_gate(df, price, atr, rvol)
+    structure["opening_level_gate"] = opening_levels
+    for blocked_side in opening_levels["blocked"]:
+        eligible[blocked_side] = []
     choices = [side for side in ("UP","DOWN") if eligible[side]]
     candidate = choices[0] if len(choices)==1 else None
     quality = eligible[candidate][0]["name"] if candidate else "SIN CONFIRMACIÓN" if not choices else "EVIDENCIA CONTRADICTORIA"
@@ -2288,7 +2507,7 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whal
         evidence = (1-weight)*evidence + weight*float(np.clip(target_atr, -2, 2))*3
     up_probability=float(np.clip(50+evidence*7,5,95)); down_probability=100-up_probability
     momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
-    return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr,"impulse_internal":impulse,"entry_route_internal":quality,"flow_support_internal":flow_support,"flow_context_internal":flow_context,"macd1":float(l1["macd_hist"]),"price_ema9_atr":(price-float(l1["ema9"]))/atr}
+    return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr,"impulse_internal":impulse,"entry_route_internal":quality,"flow_support_internal":flow_support,"flow_context_internal":flow_context,"structure_internal":structure,"macd1":float(l1["macd_hist"]),"price_ema9_atr":(price-float(l1["ema9"]))/atr}
 
 
 def build_presignal(sig, seconds_left):
@@ -2589,6 +2808,10 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
     if candidate in ("UP", "DOWN") and not _direction_consistent(candidate, signal, state.get("active_direction")):
         candidate = None
     candidate = _round_opening_crosscheck(state, candidate, signal, now)
+    level_gate = ((signal or {}).get("structure_internal") or {}).get("opening_level_gate") or {}
+    if candidate in level_gate.get("blocked", []):
+        candidate = None
+
     # Recalcular el cierre aquí: las consultas de red pueden agotar el contador.
     closed = seconds_left is not None and seconds_left <= 0
     close_time = (market or {}).get("close_time")
@@ -3752,8 +3975,8 @@ _NEON_HTML = r'''<!DOCTYPE html><html lang="es"><meta charset="utf-8"><meta name
 @media(max-width:480px){#canvas{height:375px!important}}
 </style>
 <section class="panel">
-<header class="header"><div><h2>BTC / USD</h2><div class="sub" id="subtitle"></div></div><div><div class="price" id="price"></div><div class="live" id="live"></div></div></header>
-<div class="cards"><div class="card signal"><div class="label">SEÑAL OFICIAL DEL BOT</div><strong id="signal" class="cyan">ESPERANDO</strong><small>Motor BTC Signal v4.6.1</small></div><div class="card"><div class="label">APOYO DEL MODELO</div><strong class="cyan" id="model"></strong><small>Apoyo calculado · no probabilidad de acierto</small></div><div class="card"><div class="label">ESTADO DE LA GRÁFICA</div><strong class="status" id="status"></strong><small id="updated"></small></div></div>
+<!-- Panel BTC/USD y tarjetas visuales retirados. Se conservan los nodos que usa el JavaScript para actualizar datos. -->
+<div style="display:none!important" aria-hidden="true"><span id="subtitle"></span><span id="price"></span><span id="live"></span><span id="signal"></span><span id="model"></span><span id="status"></span><span id="updated"></span></div>
 <details id="whale"><summary>🐋 WHALE FLOW <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>🐋 WHALE FLOW — LIVE</h3><div class="note">Operaciones observadas de Coinbase · últimos 30 s</div><div class="watch" id="watch"></div><div class="metrics"><div class="metric"><small>BUY FLOW</small><b class="green" id="buy"></b></div><div class="metric"><small>SELL FLOW</small><b class="red" id="sell"></b></div><div class="metric"><small>DIFERENCIA</small><b id="diff"></b></div><div class="metric"><small>ACTIVIDAD</small><b id="activity"></b></div><div class="metric"><small>FUERZA DEL DESEQUILIBRIO</small><b id="strength"></b></div></div><div class="bars"><div class="bar">BUY<div class="track"><i id="buybar" style="background:#00dfb5"></i></div><b id="buytotal"></b></div><div class="bar">SELL<div class="track"><i id="sellbar" style="background:#e64b4b"></i></div><b id="selltotal"></b></div></div><div class="count"><div class="metric"><small>🐋 BUY WHALES</small><b class="green" id="buys"></b></div><div class="metric"><small>🐋 SELL WHALES</small><b class="red" id="sells"></b></div></div><div class="metric difference"><small>DIFERENCIA DE OPERACIONES</small><b id="countdiff"></b></div><p class="note">«Whales»: operaciones individuales de al menos $10,000, no personas identificadas. Muestra recibida por la API; puede omitir operaciones entre consultas. Actividad: ritmo de los últimos 10 s frente a los 20 s anteriores. En el laboratorio, el flujo puede apoyar una candidatura solo con confirmación técnica; no decide por sí solo.</p></div></details>
 <details id="momentum"><summary>⚡ SHORT-TERM MOMENTUM <small>EN VIVO · TOCA PARA ABRIR</small></summary><div class="detail"><h3>MOVIMIENTO RECIENTE DE BTC</h3><div class="metrics" id="momrows"></div><p class="note">Cambio porcentual calculado por el motor en 3, 5 y 15 minutos. La temporalidad de la gráfica no cambia estos valores.</p></div></details>
 <div class="tools"><h3>INDICADORES</h3><div class="toggles" id="toggles"></div><div class="legend" id="legend"></div></div>
@@ -4297,6 +4520,11 @@ def live_dashboard():
   opacity:0!important;cursor:pointer!important;
 }}
 .refapp .rhero {{margin-top:2px!important;}}
+/* Solo tablet: separar la señal del título y la versión del encabezado.
+   No modifica móvil, escritorio ni el motor de señales. */
+@media screen and (min-width:601px) and (max-width:1199px) {{
+  .refapp .rhero {{margin-top:42px!important;}}
+}}
 @media(max-width:400px){{
   .refapp .rhead.jc-bg-header{{height:145px!important;min-height:145px!important;max-height:145px!important}}
 }}
@@ -4392,10 +4620,81 @@ def live_dashboard():
 
     # Panel neón: capa visual independiente. No altera el motor de señales.
     if btc_ok:
-        chart_timeframe = st.radio(
+        # Selector de temporalidad: mismo acabado dorado y franjas que las tarjetas.
+        # Mantener el control nativo para preservar el estado y el ancho distribuido.
+        st.markdown("""
+        <style>
+        @media (max-width: 1199px) {
+          .st-key-chart_timeframe,
+          .st-key-chart_timeframe [data-testid="stSegmentedControl"],
+          .st-key-chart_timeframe [data-testid="stSegmentedControl"] > div,
+          .st-key-chart_timeframe [role="group"],
+          .st-key-chart_timeframe [data-baseweb="button-group"] {
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+          }
+          .st-key-chart_timeframe [role="group"],
+          .st-key-chart_timeframe [data-baseweb="button-group"],
+          .st-key-chart_timeframe [data-testid="stSegmentedControl"] > div {
+            display: flex !important;
+            width: 100% !important;
+            gap: 6px !important;
+            justify-content: space-between !important;
+          }
+          .st-key-chart_timeframe button {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            min-height: 47px !important;
+            padding: 8px 2px !important;
+            margin: 0 !important;
+            background-image:
+              repeating-linear-gradient(128deg,transparent 0px,transparent 18px,rgba(255,232,173,.12) 19px,rgba(255,232,173,.045) 31px,transparent 40px,transparent 78px),
+              linear-gradient(145deg,#0c1c27,#07151e) !important;
+            background-color: #09151f !important;
+            background-blend-mode: screen,normal !important;
+            color: #f2e7d6 !important;
+            border: 1px solid rgba(228,190,120,.78) !important;
+            border-radius: 9px !important;
+            box-shadow: inset 0 1px 0 rgba(255,227,170,.18),0 0 8px rgba(215,166,79,.14) !important;
+            font-size: 14px !important;
+            font-weight: 800 !important;
+            opacity: 1 !important;
+          }
+          .st-key-chart_timeframe button * {
+            color: inherit !important;
+            opacity: 1 !important;
+          }
+          .st-key-chart_timeframe button[aria-pressed="true"],
+          .st-key-chart_timeframe button[aria-checked="true"],
+          .st-key-chart_timeframe button[data-state="active"] {
+            background-image:
+              repeating-linear-gradient(128deg,transparent 0px,transparent 18px,rgba(255,180,180,.10) 19px,rgba(255,180,180,.035) 31px,transparent 40px,transparent 78px),
+              linear-gradient(145deg,#43212b,#1a1821) !important;
+            border-color: #f47786 !important;
+            color: #ffc3c9 !important;
+            box-shadow: inset 0 1px 0 rgba(255,195,195,.2),0 0 7px rgba(244,119,134,.35) !important;
+          }
+        }
+        @media (max-width: 599px) {
+          .st-key-chart_timeframe [role="group"],
+          .st-key-chart_timeframe [data-baseweb="button-group"],
+          .st-key-chart_timeframe [data-testid="stSegmentedControl"] > div {
+            gap: 3px !important;
+          }
+          .st-key-chart_timeframe button {
+            min-height: 40px !important;
+            font-size: 12px !important;
+            padding: 6px 0 !important;
+          }
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        chart_timeframe = st.segmented_control(
             "Temporalidad del gráfico",
             ["1m", "3m", "5m", "15m", "1h", "4h", "1D"],
-            horizontal=True, key="chart_timeframe", label_visibility="collapsed",
+            default="1m", key="chart_timeframe", label_visibility="collapsed",
+            selection_mode="single", width="stretch",
         )
         try:
             chart_df = btc_df if chart_timeframe in ("1m", "3m", "5m") else _neon_chart_history(chart_timeframe)
