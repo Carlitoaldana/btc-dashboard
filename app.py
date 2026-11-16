@@ -2144,7 +2144,7 @@ def estimated_probabilities(
 # MOTOR ORIGINAL v4.6.1
 # =========================================================
 
-def _internal_impulse_context(one, price, atr, mom3, mom5, mom15, rvol):
+def _internal_impulse_context(one, price, atr, mom3, mom15, rvol):
     """Directional persistence / exhaustion in comparable ATR units.
 
     Informational internally; never imposes a permanent UP/DOWN lock.
@@ -2165,15 +2165,14 @@ def _internal_impulse_context(one, price, atr, mom3, mom5, mom15, rvol):
     recent = float(np.sum(changes[-2:])) / atr
     previous = float(np.sum(changes[-5:-2])) / atr
     m3 = float(np.clip(price * mom3 / 100.0 / atr, -3, 3))
-    m5 = float(np.clip(price * mom5 / 100.0 / atr, -3, 3))
     m15 = float(np.clip(price * mom15 / 100.0 / atr, -3, 3))
     volume = float(np.clip(rvol, 0, 3)) if np.isfinite(rvol) else 1.0
     # No invented dollar target: these are dimensionless internal strengths.
-    trend = .48 * m3 + .32 * m5 + .20 * m15
+    trend = .80 * m3 + .20 * m15
     strength = float(np.clip(trend * (.75 + .25 * efficiency) *
                              (.90 + .10 * min(volume, 1.5)), -3, 3))
-    exhaust_up = (previous > .35 and recent < -.10) or (m5 > .35 and m3 < -.12)
-    exhaust_down = (previous < -.35 and recent > .10) or (m5 < -.35 and m3 > .12)
+    exhaust_up = (previous > .35 and recent < -.10) or (m3 > .35 and recent < -.12)
+    exhaust_down = (previous < -.35 and recent > .10) or (m3 < -.35 and recent > .12)
     return {"up": max(0., strength), "down": max(0., -strength),
             "exhaust_up": bool(exhaust_up), "exhaust_down": bool(exhaust_down),
             "reliable": True, "efficiency": round(float(efficiency), 3),
@@ -2182,12 +2181,12 @@ def _internal_impulse_context(one, price, atr, mom3, mom5, mom15, rvol):
 
 def _entry_route_checks(sig, seconds_left):
     """Evaluate both sides from the same evidence; shared by engine and UI."""
-    required = ("rsi", "rsi3", "rsi5", "adx", "vwap_atr", "macd1", "macd3",
-                "vol_ratio", "mom3", "mom5", "target_atr", "price_ema9_atr")
+    required = ("rsi", "rsi3", "adx3", "vwap_atr", "macd1", "macd3",
+                "vol_ratio", "mom3", "target_atr", "price_ema9_atr")
     if sig.get("data_valid") is False or any(_plan_number(sig.get(k)) is None for k in required):
         return {"valid":False, "sides":{}, "noise_ok":False}
-    r1,r3,r5,adx,vw,m1,m3,vol,mom,mom5,cushion,live_ema = (float(sig[k]) for k in required)
-    d3,d5 = sig.get("trend3"), sig.get("trend5")
+    r1,r3,adx,vw,m1,m3,vol,mom,cushion,live_ema = (float(sig[k]) for k in required)
+    d3 = sig.get("trend3")
     impulse = sig.get("impulse_internal") or {}
     noise_ok = not (abs(vw)<.18 and (sig.get("distance") is None or abs(cushion)<.22) and adx<20)
     sides = {}
@@ -2202,13 +2201,13 @@ def _entry_route_checks(sig, seconds_left):
             ("MACD de 1 minuto y VWAP a favor", m1*sign>0 and vw*sign>=.03),
             ("Impulso actual sin agotamiento detectado", not exhausted),
         ]
-        early_five = d5 != other or (reliable and strength>=.75 and mom*sign>.04 and vol>=.9)
+        early_three = d3 != other or (reliable and strength>=.75 and mom*sign>.04 and vol>=.9)
         rsi_vwap = (r1>=52 and vw>=.05) if up else (r1<=48 and vw<=-.05)
         routes = [
             ("IMPULSO ACTUAL", current),
             ("TENDENCIA ALINEADA", [
-                ("Tendencias de 3 y 5 minutos a favor", d3==side and d5==side),
-                ("Fuerza de tendencia o RSI suficientes", adx>=20 or ((r3>=52 and r5>=50) if up else (r3<=48 and r5<=50))),
+                ("Tendencia de 3 minutos a favor", d3 == side),
+                ("Fuerza de tendencia o RSI suficientes", adx >= 20 or (r3 >= 52 if up else r3 <= 48)),
                 ("VWAP y momentum actual respaldan la tendencia", (vw>-.15 if up else vw<.15) and mom*sign>=.012),
                 ("Sin agotamiento detectado", not exhausted),
             ]),
@@ -2216,12 +2215,12 @@ def _entry_route_checks(sig, seconds_left):
                 ("MACD de 3 minutos a favor", m3*sign>0),
                 ("RSI de 1 minuto y VWAP a favor", rsi_vwap),
                 ("Momentum de 3 minutos a favor", mom*sign>.015),
-                ("Contexto de 5 minutos respaldado o superado por fuerza actual", early_five),
+                ("Tendencia de 3 minutos compatible o superada por fuerza actual", early_three),
                 ("Sin agotamiento detectado", not exhausted),
             ]),
             ("TEMPRANA ACELERADA", [
                 ("MACD y momentum a favor", m3*sign>0 and mom*sign>.015),
-                ("Contexto de 5 minutos no contrario", d5!=other),
+                ("Tendencia de 3 minutos compatible", d3 != other),
                 ("Impulso fuerte con volumen y ADX", reliable and strength>=.65 and adx>=20 and vol>=.8),
                 ("Sin agotamiento detectado", not exhausted),
             ]),
@@ -2239,7 +2238,7 @@ def _entry_route_checks(sig, seconds_left):
             ("Flujo agresor significativo a favor", flow_ok),
             ("RSI, MACD y precio actuales a favor", (r1>=50 if up else r1<=50) and m1*sign>0 and live_ema*sign>0),
             ("Momentum y VWAP a favor", mom*sign>=.012 and vw*sign>=-.04),
-            ("Contexto contrario corroborado por momentum", d5!=other or (mom5*sign>=.025 and abs(mom)>=.025)),
+            ("Tendencia de 3 minutos compatible o momentum reforzado", d3 != other or mom * sign >= .025),
             ("Impulso fiable sin agotamiento", reliable and not exhausted),
         ]))
         target_ok = True
@@ -2249,7 +2248,7 @@ def _entry_route_checks(sig, seconds_left):
             tolerance = 1.8-1.4*weight
             if -sign*cushion>tolerance:
                 target_ok = (reliable and strength>=.75 and mom*sign>.04 and not exhausted
-                             and (all(ok for _,ok in current) or d3==side or d5==side))
+                             and (all(ok for _,ok in current) or d3 == side))
         sides[side] = []
         for name,checks in routes:
             checks = checks+[("Fuera de la zona de ruido",noise_ok),
@@ -2433,16 +2432,16 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whal
         bull=(row["ema9"]>row["ema21"] and row["macd_hist"]>=0 and row["plus_di"]>=row["minus_di"])
         bear=(row["ema9"]<row["ema21"] and row["macd_hist"]<=0 and row["minus_di"]>=row["plus_di"])
         return "UP" if bull else "DOWN" if bear else "NEUTRAL"
-    d3,d5=direction(l3),direction(l5); aligned=d3 if d3==d5 and d3!="NEUTRAL" else "NEUTRAL"
+    d3,d5=direction(l3),direction(l5)
     atr=float(l1["atr"]) if pd.notna(l1["atr"]) and l1["atr"]>0 else max(price*.0005,1)
     distance=(price-target) if target is not None else None; distance_pct=(distance/target*100) if target else None
     target_atr=(distance/atr) if distance is not None else 0.0
     vwap=float(l1["vwap"]) if pd.notna(l1["vwap"]) else price; vwap_atr=(price-vwap)/atr
+    adx3 = float(l3["adx"]) if pd.notna(l3["adx"]) else 0.0
     adx5=float(l5["adx"]) if pd.notna(l5["adx"]) else 0.0; rsi1=float(l1["rsi"]); rsi3=float(l3["rsi"]); rsi5=float(l5["rsi"])
     rvol=float(l1["vol_ratio"]) if pd.notna(l1["vol_ratio"]) else 1.0
     mom3=float(l1["mom3"]) if pd.notna(l1["mom3"]) else 0.0; mom5=float(l1["mom5"]) if pd.notna(l1["mom5"]) else 0.0; mom15=float(l1["mom15"]) if pd.notna(l1["mom15"]) else 0.0
-    trend_strong=adx5>=20; near_noise=abs(vwap_atr)<0.18 and (distance is None or abs(target_atr)<0.22)
-    impulse = _internal_impulse_context(one, price, atr, mom3, mom5, mom15, rvol)
+    impulse = _internal_impulse_context(one, price, atr, mom3, mom15, rvol)
     # Evaluate all routes for both directions before choosing any candidate.
     flow_side = (whale or {}).get("flow_direction") if isinstance(whale,dict) else None
     flow_context = {"direction":flow_side, "valid":False}
@@ -2450,12 +2449,12 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whal
         flow_context["valid"] = (flow_side in ("UP","DOWN") and
             float(whale.get("buy30") or 0)+float(whale.get("sell30") or 0)>=500_000 and
             float(whale.get("flow_strength") or 0)>=.20)
-    route_input = {"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"adx":adx5,"vwap_atr":vwap_atr,
+    route_input = {"rsi":rsi1,"rsi3":rsi3,"adx3":adx3,"vwap_atr":vwap_atr,
         "macd1":float(l1["macd_hist"]),"macd3":float(l3["macd_hist"]),"vol_ratio":rvol,
-        "mom3":mom3,"mom5":mom5,"target_atr":target_atr,"distance":distance,
+        "mom3":mom3,"target_atr":target_atr,"distance":distance,
         "price_ema9_atr":(price-float(l1["ema9"]))/atr,
         "ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR",
-        "trend3":d3,"trend5":d5,"impulse_internal":impulse,"flow_context_internal":flow_context}
+        "trend3":d3,"impulse_internal":impulse,"flow_context_internal":flow_context}
     route_view = _entry_route_checks(route_input, seconds_left)
     eligible = {side:[route for route in route_view["sides"].get(side,[]) if route["complete"]]
                 for side in ("UP","DOWN")}
@@ -2494,14 +2493,18 @@ def _signal_engine_without_trace(df, target, seconds_left, live_price=None, whal
     flow_support = {"used":quality=="FLUJO + IMPULSO", "direction":flow_side if flow_context["valid"] else None,
                     "reason":"FLUJO CORROBORADO" if quality=="FLUJO + IMPULSO" else "CONTEXTO"}
     # Compatibility score: descriptive evidence for existing UI/closing reader; no longer gates entries at +/-4.
-    evidence=(1 if d3=="UP" else -1 if d3=="DOWN" else 0)+(1.5 if d5=="UP" else -1.5 if d5=="DOWN" else 0)+(0.75 if l3["macd_hist"]>0 else -0.75)+(0.75 if l5["plus_di"]>l5["minus_di"] else -0.75)+float(np.clip(target_atr,-2,2))
+    trend_evidence = 2.5 if d3 == "UP" else -2.5 if d3 == "DOWN" else 0
+    macd_evidence = .75 * np.sign(l3["macd_hist"])
+    di_spread = _plan_number(l3["plus_di"] - l3["minus_di"])
+    di_evidence = .75 * np.sign(di_spread or 0.0)
+    evidence = trend_evidence + macd_evidence + di_evidence + float(np.clip(target_atr, -2, 2))
     # Closing support adapts continuously; it is NOT a calibrated win probability.
     if seconds_left is not None and 0 < seconds_left <= 180 and distance is not None:
         weight = .35 + .35 * (180 - seconds_left) / 180
         evidence = (1-weight)*evidence + weight*float(np.clip(target_atr, -2, 2))*3
     up_probability=float(np.clip(50+evidence*7,5,95)); down_probability=100-up_probability
-    momentum="ALCISTA" if aligned=="UP" else "BAJISTA" if aligned=="DOWN" else "NEUTRAL"
-    return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr,"impulse_internal":impulse,"entry_route_internal":quality,"flow_support_internal":flow_support,"flow_context_internal":flow_context,"structure_internal":structure,"macd1":float(l1["macd_hist"]),"price_ema9_atr":(price-float(l1["ema9"]))/atr}
+    momentum="ALCISTA" if d3=="UP" else "BAJISTA" if d3=="DOWN" else "NEUTRAL"
+    return {"price":price,"candle_price":candle_price,"rsi":rsi1,"rsi3":rsi3,"rsi5":rsi5,"mom3":mom3,"mom5":mom5,"mom15":mom15,"vol_ratio":rvol,"ema":"BULL" if l1["ema9"]>l1["ema21"] else "BEAR","technical_score":evidence,"target_score":target_atr,"final_score":evidence,"distance":distance,"distance_pct":distance_pct,"momentum":momentum,"up_probability":round(up_probability),"down_probability":round(down_probability),"candidate":candidate,"quality":quality,"trend3":d3,"trend5":d5,"adx":adx5,"adx3":adx3,"plus_di":float(l5["plus_di"]),"minus_di":float(l5["minus_di"]),"macd3":float(l3["macd_hist"]),"macd5":float(l5["macd_hist"]),"atr":atr,"vwap":vwap,"vwap_atr":vwap_atr,"target_atr":target_atr,"impulse_internal":impulse,"entry_route_internal":quality,"flow_support_internal":flow_support,"flow_context_internal":flow_context,"structure_internal":structure,"macd1":float(l1["macd_hist"]),"price_ema9_atr":(price-float(l1["ema9"]))/atr}
 
 
 def build_presignal(sig, seconds_left):
@@ -2662,20 +2665,15 @@ def _direction_evidence(signal):
     ema = signal.get("ema")
     if ema in ("BULL", "BEAR"):
         families["trend"] = "UP" if ema == "BULL" else "DOWN"
-    # Short and medium trend belong to one family; disagreement abstains.
-    trends = [signal.get(k) for k in ("trend3", "trend5")]
-    trends = [v for v in trends if v in ("UP", "DOWN")]
-    if trends and len(set(trends)) == 1:
-        families["structure"] = trends[0]
+    trend = signal.get("trend3")
+    if trend in ("UP", "DOWN"):
+        families["structure"] = trend
     rsi = _plan_number(signal.get("rsi"))
     if rsi is not None and abs(rsi - 50) >= 3:
         families["oscillator"] = "UP" if rsi > 50 else "DOWN"
-    momentum = [_plan_number(signal.get(k)) for k in ("mom3", "mom5")]
-    momentum = [v for v in momentum if v is not None and v != 0]
-    if momentum and all(v > 0 for v in momentum):
-        families["momentum"] = "UP"
-    elif momentum and all(v < 0 for v in momentum):
-        families["momentum"] = "DOWN"
+    momentum = _plan_number(signal.get("mom3"))
+    if momentum is not None and momentum != 0:
+        families["momentum"] = "UP" if momentum > 0 else "DOWN"
     return families
 
 
@@ -2827,18 +2825,15 @@ def _confirmation_without_trace(state, candidate, market, seconds_left, now, sig
             state[key] = None
         state["pending_count"] = 0
         return
-    # OBSERVACIÓN INICIAL: durante el primer minuto de cada ronda de 15m,
-    # seguir calculando indicadores y recogiendo precios, pero sin confirmar
-    # ni dejar pendiente una primera señal. El reloj viene del cierre real
-    # del mercado, no de cuándo abrió el usuario la pantalla.
-    if (state.get("first_direction") is None
-            and (seconds_left is None or seconds_left > 14 * 60)):
+    # La primera señal puede confirmarse desde la apertura con datos en vivo
+    # y un reloj de ronda válido.
+    if state.get("first_direction") is None and seconds_left is None:
         state["pending_direction"] = None
         state["pending_count"] = 0
         state["pending_since"] = None
         state["pending_last_at"] = None
         state["pending_price_source"] = None
-        state["opening_conflict"] = "Analizando el primer minuto de la ronda"
+        state["opening_conflict"] = "Esperando el reloj de la ronda"
         return
     if signal is not None and signal.get("data_valid") is False:
         _reset_withdrawal(state)
@@ -3057,7 +3052,7 @@ def _process_round_signal_without_coordinator(ticker, sig, market, seconds_left)
 
 BACKGROUND_RUN_SECONDS = 12 * 60 * 60
 BACKGROUND_POLL_SECONDS = 2
-BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_sources_v2_early_signal_v2_multi_indicator49_v1"
+BACKGROUND_DATA_REVISION = "continuous_history_ia_shadow_v7_active_market_discovery_recent_support_v1_candle_sources_v2_early_signal_v2_multi_indicator49_v1_official_3m"
 _BACKGROUND_PRICE_SOURCE = threading.local()
 
 def _background_get_btc_data():
@@ -4964,9 +4959,9 @@ def build_signal(df, target, seconds_left, live_price=None, price_source=None, w
 
 def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=None):
     before = dict(state)
-    if state.get("signal_engine_revision") != "unified_evidence_v6":
+    if state.get("signal_engine_revision") != "unified_evidence_v7_3m":
         # Migrate state without deleting the already confirmed direction.
-        state["signal_engine_revision"] = "unified_evidence_v6"
+        state["signal_engine_revision"] = "unified_evidence_v7_3m"
         state.update(pending_direction=None, pending_count=0,
                      pending_since=None, pending_last_at=None,
                      pending_price_source=None)
