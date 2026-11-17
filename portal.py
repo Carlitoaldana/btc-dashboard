@@ -627,7 +627,11 @@ original = Path(__file__).with_name("app.py")
 if not original.exists():
     st.error("El archivo app.py del bot no está presente.")
     st.stop()
-st.query_params.clear()
+# El engranaje del bot navega a ?page=settings.
+if st.query_params.get("page") == "settings":
+    st.query_params.from_dict({"page": "settings"})
+else:
+    st.query_params.clear()
 old_set_page_config = st.set_page_config
 try:
     st.set_page_config = lambda *args, **kwargs: None
