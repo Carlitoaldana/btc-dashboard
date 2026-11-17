@@ -524,8 +524,76 @@ if current["is_admin"]:
             logout()
         st.stop()
 
-if st.button("Cerrar sesión", key="alpha_portal_sign_out"):
-    logout()
+with st.container(key="alpha_portal_header_logout"):
+    if st.button("Cerrar sesión", key="alpha_portal_sign_out"):
+        logout()
+
+if browser_can_remember():
+    st.html(r"""
+<style>
+.st-key-alpha_portal_header_logout[data-jc-logout-positioned] {
+  position:fixed!important; z-index:80!important;
+  left:var(--jc-logout-left)!important; top:var(--jc-logout-top)!important;
+  width:var(--jc-logout-width)!important;
+}
+.st-key-alpha_portal_header_logout[data-jc-logout-positioned] button {
+  width:100%!important; height:var(--jc-logout-height)!important;
+  min-height:var(--jc-logout-height)!important; padding:0 5px!important;
+  color:#fff!important; background:#07172b!important; border:1px solid #61a9d5!important;
+  border-radius:999px!important; box-shadow:0 0 0 2px #07172b!important;
+}
+.st-key-alpha_portal_header_logout[data-jc-logout-positioned] button p {
+  white-space:nowrap; font-size:clamp(11px,2.4vw,15px); font-weight:650;
+}
+</style>
+<script>
+(()=>{
+  if (window.jcPositionPortalLogout) {
+    window.jcPositionPortalLogout();
+    return;
+  }
+  const selector = '.st-key-alpha_portal_header_logout';
+  let pending = false;
+  const place = () => {
+    pending = false;
+    const control = document.querySelector(selector);
+    if (!control) return;
+    const frame = control.closest('.block-container');
+    if (!frame || !frame.querySelector('.jc-bg-header')) {
+      control.removeAttribute('data-jc-logout-positioned');
+      return;
+    }
+    const bounds = frame.getBoundingClientRect();
+    const art = getComputedStyle(frame, '::before');
+    const width = art.width.endsWith('px') ? parseFloat(art.width) : bounds.width;
+    const height = art.height.endsWith('px') ? parseFloat(art.height) : width * 1536 / 709;
+    if (!width || !height || art.backgroundImage === 'none') {
+      control.removeAttribute('data-jc-logout-positioned');
+      return;
+    }
+    // The market label is part of the header artwork at x=449..646, y=64..106.
+    const left = bounds.left + (bounds.width - width) / 2;
+    const pillHeight = Math.max(27, height * 46 / 1536);
+    control.style.setProperty('--jc-logout-left', (left + width * 447 / 709) + 'px');
+    control.style.setProperty('--jc-logout-top', (bounds.top + height * 84 / 1536 - pillHeight / 2) + 'px');
+    control.style.setProperty('--jc-logout-width', (width * 201 / 709) + 'px');
+    control.style.setProperty('--jc-logout-height', pillHeight + 'px');
+    control.setAttribute('data-jc-logout-positioned', '');
+  };
+  const schedule = () => {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(place);
+  };
+  window.jcPositionPortalLogout = schedule;
+  new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true});
+  window.addEventListener('resize', schedule);
+  window.addEventListener('scroll', schedule, {capture:true, passive:true});
+  window.addEventListener('pageshow', schedule);
+  schedule();
+})();
+</script>
+""", unsafe_allow_javascript=True)
 
 original = Path(__file__).with_name("app.py")
 if not original.exists():
