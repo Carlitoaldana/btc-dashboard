@@ -518,6 +518,14 @@ if current["is_admin"]:
     mode = st.radio("Vista", ["Señales BTC", "Administrar usuarios"],
                     horizontal=True, label_visibility="collapsed")
     if mode == "Administrar usuarios":
+        if browser_can_remember():
+            # El panel del bot conserva referencias a su contenedor en JavaScript.
+            # Al salir de Señales, libéralas para que el bot monte el panel al volver.
+            st.html(
+                "<script>delete window.__alphaUpdatePanel;"
+                "delete window.__alphaSyncOfficialSignal;</script>",
+                unsafe_allow_javascript=True,
+            )
         brand()
         admin_panel(current)
         if st.button("Cerrar sesión"):
