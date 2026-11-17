@@ -524,6 +524,16 @@ if current["is_admin"]:
             logout()
         st.stop()
 
+if not current["is_admin"]:
+    plan_expiry = parse_expiry(current["expires_at"])
+    if plan_expiry is not None:
+        @st.fragment(run_every=2)
+        def check_open_plan_expiry():
+            if datetime.now(timezone.utc) >= plan_expiry:
+                st.rerun()
+
+        check_open_plan_expiry()
+
 with st.container(key="alpha_portal_header_logout"):
     if st.button("Cerrar sesión", key="alpha_portal_sign_out"):
         logout()
