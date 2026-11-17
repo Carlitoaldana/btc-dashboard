@@ -532,15 +532,19 @@ if browser_can_remember():
     st.html(r"""
 <style>
 .st-key-alpha_portal_header_logout[data-jc-logout-positioned] {
-  position:fixed!important; z-index:80!important;
+  position:absolute!important; z-index:80!important;
   left:var(--jc-logout-left)!important; top:var(--jc-logout-top)!important;
   width:var(--jc-logout-width)!important;
+}
+.st-key-alpha_portal_header_logout[data-jc-logout-positioned] :is([data-testid="stElementContainer"], [data-testid="stButton"]),
+.st-key-alpha_portal_header_logout[data-jc-logout-positioned] button {
+  width:100%!important; min-width:100%!important; max-width:100%!important;
 }
 .st-key-alpha_portal_header_logout[data-jc-logout-positioned] button {
   width:100%!important; height:var(--jc-logout-height)!important;
   min-height:var(--jc-logout-height)!important; padding:0 5px!important;
   color:#fff!important; background:#07172b!important; border:1px solid #61a9d5!important;
-  border-radius:999px!important; box-shadow:0 0 0 2px #07172b!important;
+  border-radius:999px!important; box-shadow:0 0 0 3px #07172b!important;
 }
 .st-key-alpha_portal_header_logout[data-jc-logout-positioned] button p {
   white-space:nowrap; font-size:clamp(11px,2.4vw,15px); font-weight:650;
@@ -572,13 +576,20 @@ if browser_can_remember():
       return;
     }
     // The market label is part of the header artwork at x=449..646, y=64..106.
-    const left = bounds.left + (bounds.width - width) / 2;
-    const pillHeight = Math.max(27, height * 46 / 1536);
-    control.style.setProperty('--jc-logout-left', (left + width * 447 / 709) + 'px');
-    control.style.setProperty('--jc-logout-top', (bounds.top + height * 84 / 1536 - pillHeight / 2) + 'px');
-    control.style.setProperty('--jc-logout-width', (width * 201 / 709) + 'px');
-    control.style.setProperty('--jc-logout-height', pillHeight + 'px');
     control.setAttribute('data-jc-logout-positioned', '');
+    const parent = control.offsetParent;
+    if (!parent) {
+      control.removeAttribute('data-jc-logout-positioned');
+      return;
+    }
+    const parentBounds = parent.getBoundingClientRect();
+    const left = bounds.left - parentBounds.left - parent.clientLeft + (bounds.width - width) / 2;
+    const top = bounds.top - parentBounds.top - parent.clientTop;
+    const pillHeight = Math.max(27, height * 49 / 1536);
+    control.style.setProperty('--jc-logout-left', (left + width * 446 / 709) + 'px');
+    control.style.setProperty('--jc-logout-top', (top + height * 84 / 1536 - pillHeight / 2) + 'px');
+    control.style.setProperty('--jc-logout-width', (width * 204 / 709) + 'px');
+    control.style.setProperty('--jc-logout-height', pillHeight + 'px');
   };
   const schedule = () => {
     if (pending) return;
@@ -588,7 +599,6 @@ if browser_can_remember():
   window.jcPositionPortalLogout = schedule;
   new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true});
   window.addEventListener('resize', schedule);
-  window.addEventListener('scroll', schedule, {capture:true, passive:true});
   window.addEventListener('pageshow', schedule);
   schedule();
 })();
