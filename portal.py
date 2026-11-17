@@ -30,7 +30,7 @@ st.set_page_config(page_title="JC ALPHA EDGE", page_icon=page_icon,
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
 TIMEOUT = 12
-SESSION_MAX_AGE = 30 * 24 * 60 * 60
+SESSION_MAX_AGE = 24 * 60 * 60
 SESSION_COOKIE = "__Host-alpha_portal_" + hashlib.sha256(SUPABASE_URL.encode()).hexdigest()[:12]
 SESSION_DB = Path(os.environ.get("ALPHA_PORTAL_SESSION_DB") or
                   Path(__file__).with_name(".alpha_portal_sessions.sqlite3"))
@@ -178,6 +178,14 @@ def session_db():
             id TEXT PRIMARY KEY, access_token TEXT NOT NULL,
             refresh_token TEXT NOT NULL, expires_at INTEGER NOT NULL
         )""")
+        if db.execute("PRAGMA user_version").fetchone()[0] == 0:
+            with db:
+                db.execute("BEGIN IMMEDIATE")
+                if db.execute("PRAGMA user_version").fetchone()[0] == 0:
+                    # Legacy sessions were stored with a 30-day expiry.
+                    db.execute("UPDATE portal_sessions SET expires_at=expires_at - ?",
+                               (29 * SESSION_MAX_AGE,))
+                    db.execute("PRAGMA user_version = 1")
     except Exception:
         db.close()
         raise
@@ -516,7 +524,7 @@ if current["is_admin"]:
             logout()
         st.stop()
 
-if st.sidebar.button("Cerrar sesión", key="alpha_portal_sign_out"):
+if st.button("Cerrar sesión", key="alpha_portal_sign_out"):
     logout()
 
 original = Path(__file__).with_name("app.py")
