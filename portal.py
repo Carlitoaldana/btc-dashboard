@@ -3,7 +3,15 @@ Manual Zelle access management; original app.py and signal logic remain unchange
 """
 import os
 import base64
+import hashlib
+import inspect
+import json
+import re
 import runpy
+import secrets
+import sqlite3
+import time
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -22,6 +30,10 @@ st.set_page_config(page_title="JC ALPHA EDGE", page_icon=page_icon,
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
 TIMEOUT = 12
+SESSION_MAX_AGE = 30 * 24 * 60 * 60
+SESSION_COOKIE = "__Host-alpha_portal_" + hashlib.sha256(SUPABASE_URL.encode()).hexdigest()[:12]
+SESSION_DB = Path(os.environ.get("ALPHA_PORTAL_SESSION_DB") or
+                  Path(__file__).with_name(".alpha_portal_sessions.sqlite3"))
 
 st.markdown("""<style>
 #MainMenu,footer,header,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important}
@@ -120,6 +132,12 @@ def brand():
     st.markdown(f"""<div class="brand"><img alt="JC ALPHA EDGE" src="data:image/png;base64,{LOGO_IMAGE_B64}"></div><div class="brand-sub">PORTAL PRIVADO DE SEÑALES</div>""", unsafe_allow_html=True)
 
 
+class PortalApiError(RuntimeError):
+    def __init__(self, status, reason):
+        super().__init__(reason)
+        self.status = status
+
+
 def api(method, path, *, bearer=None, payload=None, params=None):
     headers = {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json",
                "Authorization": "Bearer " + (bearer or SUPABASE_ANON_KEY)}
@@ -132,7 +150,7 @@ def api(method, path, *, bearer=None, payload=None, params=None):
     if not response.ok:
         reason = (data.get("msg") or data.get("error_description") or
                   data.get("message") or data.get("error")) if isinstance(data, dict) else None
-        raise RuntimeError(str(reason or "Operación no disponible")[:250])
+        raise PortalApiError(response.status_code, str(reason or "Operación no disponible")[:250])
     return data
 
 
@@ -151,28 +169,125 @@ def active_expiry(value):
     return expiry is None or expiry > datetime.now(timezone.utc)
 
 
-def verify_session():
-    token = st.session_state.get("alpha_access_token")
-    refresh = st.session_state.get("alpha_refresh_token")
-    if not token:
-        return None
+def session_db():
+    fd = os.open(SESSION_DB, os.O_CREAT | os.O_WRONLY, 0o600)
+    os.close(fd)
+    db = sqlite3.connect(SESSION_DB, timeout=TIMEOUT + 2)
     try:
-        user = api("GET", "/auth/v1/user", bearer=token)
+        db.execute("""CREATE TABLE IF NOT EXISTS portal_sessions (
+            id TEXT PRIMARY KEY, access_token TEXT NOT NULL,
+            refresh_token TEXT NOT NULL, expires_at INTEGER NOT NULL
+        )""")
     except Exception:
-        if not refresh:
-            st.session_state.pop("alpha_access_token", None)
+        db.close()
+        raise
+    return db
+
+
+def browser_session():
+    try:
+        value = st.context.cookies.get(SESSION_COOKIE)
+    except AttributeError:
+        return None
+    return value if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_-]{43}", value) else None
+
+
+def session_id(value):
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def browser_can_remember():
+    return (hasattr(st, "context") and hasattr(st, "html")
+            and "unsafe_allow_javascript" in inspect.signature(st.html).parameters)
+
+
+def set_browser_session(value, max_age):
+    cookie = f"{SESSION_COOKIE}={value}; Path=/; Max-Age={max_age}; Secure; SameSite=Lax"
+    html = f"<script>document.cookie={json.dumps(cookie)}; window.location.reload()</script>"
+    st.html(html, unsafe_allow_javascript=True)
+
+
+def remember_session(session):
+    key = secrets.token_urlsafe(32)
+    now = int(time.time())
+    with closing(session_db()) as db, db:
+        db.execute("DELETE FROM portal_sessions WHERE expires_at <= ?", (now,))
+        db.execute("INSERT INTO portal_sessions VALUES (?, ?, ?, ?)",
+                   (session_id(key), session["access_token"], session["refresh_token"], now + SESSION_MAX_AGE))
+    return key
+
+
+def restore_session(key):
+    lookup = "SELECT access_token, refresh_token FROM portal_sessions WHERE id=? AND expires_at>?"
+    digest = session_id(key)
+    with closing(session_db()) as db:
+        row = db.execute(lookup, (digest, int(time.time()))).fetchone()
+        if row is None:
             return None
         try:
-            session = api("POST", "/auth/v1/token", params={"grant_type": "refresh_token"},
-                          payload={"refresh_token": refresh})
-            token = session["access_token"]
-            st.session_state["alpha_access_token"] = token
-            st.session_state["alpha_refresh_token"] = session.get("refresh_token")
-            user = api("GET", "/auth/v1/user", bearer=token)
-        except Exception:
+            return row[0], api("GET", "/auth/v1/user", bearer=row[0])
+        except PortalApiError as error:
+            if error.status not in (401, 403):
+                raise
+
+        # Recheck under the write lock so concurrent tabs share one token rotation.
+        with db:
+            db.execute("BEGIN IMMEDIATE")
+            latest = db.execute(lookup, (digest, int(time.time()))).fetchone()
+            if latest is None:
+                return None
+            if latest[0] != row[0]:
+                return latest[0], api("GET", "/auth/v1/user", bearer=latest[0])
+            try:
+                fresh = api("POST", "/auth/v1/token", params={"grant_type": "refresh_token"},
+                            payload={"refresh_token": latest[1]})
+            except PortalApiError as error:
+                if error.status not in (400, 401, 403):
+                    raise
+                db.execute("DELETE FROM portal_sessions WHERE id=?", (digest,))
+                return None
+            db.execute("UPDATE portal_sessions SET access_token=?, refresh_token=? WHERE id=?",
+                       (fresh["access_token"], fresh["refresh_token"], digest))
+        token = fresh["access_token"]
+        return token, api("GET", "/auth/v1/user", bearer=token)
+
+
+def verify_session():
+    key = browser_session()
+    if key:
+        restored = restore_session(key)
+        if restored is None:
             st.session_state.pop("alpha_access_token", None)
             st.session_state.pop("alpha_refresh_token", None)
             return None
+        token, user = restored
+        st.session_state["alpha_access_token"] = token
+    else:
+        token = st.session_state.get("alpha_access_token")
+        refresh = st.session_state.get("alpha_refresh_token")
+        if not token:
+            return None
+        try:
+            user = api("GET", "/auth/v1/user", bearer=token)
+        except PortalApiError as error:
+            if error.status not in (401, 403):
+                raise
+            if not refresh:
+                st.session_state.pop("alpha_access_token", None)
+                return None
+            try:
+                fresh = api("POST", "/auth/v1/token", params={"grant_type": "refresh_token"},
+                            payload={"refresh_token": refresh})
+            except PortalApiError as error:
+                if error.status not in (400, 401, 403):
+                    raise
+                st.session_state.pop("alpha_access_token", None)
+                st.session_state.pop("alpha_refresh_token", None)
+                return None
+            token = fresh["access_token"]
+            st.session_state["alpha_access_token"] = token
+            st.session_state["alpha_refresh_token"] = fresh.get("refresh_token")
+            user = api("GET", "/auth/v1/user", bearer=token)
     uid = user.get("id")
     if not uid:
         return None
@@ -189,6 +304,10 @@ def verify_session():
 
 
 def logout():
+    key = browser_session()
+    if key:
+        with closing(session_db()) as db, db:
+            db.execute("DELETE FROM portal_sessions WHERE id=?", (session_id(key),))
     token = st.session_state.pop("alpha_access_token", None)
     st.session_state.pop("alpha_refresh_token", None)
     if token:
@@ -196,6 +315,9 @@ def logout():
             api("POST", "/auth/v1/logout", bearer=token)
         except Exception:
             pass
+    if key and browser_can_remember():
+        set_browser_session("", 0)
+        st.stop()
     st.rerun()
 
 
@@ -297,7 +419,6 @@ if current is None:
     login_tab, register_tab = st.tabs(["Iniciar sesión", "Crear cuenta"])
     # Safari/iPhone: etiqueta los campos existentes para el gestor de contraseñas.
     # No modifica la autenticación ni almacena credenciales.
-    import inspect
     _autofill_html = """
     <script>
     (() => {
@@ -332,9 +453,15 @@ if current is None:
             try:
                 session = api("POST", "/auth/v1/token", params={"grant_type": "password"},
                               payload={"email": email.strip(), "password": password})
+                if browser_can_remember() and session.get("refresh_token"):
+                    key = remember_session(session)
+                    set_browser_session(key, SESSION_MAX_AGE)
+                    st.stop()
                 st.session_state["alpha_access_token"] = session["access_token"]
                 st.session_state["alpha_refresh_token"] = session.get("refresh_token")
                 st.rerun()
+            except (OSError, sqlite3.Error):
+                st.error("No se pudo guardar la sesión. Intenta entrar de nuevo en unos segundos.")
             except Exception:
                 st.error("No se pudo iniciar sesión. Comprueba tus datos y confirma tu correo.")
     with register_tab:
@@ -388,6 +515,9 @@ if current["is_admin"]:
         if st.button("Cerrar sesión"):
             logout()
         st.stop()
+
+if st.sidebar.button("Cerrar sesión", key="alpha_portal_sign_out"):
+    logout()
 
 original = Path(__file__).with_name("app.py")
 if not original.exists():
