@@ -2758,50 +2758,6 @@ def _round_opening_crosscheck(state, candidate, signal, now):
     return candidate
 
 
-def _kalshi_exit_quote(market, side):
-    """Best displayed bid in dollars (not a guaranteed execution price)."""
-    if not isinstance(market, dict):
-        return None
-    prefix = "yes" if side == "UP" else "no"
-    quote = numeric_kalshi_price(market.get(prefix + "_bid_dollars"),
-                                 market.get(prefix + "_bid"))
-    return quote if quote is not None and 0 <= quote <= 1 else None
-
-
-def _update_public_profit_alert(state, signal, market, seconds_left):
-    """Round-level advisory; no user entry price, trading, or official signal changes."""
-    side = state.get("active_direction")
-    if side not in ("UP", "DOWN") or seconds_left is None or seconds_left <= 0:
-        state["public_profit_alert"] = None
-        return
-    quote = _kalshi_exit_quote(market, side)
-    if quote is None:
-        state["public_profit_alert"] = None
-        return
-    # No extrapolation from the ask, BTC target, or the engine's support %.
-    previous_peak = state.get("public_profit_peak")
-    if state.get("public_profit_side") != side:
-        previous_peak = None
-    peak = max(float(previous_peak or 0), quote)
-    state["public_profit_side"] = side
-    state["public_profit_peak"] = peak
-    try:
-        short_momentum = float(signal.get("mom3") or 0)
-        vwap_atr = float(signal.get("vwap_atr") or 0)
-        probability = float(signal.get("up_probability") if side == "UP" else signal.get("down_probability"))
-        direction = 1 if side == "UP" else -1
-        weakening = (direction * short_momentum < 0 or direction * vwap_atr < -0.12
-                     or probability < 55)
-    except (TypeError, ValueError):
-        weakening = False
-    pullback = peak - quote >= 0.05
-    # A high quote is not automatically a profit for every viewer.
-    state["public_profit_alert"] = (
-        {"side": side, "bid": round(quote * 100), "peak": round(peak * 100),
-         "risk": bool(weakening or pullback)}
-        if peak >= 0.80 and (weakening or pullback) else None
-    )
-
 
 def _confirmation_without_trace(state, candidate, market, seconds_left, now, signal=None):
     """One confirmation path for foreground and background. Neutral readings
@@ -3371,6 +3327,27 @@ def micro_reading():
         "up_ratio": up_ratio,
         "pressure": pressure,
     }
+
+
+def _show_weakness_warning(ticker, active, seconds_left, distance, speed10, weakening, previous):
+    if not weakening or active not in ("UP", "DOWN") or seconds_left is None or seconds_left <= 0:
+        return False, None
+
+    if seconds_left <= 60:
+        if distance is None:
+            return False, None
+        margin = distance if active == "UP" else -distance
+        speed_toward_target = None if speed10 is None else (-speed10 if active == "UP" else speed10)
+        crossed = margin < 0
+        can_reach = speed_toward_target is not None and speed_toward_target > 0 and speed_toward_target * seconds_left >= margin
+        return crossed or can_reach, None
+
+    count = 1
+    if previous and previous[:2] == (ticker, active):
+        previous_seconds, previous_count = previous[2:]
+        if 0 <= previous_seconds - seconds_left <= 10:
+            count = previous_count + (seconds_left < previous_seconds)
+    return count >= 2, (ticker, active, seconds_left, count)
 
 
 def closing_reader(sig, round_signal, seconds_left, micro):
@@ -4535,18 +4512,20 @@ def live_dashboard():
       </div>
     </div>'''
 
-    # Advertencia compacta únicamente visual; usa el aviso existente del motor.
+    # Filtra el aviso visual sin intervenir en la confirmación de señales.
     ut_warning = active in ("UP", "DOWN") and ut.get("ut_short") in ("UP", "DOWN") and ut["ut_short"] != active
-    profit_notice = state.get("public_profit_alert") if state else None
-    # Independent notices: neither hides the other or modifies the signal.
+    show_weakness, weakness_reading = _show_weakness_warning(
+        ticker, active, seconds_left, distance, speed10 if speed_ready else None,
+        btc_ok and (ut_warning or round_signal.get("reversal")),
+        st.session_state.get("weakness_reading"),
+    )
+    st.session_state["weakness_reading"] = weakness_reading
     weakness_html = (
         '<div class="weakness-inline" role="status">⚠ ' +
         html.escape(f"{active} PERDIENDO FUERZA" if ut_warning else round_signal.get("reversal_text") or "SEÑAL PERDIENDO FUERZA") +
         '</div>'
-        if (ut_warning or round_signal.get("reversal")) and active in ("UP", "DOWN") else ""
+        if show_weakness else ""
     )
-    if active in ("UP", "DOWN") and isinstance(profit_notice, dict):
-        weakness_html += '<div class="weakness-inline" role="status">💰 ASEGURAR GANANCIAS</div>'
 
     reader_html = f'''
   <section class="reader jcclose" style="--rb:{reader['border']};--rbg:{reader['bg']};--rr:{reader['color']}">
@@ -5039,7 +5018,6 @@ def confirm_round_candidate(state, candidate, market, seconds_left, now, signal=
     if not isinstance(state.get("exit_plan"), dict) and state.get("first_direction") in ("UP", "DOWN"):
         state["exit_plan"] = make_exit_plan(state, signal, seconds_left, now)
     update_exit_plan(state, signal, seconds_left, now)
-    _update_public_profit_alert(state, signal, market, seconds_left)
     _capture_recent_alert(state, signal, market, now)
 
     try:
